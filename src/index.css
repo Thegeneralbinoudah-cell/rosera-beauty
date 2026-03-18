@@ -1,0 +1,68 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 250 248 255;
+    --foreground: 31 41 55;
+    --card: 255 255 255;
+    --card-foreground: 31 41 55;
+    --primary: 328 81% 52%;
+    --primary-foreground: 255 255 255;
+    --secondary: 248 250 252;
+    --secondary-foreground: 31 41 55;
+    --muted: 241 245 249;
+    --muted-foreground: 100 116 139;
+    --accent: 291 64% 42%;
+    --border: 226 232 240;
+    --input: 226 232 240;
+    --ring: 328 81% 52%;
+    --radius: 12px;
+    --popover: 255 255 255;
+    --popover-foreground: 31 41 55;
+  }
+  .dark {
+    --background: 26 26 46;
+    --foreground: 248 250 252;
+    --card: 30 30 50;
+    --card-foreground: 248 250 252;
+    --muted: 51 65 85;
+    --muted-foreground: 148 163 184;
+    --border: 51 65 85;
+    --input: 51 65 85;
+  }
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-rosera-light text-rosera-text dark:bg-rosera-dark dark:text-white min-h-dvh;
+  }
+}
+
+/* react-day-picker — ألوان روزيرا */
+.rosera-calendar .rdp-day_button.rdp-selected {
+  background: linear-gradient(135deg, #8b5cf6, #ec4899) !important;
+  color: white !important;
+  border-radius: 10px;
+}
+.rosera-calendar .rdp-day_button.rdp-today:not(.rdp-selected) {
+  border: 2px solid #8b5cf6;
+  border-radius: 10px;
+}
+.rosera-calendar .rdp-weekday {
+  font-size: 0.75rem;
+  color: #9ca3af;
+}
+
+.leaflet-container {
+  font-family: Tajawal, Cairo, sans-serif;
+  direction: ltr;
+}
+.gradient-rosera {
+  background: linear-gradient(135deg, #9c27b0 0%, #e91e8c 100%);
+}
+
+.pb-safe {
+  padding-bottom: max(5rem, env(safe-area-inset-bottom));
+}
