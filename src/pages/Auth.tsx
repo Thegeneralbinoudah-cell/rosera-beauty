@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
+import { Loader2 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -33,8 +34,12 @@ export default function Auth() {
     }
     setLoading(true)
     try {
-      const { error } = await supabase.auth.signInWithOtp({ phone: fullPhone })
+      const { data, error } = await supabase.functions.invoke('send-otp', {
+        body: { phone: fullPhone },
+      })
       if (error) throw error
+      const errMsg = (data as { error?: string })?.error
+      if (errMsg) throw new Error(errMsg)
       toast.success('تم إرسال رمز التحقق')
       nav('/verify-otp', { state: { phone: fullPhone } })
     } catch (e: unknown) {
@@ -84,13 +89,26 @@ export default function Auth() {
               onClick={onPhone}
               disabled={loading}
             >
-              إرسال رمز التحقق
+              {loading ? (
+                <span className="flex items-center justify-center gap-2">
+                  <Loader2 className="h-5 w-5 animate-spin" />
+                  جاري الإرسال...
+                </span>
+              ) : (
+                'إرسال رمز التحقق'
+              )}
             </Button>
 
+            <Link
+              to="/auth/email"
+              className="flex w-full items-center justify-center gap-2 rounded-2xl border border-primary/20 bg-white py-3 text-sm font-semibold text-foreground hover:bg-primary/5 dark:bg-card"
+            >
+              ✉️ الدخول بالإيميل
+            </Link>
             <button
               type="button"
               onClick={guest}
-              className="w-full pt-6 text-center text-sm font-semibold text-primary"
+              className="w-full pt-4 text-center text-sm font-semibold text-primary"
             >
               تخطي وتصفحي كضيفة
             </button>

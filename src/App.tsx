@@ -1,8 +1,9 @@
-import { Routes, Route, Navigate } from 'react-router-dom'
+import { Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import { CustomerLayout } from '@/components/layout/CustomerLayout'
 import SplashScreen from '@/pages/SplashScreen'
 import Onboarding from '@/pages/Onboarding'
 import Auth from '@/pages/Auth'
+import AuthEmail from '@/pages/AuthEmail'
 import VerifyOtp from '@/pages/VerifyOtp'
 import ForgotPassword from '@/pages/ForgotPassword'
 import ResetPassword from '@/pages/ResetPassword'
@@ -32,17 +33,28 @@ import Terms from '@/pages/Terms'
 import Invite from '@/pages/Invite'
 import Settings from '@/pages/Settings'
 import AdminLayout from '@/pages/admin/AdminLayout'
+import AdminLogin from '@/pages/admin/AdminLogin'
 import AdminDashboard from '@/pages/admin/AdminDashboard'
-import AdminBusinesses from '@/pages/admin/AdminBusinesses'
+import AdminSalons from '@/pages/admin/AdminSalons'
 import AdminUsers from '@/pages/admin/AdminUsers'
 import AdminBookings from '@/pages/admin/AdminBookings'
 import AdminReviews from '@/pages/admin/AdminReviews'
 import AdminAnalytics from '@/pages/admin/AdminAnalytics'
+import AdminRevenue from '@/pages/admin/AdminRevenue'
 import OwnerLayout from '@/pages/owner/OwnerLayout'
+import OwnerLogin from '@/pages/owner/OwnerLogin'
 import OwnerHome from '@/pages/owner/OwnerHome'
+import OwnerBookings from '@/pages/owner/OwnerBookings'
 import OwnerServices from '@/pages/owner/OwnerServices'
 import OwnerSchedule from '@/pages/owner/OwnerSchedule'
 import OwnerReports from '@/pages/owner/OwnerReports'
+import ProtectedRoute from '@/components/ProtectedRoute'
+
+function OwnerDashboardRedirect() {
+  const { pathname } = useLocation()
+  const sub = pathname === '/dashboard' ? '' : pathname.slice('/dashboard'.length)
+  return <Navigate to={`/owner${sub}`} replace />
+}
 
 export default function App() {
   return (
@@ -50,6 +62,7 @@ export default function App() {
       <Route path="/" element={<SplashScreen />} />
       <Route path="/onboarding" element={<Onboarding />} />
       <Route path="/auth" element={<Auth />} />
+      <Route path="/auth/email" element={<AuthEmail />} />
       <Route path="/verify-otp" element={<VerifyOtp />} />
       <Route path="/complete-profile" element={<CompleteProfile />} />
       <Route path="/forgot-password" element={<ForgotPassword />} />
@@ -82,21 +95,41 @@ export default function App() {
         <Route path="/terms" element={<Terms />} />
       </Route>
 
-      <Route path="/admin" element={<AdminLayout />}>
+      <Route path="/admin/login" element={<AdminLogin />} />
+      <Route
+        path="/admin"
+        element={
+          <ProtectedRoute allowedRoles={['admin', 'owner', 'supervisor']}>
+            <AdminLayout />
+          </ProtectedRoute>
+        }
+      >
         <Route index element={<AdminDashboard />} />
-        <Route path="businesses" element={<AdminBusinesses />} />
+        <Route path="salons" element={<AdminSalons />} />
+        <Route path="businesses" element={<Navigate to="/admin/salons" replace />} />
         <Route path="users" element={<AdminUsers />} />
         <Route path="bookings" element={<AdminBookings />} />
         <Route path="reviews" element={<AdminReviews />} />
+        <Route path="revenue" element={<AdminRevenue />} />
         <Route path="analytics" element={<AdminAnalytics />} />
       </Route>
 
-      <Route path="/dashboard" element={<OwnerLayout />}>
+      <Route path="/owner/login" element={<OwnerLogin />} />
+      <Route
+        path="/owner"
+        element={
+          <ProtectedRoute allowedRoles={['owner']}>
+            <OwnerLayout />
+          </ProtectedRoute>
+        }
+      >
         <Route index element={<OwnerHome />} />
+        <Route path="bookings" element={<OwnerBookings />} />
         <Route path="services" element={<OwnerServices />} />
         <Route path="schedule" element={<OwnerSchedule />} />
         <Route path="reports" element={<OwnerReports />} />
       </Route>
+      <Route path="/dashboard/*" element={<OwnerDashboardRedirect />} />
 
       <Route path="*" element={<Navigate to="/home" replace />} />
     </Routes>

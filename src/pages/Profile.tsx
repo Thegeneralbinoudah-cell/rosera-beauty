@@ -99,12 +99,12 @@ export default function Profile() {
         ))}
         {isBusinessOwner && (
           <Link
-            to="/dashboard"
+            to="/owner"
             className="flex items-center justify-between rounded-xl border bg-white px-4 py-4 dark:bg-card"
           >
             <span className="flex items-center gap-3 font-semibold">
               <Building2 className="h-5 w-5 text-primary" />
-              لوحة صاحبة المنشأة
+              لوحة تحكم الصالون
             </span>
             <ChevronLeft className="h-5 w-5 rotate-180 text-rosera-gray" />
           </Link>

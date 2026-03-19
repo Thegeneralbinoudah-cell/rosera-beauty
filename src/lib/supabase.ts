@@ -73,6 +73,8 @@ export type Profile = {
   city?: string
   role?: string
   invite_code?: string
+  push_token?: string | null
+  is_suspended?: boolean | null
 }
 
 export type Product = {
