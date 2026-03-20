@@ -6,10 +6,10 @@ import { toast } from 'sonner'
 
 const typeConfig: Record<string, { icon: string; label: string; color: string }> = {
   booking: { icon: '✅', label: 'تأكيد حجز', color: 'text-green-600' },
-  reminder: { icon: '⏰', label: 'تذكير', color: 'text-amber-600' },
+  reminder: { icon: '⏰', label: 'تذكير', color: 'text-rose-700' },
   offer: { icon: '🔥', label: 'عرض خاص', color: 'text-[#E91E8C]' },
   order: { icon: '📦', label: 'تحديث طلب', color: 'text-blue-600' },
-  review: { icon: '⭐', label: 'تقييم', color: 'text-[#C9A227]' },
+  review: { icon: '⭐', label: 'تقييم', color: 'text-[#9B2257]' },
   promo: { icon: '📢', label: 'إعلان', color: 'text-rosera-gray' },
 }
 

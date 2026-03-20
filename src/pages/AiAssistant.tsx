@@ -30,11 +30,22 @@ export default function AiAssistant() {
     const t = text.toLowerCase()
     try {
       if (t.includes('قريب') || t.includes('صالون')) {
-        const { data } = await supabase.from('businesses').select('name_ar, city').eq('is_active', true).limit(3)
+        const { data } = await supabase
+          .from('businesses')
+          .select('name_ar, city')
+          .eq('is_active', true)
+          .eq('is_demo', false)
+          .limit(3)
         if (data?.length)
           ans = `إليك بعض الصالونات: ${data.map((x: { name_ar: string; city: string }) => `${x.name_ar} (${x.city})`).join(' — ')}`
       } else if (t.includes('شعر')) {
-        const { data } = await supabase.from('businesses').select('name_ar').eq('category', 'salon').limit(3)
+        const { data } = await supabase
+          .from('businesses')
+          .select('name_ar')
+          .eq('category', 'salon')
+          .eq('is_active', true)
+          .eq('is_demo', false)
+          .limit(3)
         if (data?.length) ans = `صالونات شعر مقترحة: ${data.map((x: { name_ar: string }) => x.name_ar).join('، ')}`
       } else if (t.includes('بشر') || t.includes('حلل')) {
         ans = 'جربي صفحة كشف البشرة من الملف الشخصي للحصول على تحليل تجريبي 🪞'

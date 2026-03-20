@@ -7,6 +7,7 @@ import {
   BarChart3,
   CalendarHeart,
   LogOut,
+  Smartphone,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
@@ -63,6 +64,14 @@ export default function OwnerLayout() {
             <LogOut className="h-4 w-4" />
             تسجيل الخروج
           </Button>
+          <Button
+            variant="outline"
+            className="mt-2 w-full justify-start gap-2"
+            onClick={() => nav('/home')}
+          >
+            <Smartphone className="h-4 w-4" />
+            عرض التطبيق
+          </Button>
         </nav>
       </aside>
 
@@ -96,6 +105,14 @@ export default function OwnerLayout() {
         >
           <LogOut className="h-5 w-5" />
           خروج
+        </button>
+        <button
+          type="button"
+          onClick={() => nav('/home')}
+          className="flex flex-1 flex-col items-center gap-0.5 py-1 text-[10px] font-bold text-[#E91E8C]"
+        >
+          <Smartphone className="h-5 w-5" />
+          التطبيق
         </button>
       </nav>
     </div>

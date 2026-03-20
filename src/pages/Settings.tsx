@@ -17,25 +17,17 @@ import {
 } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { toast } from 'sonner'
+import { usePreferences } from '@/contexts/PreferencesContext'
 
 export default function Settings() {
-  const [dark, setDark] = useState(false)
-  const [lang, setLang] = useState('ar')
+  const { dark, setDark, lang, setLang } = usePreferences()
   const [city, setCity] = useState('الخبر')
   const [notif, setNotif] = useState(true)
   const [delOpen, setDelOpen] = useState(false)
 
   useEffect(() => {
-    setDark(document.documentElement.classList.contains('dark'))
     setCity(localStorage.getItem(STORAGE_KEYS.city) || 'الخبر')
-    setLang(localStorage.getItem(STORAGE_KEYS.lang) || 'ar')
   }, [])
-
-  useEffect(() => {
-    if (dark) document.documentElement.classList.add('dark')
-    else document.documentElement.classList.remove('dark')
-    localStorage.setItem(STORAGE_KEYS.dark, dark ? '1' : '')
-  }, [dark])
 
   useEffect(() => {
     localStorage.setItem(STORAGE_KEYS.lang, lang)
@@ -48,7 +40,7 @@ export default function Settings() {
       <div className="mx-auto mt-8 max-w-md space-y-6">
         <div className="flex items-center justify-between rounded-xl border bg-white p-4 dark:bg-card">
           <span>🌐 اللغة</span>
-          <Select value={lang} onValueChange={setLang}>
+          <Select value={lang} onValueChange={(v) => setLang(v as 'ar' | 'en')}>
             <SelectTrigger className="w-32">
               <SelectValue />
             </SelectTrigger>

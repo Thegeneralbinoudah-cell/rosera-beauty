@@ -4,10 +4,13 @@ import { Loader2 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { Button } from '@/components/ui/button'
 import { toast } from 'sonner'
+import { useI18n } from '@/hooks/useI18n'
+import PreferencesToggle from '@/components/PreferencesToggle'
 
-const DIGITS = 4
+const DIGITS = 6
 
 export default function VerifyOtp() {
+  const { t } = useI18n()
   const nav = useNavigate()
   const loc = useLocation() as { state?: { phone?: string } }
   const phone = loc.state?.phone ?? ''
@@ -29,22 +32,23 @@ export default function VerifyOtp() {
 
   const verify = async () => {
     if (code.length !== DIGITS) {
-      toast.error('أدخلي الرمز كاملاً (4 أرقام)')
+      toast.error('أدخلي الرمز كاملاً (6 أرقام)')
       return
     }
     setLoading(true)
     try {
       const { data, error } = await supabase.functions.invoke('verify-otp', {
-        body: { phone, otp: code },
+        body: { phone, code },
       })
       if (error) throw error
       const d = data as {
+        success?: boolean
         error?: string
         access_token?: string
         refresh_token?: string
       }
-      if (d.error || !d.access_token) {
-        toast.error('رمز التحقق غير صحيح')
+      if (!d.success || d.error || !d.access_token) {
+        toast.error(d.error ?? 'رمز غير صحيح أو منتهي')
         return
       }
       const { error: sessErr } = await supabase.auth.setSession({
@@ -131,15 +135,19 @@ export default function VerifyOtp() {
         <div className="rounded-3xl border border-white/60 bg-white/90 p-8 shadow-[0_20px_60px_-15px_rgba(233,30,140,0.25)] backdrop-blur-md dark:border-primary/20 dark:bg-card/95">
           <div className="mb-2 text-center text-4xl">💜</div>
           <h1 className="text-center text-2xl font-extrabold text-transparent bg-clip-text bg-gradient-to-l from-[#9C27B0] to-[#E91E8C]">
-            رمز التحقق
+            {t('otp.title')}
           </h1>
           <p className="mt-3 text-center text-sm leading-relaxed text-rosera-gray">
-            أرسلنا رمزاً مكوّناً من 4 أرقام إلى
+            {t('otp.sentTo')}
             <br />
             <span className="font-bold text-foreground" dir="ltr">
               {phone}
             </span>
           </p>
+
+          <div className="mt-3 flex justify-center">
+            <PreferencesToggle />
+          </div>
 
           <div className="mt-10 flex justify-center gap-3" dir="ltr">
             {digits.map((d, i) => (
@@ -160,7 +168,7 @@ export default function VerifyOtp() {
           </div>
 
           <p className="mt-8 text-center text-sm text-rosera-gray">
-            {sec > 0 ? `إعادة الإرسال خلال ${sec} ثانية` : 'يمكنكِ طلب رمز جديد'}
+            {sec > 0 ? t('otp.resendIn', { sec }) : t('otp.canResend')}
           </p>
           <button
             type="button"
@@ -168,7 +176,7 @@ export default function VerifyOtp() {
             onClick={resend}
             className={`mt-2 w-full text-center text-sm font-bold ${sec > 0 ? 'text-rosera-gray' : 'text-[#9C27B0]'}`}
           >
-            إعادة إرسال الرمز
+            {t('otp.resend')}
           </button>
 
           <Button
@@ -179,10 +187,10 @@ export default function VerifyOtp() {
             {loading ? (
               <span className="flex items-center justify-center gap-2">
                 <Loader2 className="h-5 w-5 animate-spin" />
-                جاري التحقق...
+                {t('otp.verifying')}
               </span>
             ) : (
-              'تحقق والمتابعة'
+              t('otp.continue')
             )}
           </Button>
         </div>

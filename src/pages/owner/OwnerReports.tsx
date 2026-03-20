@@ -72,7 +72,7 @@ export default function OwnerReports() {
         </Card>
         <Card className="p-6">
           <p className="text-sm text-rosera-gray">متوسط التقييم</p>
-          <p className="text-2xl font-extrabold text-gold">⭐ {rating.toFixed(1)}</p>
+          <p className="text-2xl font-extrabold text-[#9B2257]">⭐ {rating.toFixed(1)}</p>
         </Card>
       </div>
       <Card className="mt-8 p-6">

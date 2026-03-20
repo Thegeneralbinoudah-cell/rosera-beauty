@@ -6,6 +6,7 @@ import {
   UserPen,
   CalendarHeart,
   Heart,
+  PackageCheck,
   Bell,
   Bot,
   ScanFace,
@@ -26,25 +27,27 @@ import {
 import { Button } from '@/components/ui/button'
 import { supabase } from '@/lib/supabase'
 import { toast } from 'sonner'
-
-const items = [
-  { to: '/profile/edit', label: 'تعديل الملف الشخصي', icon: UserPen, emoji: '✏️' },
-  { to: '/bookings', label: 'حجوزاتي', icon: CalendarHeart, emoji: '📅' },
-  { to: '/favorites', label: 'المفضلة', icon: Heart, emoji: '❤️' },
-  { to: '/notifications', label: 'الإشعارات', icon: Bell, emoji: '🔔' },
-  { to: '/chat', label: 'روزيرا الذكية', icon: Bot, emoji: '🤖' },
-  { to: '/skin-analysis', label: 'كشف البشرة', icon: ScanFace, emoji: '🪞' },
-  { to: '/invite', label: 'ادعي صديقاتكِ', icon: Crown, emoji: '👑' },
-  { to: '/settings', label: 'الإعدادات', icon: Settings, emoji: '⚙️' },
-  { to: '/privacy', label: 'سياسة الخصوصية', icon: Shield, emoji: '🔒' },
-  { to: '/terms', label: 'الشروط والأحكام', icon: Shield, emoji: '📜' },
-]
+import { useI18n } from '@/hooks/useI18n'
 
 export default function Profile() {
+  const { t } = useI18n()
   const { user, profile, signOut, isAdmin, isBusinessOwner, loading } = useAuth()
   const nav = useNavigate()
   const guest = localStorage.getItem(STORAGE_KEYS.guest) && !user
   const [deleteOpen, setDeleteOpen] = useState(false)
+  const items = [
+    { to: '/profile/edit', label: t('profile.edit') || 'تعديل الملف الشخصي', icon: UserPen, emoji: '✏️' },
+    { to: '/bookings', label: t('profile.bookings') || 'حجوزاتي', icon: CalendarHeart, emoji: '📅' },
+    { to: '/orders', label: t('profile.orders') || 'طلباتي وتتبع الشحن', icon: PackageCheck, emoji: '📦' },
+    { to: '/favorites', label: t('nav.favorites'), icon: Heart, emoji: '❤️' },
+    { to: '/notifications', label: t('profile.notifications') || 'الإشعارات', icon: Bell, emoji: '🔔' },
+    { to: '/chat', label: t('profile.ai') || 'روزيرا الذكية', icon: Bot, emoji: '🤖' },
+    { to: '/skin-analysis', label: t('profile.skin') || 'كشف البشرة', icon: ScanFace, emoji: '🪞' },
+    { to: '/invite', label: t('profile.invite') || 'ادعي صديقاتكِ', icon: Crown, emoji: '👑' },
+    { to: '/settings', label: t('profile.settings'), icon: Settings, emoji: '⚙️' },
+    { to: '/privacy', label: t('authEmail.privacy'), icon: Shield, emoji: '🔒' },
+    { to: '/terms', label: t('authEmail.terms'), icon: Shield, emoji: '📜' },
+  ]
 
   if (loading) return <div className="p-8 text-center">...</div>
 
@@ -52,17 +55,17 @@ export default function Profile() {
     return (
       <div className="flex min-h-[60vh] flex-col items-center justify-center px-6 text-center">
         <span className="text-6xl">👤</span>
-        <h1 className="mt-4 text-xl font-bold">ضيفة كريمة</h1>
-        <p className="mt-2 text-rosera-gray">سجّلي دخولكِ لحفظ الحجوزات والمفضلة</p>
+        <h1 className="mt-4 text-xl font-bold">{t('profile.guestTitle')}</h1>
+        <p className="mt-2 text-rosera-gray">{t('profile.guestSubtitle')}</p>
         <button
           type="button"
           className="mt-6 rounded-xl gradient-rosera px-8 py-3 font-bold text-white"
           onClick={() => nav('/auth')}
         >
-          تسجيل الدخول
+          {t('profile.login')}
         </button>
         <Link to="/settings" className="mt-6 text-primary">
-          الإعدادات
+          {t('profile.settings')}
         </Link>
       </div>
     )
@@ -78,7 +81,7 @@ export default function Profile() {
             (profile?.full_name || 'ر')[0]
           )}
         </div>
-        <h1 className="mt-4 text-2xl font-bold">{profile?.full_name || 'مستخدمة'}</h1>
+        <h1 className="mt-4 text-2xl font-bold">{profile?.full_name || t('profile.defaultName')}</h1>
         <p className="text-sm text-rosera-gray">{profile?.email}</p>
         <p className="text-sm text-rosera-gray">{profile?.phone}</p>
       </div>
@@ -104,7 +107,7 @@ export default function Profile() {
           >
             <span className="flex items-center gap-3 font-semibold">
               <Building2 className="h-5 w-5 text-primary" />
-              لوحة تحكم الصالون
+              {t('profile.ownerPanel')}
             </span>
             <ChevronLeft className="h-5 w-5 rotate-180 text-rosera-gray" />
           </Link>
@@ -116,7 +119,7 @@ export default function Profile() {
           >
             <span className="flex items-center gap-3 font-semibold">
               <Shield className="h-5 w-5 text-primary" />
-              لوحة الإدارة
+              {t('profile.adminPanel')}
             </span>
             <ChevronLeft className="h-5 w-5 rotate-180 text-rosera-gray" />
           </Link>
@@ -131,7 +134,7 @@ export default function Profile() {
           className="flex w-full items-center gap-3 rounded-xl border border-destructive/30 bg-destructive/5 px-4 py-4 font-semibold text-destructive"
         >
           <LogOut className="h-5 w-5" />
-          تسجيل الخروج
+          {t('profile.logout')}
         </button>
 
         <button
@@ -140,20 +143,20 @@ export default function Profile() {
           className="flex w-full items-center gap-3 rounded-xl border border-destructive/30 bg-destructive/5 px-4 py-4 font-semibold text-destructive mt-2"
         >
           <Trash2 className="h-5 w-5" />
-          حذف الحساب
+          {t('profile.delete')}
         </button>
       </nav>
 
       <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
         <DialogContent dir="rtl">
           <DialogHeader>
-            <DialogTitle>حذف الحساب</DialogTitle>
+            <DialogTitle>{t('profile.deleteTitle')}</DialogTitle>
             <p className="text-sm text-rosera-gray">
-              هل أنتِ متأكدة من حذف حسابك؟ لا يمكن التراجع عن هذا الإجراء.
+              {t('profile.deleteConfirm')}
             </p>
           </DialogHeader>
           <div className="flex gap-2 justify-end mt-4">
-            <Button variant="outline" onClick={() => setDeleteOpen(false)}>إلغاء</Button>
+            <Button variant="outline" onClick={() => setDeleteOpen(false)}>{t('common.cancel')}</Button>
             <Button
               variant="destructive"
               onClick={async () => {
@@ -168,7 +171,7 @@ export default function Profile() {
                 }
               }}
             >
-              حذف الحساب
+              {t('common.confirmDelete')}
             </Button>
           </div>
         </DialogContent>

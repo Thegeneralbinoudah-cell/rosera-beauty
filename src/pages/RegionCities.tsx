@@ -1,12 +1,14 @@
 import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { motion } from 'framer-motion'
-import { ChevronRight } from 'lucide-react'
+import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { supabase, type SaRegionRow } from '@/lib/supabase'
 import { Skeleton } from '@/components/ui/skeleton'
 import { toast } from 'sonner'
+import { useI18n } from '@/hooks/useI18n'
 
 export default function RegionCities() {
+  const { t } = useI18n()
   const { regionId } = useParams()
   const [name, setName] = useState('')
   const [image, setImage] = useState('')
@@ -46,7 +48,6 @@ export default function RegionCities() {
             name_ar: city.name_ar,
             salonCount: city.businesses?.length ?? 0,
           }))
-          .filter((x) => x.salonCount > 0)
           .sort((a, b) => a.name_ar.localeCompare(b.name_ar, 'ar'))
         setCities(list)
       } catch {
@@ -67,11 +68,15 @@ export default function RegionCities() {
         {image && <img src={image} alt="" className="h-full w-full object-cover" />}
         <div className="absolute inset-0 bg-gradient-to-t from-rosera-light dark:from-rosera-dark to-transparent" />
         <div className="absolute bottom-4 start-4 end-4">
-          <Link to="/" className="mb-2 inline-flex items-center gap-1 text-sm font-semibold text-white drop-shadow">
-            الرئيسية
+          <Link
+            to="/home"
+            className="mb-2 inline-flex items-center gap-1 text-sm font-semibold text-white drop-shadow hover:opacity-95"
+          >
+            <ChevronLeft className="h-4 w-4" aria-hidden />
+            {t('region.home')}
           </Link>
           <h1 className="text-2xl font-extrabold text-white drop-shadow-md">{name || '...'}</h1>
-          <p className="mt-1 text-sm text-white/90">اخترين المدينة</p>
+          <p className="mt-1 text-sm text-white/90">{t('region.chooseCity')}</p>
         </div>
       </div>
 
@@ -83,24 +88,25 @@ export default function RegionCities() {
             ))}
           </div>
         ) : cities.length === 0 ? (
-          <p className="py-12 text-center text-rosera-gray">لا توجد مدن بصالونات في هذه المنطقة حالياً</p>
+          <p className="py-12 text-center text-rosera-gray">{t('region.noCities')}</p>
         ) : (
           <ul className="space-y-3">
             {cities.map((city, i) => (
               <motion.li
                 key={city.id}
-                initial={{ opacity: 0, x: -8 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: i * 0.02 }}
+                initial={{ opacity: 0, scale: 0.97 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ type: 'spring', stiffness: 320, damping: 24, delay: Math.min(i * 0.025, 0.6) }}
               >
                 <Link
                   to={`/city/${city.id}`}
-                  className="flex items-center justify-between rounded-2xl border border-primary/10 bg-gradient-to-l from-white to-[#fce4ec]/40 p-4 shadow-sm transition hover:shadow-md dark:from-card dark:to-card"
+                  className="flex items-center justify-between rounded-2xl border border-primary/15 bg-gradient-to-l from-white via-[#fff5fb] to-[#fce4ec]/50 p-4 shadow-sm ring-1 ring-[#f8bbd0]/30 transition hover:shadow-[0_12px_28px_-12px_rgba(233,30,140,0.25)] dark:from-card dark:via-card dark:to-card dark:ring-primary/10"
                 >
                   <div>
                     <p className="font-bold text-foreground">{city.name_ar}</p>
                     <p className="text-sm text-rosera-gray">
-                      {city.salonCount} {city.salonCount === 1 ? 'صالون' : 'صالونات'}
+                      {city.salonCount}{' '}
+                      {city.salonCount === 1 ? t('region.salonOne') : t('region.salonMany')}
                     </p>
                   </div>
                   <ChevronRight className="h-5 w-5 text-primary rtl:rotate-180" />

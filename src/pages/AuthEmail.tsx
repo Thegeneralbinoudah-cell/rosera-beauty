@@ -1,11 +1,14 @@
 import { useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { Loader2 } from 'lucide-react'
+import { ROSERA_LOGO_SRC } from '@/lib/branding'
 import { supabase } from '@/lib/supabase'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { toast } from 'sonner'
+import { useI18n } from '@/hooks/useI18n'
+import PreferencesToggle from '@/components/PreferencesToggle'
 
 /** بعد تسجيل الدخول بالإيميل: توجيه حسب الدور من profiles */
 async function redirectAfterEmailLogin(nav: (path: string, opts?: { replace: boolean }) => void, uid: string) {
@@ -29,6 +32,7 @@ async function redirectAfterEmailLogin(nav: (path: string, opts?: { replace: boo
 }
 
 export default function AuthEmail() {
+  const { t } = useI18n()
   const nav = useNavigate()
   const [mode, setMode] = useState<'login' | 'signup'>('login')
   const [email, setEmail] = useState('')
@@ -97,25 +101,28 @@ export default function AuthEmail() {
   const submit = mode === 'login' ? onLogin : onSignUp
 
   return (
-    <div className="min-h-dvh bg-gradient-to-b from-[#fdf2f8] via-white to-[#f3e8ff] px-6 py-12 dark:from-rosera-dark dark:via-rosera-dark dark:to-rosera-dark">
+    <div className="min-h-dvh bg-white px-6 py-12 dark:bg-rosera-dark">
       <div className="mx-auto max-w-md">
-        <div className="rounded-3xl border border-primary/10 bg-white/80 p-8 shadow-soft backdrop-blur dark:bg-card/90">
+        <div className="rounded-3xl border border-rose-200 bg-white p-8 shadow-soft dark:border-primary/20 dark:bg-card">
+          <div className="mb-3 flex justify-end">
+            <PreferencesToggle />
+          </div>
           <div className="text-center">
-            <span className="text-5xl">✉️</span>
+            <img src={ROSERA_LOGO_SRC} alt="" className="mx-auto w-18 h-18 rounded-2xl object-contain" />
             <h1 className="mt-4 text-2xl font-extrabold text-foreground">
-              {mode === 'login' ? 'تسجيل الدخول بالإيميل' : 'إنشاء حساب جديد'}
+              {mode === 'login' ? t('authEmail.loginTitle') : t('authEmail.signupTitle')}
             </h1>
             <p className="mt-2 text-sm text-rosera-gray">
               {mode === 'login'
-                ? 'أدخلي بريدكِ وكلمة المرور للدخول'
-                : 'أنشئي حساباً بالبريد الإلكتروني وكلمة المرور'}
+                ? t('authEmail.loginSub')
+                : t('authEmail.signupSub')}
             </p>
           </div>
 
           {signupSent ? (
             <div className="mt-8 rounded-2xl border border-primary/20 bg-primary/5 p-6 text-center">
               <p className="text-sm font-medium text-foreground">
-                تحققي من بريدكِ واتبعي رابط التحقق لتفعيل الحساب، ثم ارجعي وسجّلي الدخول من هذه الصفحة.
+                {t('authEmail.checkMail')}
               </p>
               <Button
                 variant="outline"
@@ -125,14 +132,14 @@ export default function AuthEmail() {
                   setMode('login')
                 }}
               >
-                العودة لتسجيل الدخول
+                {t('authEmail.backToLogin')}
               </Button>
             </div>
           ) : (
             <>
               <div className="mt-10 space-y-4">
                 <div>
-                  <Label className="text-foreground">البريد الإلكتروني</Label>
+                  <Label className="text-foreground">{t('authEmail.email')}</Label>
                   <Input
                     type="email"
                     dir="ltr"
@@ -144,7 +151,7 @@ export default function AuthEmail() {
                   />
                 </div>
                 <div>
-                  <Label className="text-foreground">كلمة المرور</Label>
+                  <Label className="text-foreground">{t('authEmail.password')}</Label>
                   <Input
                     type="password"
                     className="mt-2 h-12 rounded-2xl border-primary/20"
@@ -156,7 +163,7 @@ export default function AuthEmail() {
                 </div>
                 {mode === 'signup' && (
                   <div>
-                    <Label className="text-foreground">تأكيد كلمة المرور</Label>
+                    <Label className="text-foreground">{t('authEmail.confirmPassword')}</Label>
                     <Input
                       type="password"
                       className="mt-2 h-12 rounded-2xl border-primary/20"
@@ -170,7 +177,7 @@ export default function AuthEmail() {
                 {mode === 'login' && (
                   <div className="text-left">
                     <Link to="/forgot-password" className="text-sm font-semibold text-primary hover:underline">
-                      نسيتِ كلمة المرور؟
+                      {t('authEmail.forgotPassword')}
                     </Link>
                   </div>
                 )}
@@ -182,12 +189,12 @@ export default function AuthEmail() {
                   {loading ? (
                     <span className="flex items-center justify-center gap-2">
                       <Loader2 className="h-5 w-5 animate-spin" />
-                      جاري المعالجة...
+                      {t('authEmail.processing')}
                     </span>
                   ) : mode === 'login' ? (
-                    'تسجيل الدخول'
+                    t('authEmail.login')
                   ) : (
-                    'إنشاء الحساب'
+                    t('authEmail.signup')
                   )}
                 </Button>
               </div>
@@ -198,12 +205,12 @@ export default function AuthEmail() {
                   onClick={() => nav('/auth', { replace: true })}
                   className="flex w-full items-center justify-center gap-2 rounded-2xl border border-primary/20 bg-white py-3 text-sm font-semibold text-foreground hover:bg-primary/5 dark:bg-card"
                 >
-                  📱 الدخول بالجوال
+                  {t('authEmail.phoneLogin')}
                 </button>
                 <p className="text-center text-sm text-rosera-gray">
                   {mode === 'login' ? (
                     <>
-                      ليس لديكِ حساب؟{' '}
+                      {t('authEmail.noAccount')}{' '}
                       <button
                         type="button"
                         className="font-bold text-primary hover:underline"
@@ -212,18 +219,18 @@ export default function AuthEmail() {
                           setSignupSent(false)
                         }}
                       >
-                        إنشاء حساب جديد
+                        {t('authEmail.createAccount')}
                       </button>
                     </>
                   ) : (
                     <>
-                      لديكِ حساب؟{' '}
+                      {t('authEmail.haveAccount')}{' '}
                       <button
                         type="button"
                         className="font-bold text-primary hover:underline"
                         onClick={() => setMode('login')}
                       >
-                        تسجيل الدخول
+                        {t('authEmail.login')}
                       </button>
                     </>
                   )}
@@ -234,10 +241,10 @@ export default function AuthEmail() {
 
           <div className="mt-8 flex flex-wrap justify-center gap-4 text-xs text-rosera-gray">
             <Link to="/privacy" className="hover:text-primary">
-              سياسة الخصوصية
+              {t('authEmail.privacy')}
             </Link>
             <Link to="/terms" className="hover:text-primary">
-              الشروط والأحكام
+              {t('authEmail.terms')}
             </Link>
           </div>
         </div>

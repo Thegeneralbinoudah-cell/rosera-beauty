@@ -74,7 +74,7 @@ export default function OwnerHome() {
         </Card>
         <Card className="p-6">
           <p className="text-sm text-rosera-gray">التقييمات</p>
-          <p className="text-3xl font-extrabold text-gold">⭐ {stats.rating.toFixed(1)}</p>
+          <p className="text-3xl font-extrabold text-[#9B2257]">⭐ {stats.rating.toFixed(1)}</p>
           <p className="text-sm text-rosera-gray">{stats.reviews} تقييم</p>
         </Card>
       </div>

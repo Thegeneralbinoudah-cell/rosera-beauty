@@ -9,6 +9,7 @@ import { Calendar } from '@/components/ui/calendar'
 import { startOfToday } from 'date-fns'
 import { formatPrice } from '@/lib/utils'
 import { toast } from 'sonner'
+import PaymentForm, { type PaymentResult } from '@/components/PaymentForm'
 
 function addDays(d: Date, n: number) {
   const x = new Date(d)
@@ -40,6 +41,7 @@ export default function BookingFlow() {
   const [success, setSuccess] = useState(false)
   const [bookingRef, setBookingRef] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
+  const [pendingRefId, setPendingRefId] = useState<string | null>(null)
 
   useEffect(() => {
     if (!user) {
@@ -52,9 +54,20 @@ export default function BookingFlow() {
     async function load() {
       try {
         const { data: biz } = await supabase.from('businesses').select('*').eq('id', salonId).single()
-        const { data: svc } = await supabase.from('services').select('*').eq('business_id', salonId).eq('is_active', true)
+        const bizRow = biz as Business | null
+        if (bizRow?.is_demo) {
+          toast.error('لا يمكن الحجز في عروض تجريبية')
+          nav('/search', { replace: true })
+          return
+        }
+        const { data: svc } = await supabase
+          .from('services')
+          .select('*')
+          .eq('business_id', salonId)
+          .eq('is_active', true)
+          .eq('is_demo', false)
         if (!c) return
-        setB(biz as Business)
+        setB(bizRow)
         setServices((svc ?? []) as Service[])
         const pre = loc.state?.preselect
         if (pre) setSelectedIds(new Set([pre]))
@@ -79,29 +92,53 @@ export default function BookingFlow() {
   const total = selectedServices.reduce((a, s) => a + Number(s.price), 0)
   const selectedDay = date ? new Date(date + 'T12:00:00') : undefined
 
-  const onConfirm = async () => {
-    if (!user || !salonId || selectedServices.length === 0) return
+  const insertBooking = async (paymentStatus: string, paymentId?: string | null, paymentAmount?: number) => {
+    if (!user || !salonId || selectedServices.length === 0) return null
+    const { data, error } = await supabase
+      .from('bookings')
+      .insert({
+        user_id: user.id,
+        business_id: salonId,
+        service_id: selectedServices[0].id,
+        service_ids: selectedServices.map((s) => s.id),
+        booking_date: date,
+        booking_time: time,
+        total_price: total,
+        status: 'pending',
+        payment_status: paymentStatus,
+        payment_id: paymentId ?? null,
+        payment_amount: paymentAmount ?? total,
+      })
+      .select('id')
+      .single()
+    if (error) throw error
+    return (data as { id: string }).id
+  }
+
+  const onPaymentSuccess = async (result: PaymentResult) => {
+    if (result.payment_status === 'free') {
+      setLoading(true)
+      try {
+        const id = await insertBooking('free', null, total)
+        if (id) {
+          setBookingRef(id)
+          setSuccess(true)
+        }
+      } catch (e: unknown) {
+        toast.error(e instanceof Error ? e.message : 'فشل الحجز')
+      } finally {
+        setLoading(false)
+      }
+    }
+  }
+
+  const onPaymentPending = async () => {
     setLoading(true)
     try {
-      const { data, error } = await supabase
-        .from('bookings')
-        .insert({
-          user_id: user.id,
-          business_id: salonId,
-          service_id: selectedServices[0].id,
-          service_ids: selectedServices.map((s) => s.id),
-          booking_date: date,
-          booking_time: time,
-          total_price: total,
-          status: 'pending',
-        })
-        .select('id')
-        .single()
-      if (error) throw error
-      setBookingRef((data as { id: string }).id)
-      setSuccess(true)
+      const id = await insertBooking('pending', null, total)
+      if (id) setPendingRefId(id)
     } catch (e: unknown) {
-      toast.error(e instanceof Error ? e.message : 'فشل الحجز')
+      toast.error(e instanceof Error ? e.message : 'فشل إنشاء الحجز')
     } finally {
       setLoading(false)
     }
@@ -228,13 +265,15 @@ export default function BookingFlow() {
                 <p className="mt-2">{date} — {time}</p>
                 <p className="mt-4 text-xl font-bold text-primary">{formatPrice(total)}</p>
               </div>
-              <Button
-                className="w-full rounded-2xl bg-gradient-to-l from-[#9C27B0] to-[#E91E8C]"
+              <PaymentForm
+                type="booking"
+                amount={total}
+                description={`حجز ${b.name_ar} — ${selectedServices.map((s) => s.name_ar).join('، ')}`}
+                refId={pendingRefId}
+                onSuccess={onPaymentSuccess}
+                onPending={onPaymentPending}
                 disabled={loading}
-                onClick={onConfirm}
-              >
-                تأكيد الحجز
-              </Button>
+              />
             </motion.div>
           )}
         </AnimatePresence>

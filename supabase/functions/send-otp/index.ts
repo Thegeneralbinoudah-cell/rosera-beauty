@@ -8,7 +8,8 @@ const cors = {
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: cors })
   try {
-    const { phone } = await req.json()
+    const body = await req.json()
+    const phone = body?.phone as string | undefined
     if (!phone || typeof phone !== 'string' || !phone.startsWith('+966')) {
       return new Response(JSON.stringify({ error: 'رقم غير صالح' }), {
         status: 400,
@@ -35,11 +36,11 @@ Deno.serve(async (req) => {
       })
     }
 
-    const otp = String(Math.floor(1000 + Math.random() * 9000))
+    const code = String(Math.floor(100000 + Math.random() * 900000))
     const expiresAt = new Date(Date.now() + 5 * 60 * 1000).toISOString()
     const { error: insErr } = await supabase.from('otp_codes').insert({
       phone,
-      otp,
+      code,
       expires_at: expiresAt,
       used: false,
     })
@@ -47,7 +48,7 @@ Deno.serve(async (req) => {
 
     const accountSid = Deno.env.get('TWILIO_ACCOUNT_SID')
     const authToken = Deno.env.get('TWILIO_AUTH_TOKEN')
-    const fromNumber = Deno.env.get('TWILIO_FROM') ?? Deno.env.get('TWILIO_PHONE_NUMBER')
+    const fromNumber = Deno.env.get('TWILIO_PHONE_NUMBER') ?? Deno.env.get('TWILIO_FROM')
     if (!accountSid || !authToken || !fromNumber) {
       console.error('Twilio env missing')
       return new Response(JSON.stringify({ error: 'إعدادات SMS غير مكتملة' }), {
@@ -56,25 +57,24 @@ Deno.serve(async (req) => {
       })
     }
 
-    const body = new URLSearchParams({
-      To: phone,
+    const form = new URLSearchParams({
       From: fromNumber,
-      Body: `رمز التحقق من روزيرا: ${otp}\nلا تشاركيه مع أحد.`,
+      To: phone,
+      Body: `رمز التحقق: ${code}`,
     })
-    const tw = await fetch(
-      `https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Messages.json`,
-      {
-        method: 'POST',
-        headers: {
-          Authorization: 'Basic ' + btoa(`${accountSid}:${authToken}`),
-          'Content-Type': 'application/x-www-form-urlencoded',
-        },
-        body: body.toString(),
-      }
-    )
+
+    const tw = await fetch(`https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Messages.json`, {
+      method: 'POST',
+      headers: {
+        Authorization: 'Basic ' + btoa(`${accountSid}:${authToken}`),
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: form.toString(),
+    })
+
     if (!tw.ok) {
-      const t = await tw.text()
-      console.error('Twilio', t)
+      const txt = await tw.text()
+      console.error('Twilio', txt)
       return new Response(JSON.stringify({ error: 'فشل إرسال الرسالة' }), {
         status: 502,
         headers: { ...cors, 'Content-Type': 'application/json' },

@@ -133,7 +133,7 @@ export default function EditProfile() {
           <Label>المدينة</Label>
           <Select value={city} onValueChange={setCity}>
             <SelectTrigger className="mt-2 rounded-xl">
-              <SelectValue placeholder="اخترين المدينة" />
+              <SelectValue placeholder="إختاري المدينة" />
             </SelectTrigger>
             <SelectContent>
               {citiesByRegion.map((c) => (

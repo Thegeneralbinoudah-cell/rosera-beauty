@@ -48,9 +48,20 @@ export default function SalonDetail() {
         const { data: biz, error: e1 } = await supabase.from('businesses').select('*').eq('id', id).single()
         if (e1) throw e1
         if (!c) return
-        setB(biz as Business)
+        const row = biz as Business
+        if (row.is_demo) {
+          toast.error('هذا العرض تجريبي ولم يعد متاحاً')
+          nav('/search', { replace: true })
+          return
+        }
+        setB(row)
 
-        const { data: svc } = await supabase.from('services').select('*').eq('business_id', id).eq('is_active', true)
+        const { data: svc } = await supabase
+          .from('services')
+          .select('*')
+          .eq('business_id', id)
+          .eq('is_active', true)
+          .eq('is_demo', false)
         if (c) setServices((svc ?? []) as Service[])
 
         const { data: rev } = await supabase
@@ -61,10 +72,15 @@ export default function SalonDetail() {
           .limit(20)
         if (c) setReviews((rev ?? []) as typeof reviews)
 
-        const B = biz as Business
-        let simQ = supabase.from('businesses').select('*').eq('is_active', true).neq('id', id).limit(6)
-        if (B.city_id) simQ = simQ.eq('city_id', B.city_id)
-        else simQ = simQ.eq('city', B.city)
+        let simQ = supabase
+          .from('businesses')
+          .select('*')
+          .eq('is_active', true)
+          .eq('is_demo', false)
+          .neq('id', id)
+          .limit(6)
+        if (row.city_id) simQ = simQ.eq('city_id', row.city_id)
+        else simQ = simQ.eq('city', row.city)
         const { data: sim } = await simQ
         if (c) setSimilar((sim ?? []) as Business[])
 
@@ -165,9 +181,11 @@ export default function SalonDetail() {
         <div className="rounded-2xl border bg-white p-5 shadow-card dark:bg-card">
           <h1 className="text-2xl font-extrabold">{b.name_ar}</h1>
           <div className="mt-2 flex flex-wrap items-center gap-3">
-            <span className="flex items-center gap-1 text-gold">
-              <Star className="h-5 w-5 fill-gold" />
-              <strong>{Number(b.average_rating ?? 0).toFixed(1)}</strong>
+            <span className="flex items-center gap-1 text-[#9B2257]">
+              <Star className="h-5 w-5 fill-[#9B2257] text-[#9B2257]" />
+              <strong className="text-base font-extrabold text-[#9B2257]">
+                {Number(b.average_rating ?? 0).toFixed(1)}
+              </strong>
               <span className="text-rosera-gray">({b.total_reviews ?? 0} تقييم)</span>
             </span>
             <Badge className="bg-gradient-to-l from-[#9C27B0]/15 to-[#E91E8C]/15 text-foreground">
@@ -261,12 +279,12 @@ export default function SalonDetail() {
               />
             </div>
             <a
-              href={`https://www.google.com/maps?q=${b.latitude},${b.longitude}`}
+              href={`https://www.google.com/maps/dir/?api=1&destination=${b.latitude},${b.longitude}`}
               target="_blank"
               rel="noreferrer"
               className="mt-2 inline-block text-sm font-bold text-primary"
             >
-              فتح في خرائط جوجل ↗
+              اتجاهات ↗
             </a>
           </section>
         )}
@@ -340,7 +358,7 @@ export default function SalonDetail() {
               <div key={star} className="flex items-center gap-2 text-sm">
                 <span>{star}★</span>
                 <div className="h-2 flex-1 overflow-hidden rounded-full bg-muted">
-                  <div className="h-full bg-gold" style={{ width: `${pct}%` }} />
+                  <div className="h-full bg-[#9B2257]" style={{ width: `${pct}%` }} />
                 </div>
               </div>
             ))}
@@ -359,9 +377,9 @@ export default function SalonDetail() {
                     </div>
                     <div>
                       <p className="font-semibold">{r.profiles?.full_name || 'عميلة'}</p>
-                      <div className="flex text-gold">
+                      <div className="flex text-[#9B2257]">
                         {Array.from({ length: r.rating }).map((_, j) => (
-                          <Star key={j} className="h-4 w-4 fill-gold" />
+                          <Star key={j} className="h-4 w-4 fill-[#9B2257]" />
                         ))}
                       </div>
                     </div>

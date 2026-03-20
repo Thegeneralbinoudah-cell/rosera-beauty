@@ -10,18 +10,37 @@ export default function ProductDetail() {
   const { productId } = useParams()
   const [product, setProduct] = useState<Product | null>(null)
   const [similar, setSimilar] = useState<Product[]>([])
+  const [notFound, setNotFound] = useState(false)
   const [qty, setQty] = useState(1)
   const { add } = useCartStore()
 
   useEffect(() => {
     if (!productId) return
+    setNotFound(false)
+    setProduct(null)
     let c = true
     async function load() {
       const { data: p, error } = await supabase.from('products').select('*').eq('id', productId).single()
-      if (error || !c) return
-      setProduct(p as Product)
+      if (!c) return
+      if (error || !p) {
+        setNotFound(true)
+        return
+      }
+      const row = p as Product
+      if (row.is_demo) {
+        setNotFound(true)
+        return
+      }
+      setProduct(row)
       const cat = (p as Product).category
-      const { data: sim } = await supabase.from('products').select('*').eq('category', cat).neq('id', productId).limit(4)
+      const { data: sim } = await supabase
+        .from('products')
+        .select('*')
+        .eq('category', cat)
+        .eq('is_active', true)
+        .eq('is_demo', false)
+        .neq('id', productId)
+        .limit(4)
       if (c) setSimilar((sim ?? []) as Product[])
     }
     void load()
@@ -41,6 +60,13 @@ export default function ProductDetail() {
     toast.success('أُضيف للسلة')
   }
 
+  if (notFound)
+    return (
+      <div className="flex min-h-dvh flex-col items-center justify-center gap-4 px-6 pb-28">
+        <p className="text-xl font-bold text-rosera-gray">المنتج غير موجود</p>
+        <Link to="/store" className="text-primary font-bold underline">العودة للمتجر</Link>
+      </div>
+    )
   if (!product) return <div className="p-8 text-center">جاري التحميل...</div>
 
   return (
@@ -52,7 +78,7 @@ export default function ProductDetail() {
         <h1 className="text-2xl font-extrabold">{product.name_ar}</h1>
         <p className="text-rosera-gray">{product.brand_ar}</p>
         <div className="mt-2 flex items-center gap-2">
-          <Star className="h-5 w-5 fill-[#C9A227] text-[#C9A227]" />
+          <Star className="h-5 w-5 fill-[#9B2257] text-[#9B2257]" />
           <span className="font-bold">{Number(product.rating || 0).toFixed(1)}</span>
           <span className="text-sm text-rosera-gray">({product.review_count ?? 0})</span>
         </div>

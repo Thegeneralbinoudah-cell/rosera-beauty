@@ -39,6 +39,8 @@ export type Business = {
   total_bookings?: number
   price_range?: string
   is_featured?: boolean
+  is_demo?: boolean
+  source_type?: 'manual' | 'imported' | 'provider_api' | 'legacy_seed'
   created_at?: string
   sa_cities?: {
     name_ar: string
@@ -52,7 +54,11 @@ export type SaRegionRow = {
   capital_ar: string
   image_url: string
   sort_order: number
-  sa_cities?: { id: string; name_ar: string; businesses: { id: string }[] | null }[] | null
+  sa_cities?: {
+    id: string
+    name_ar: string
+    businesses: { id: string; is_demo?: boolean }[] | null
+  }[] | null
 }
 
 export type Service = {
@@ -87,4 +93,6 @@ export type Product = {
   price: number
   rating?: number
   review_count?: number
+  is_demo?: boolean
+  source_type?: 'manual' | 'imported' | 'provider_api' | 'legacy_seed'
 }

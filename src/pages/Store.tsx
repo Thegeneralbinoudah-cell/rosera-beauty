@@ -6,17 +6,21 @@ import { useCartStore } from '@/stores/cartStore'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { toast } from 'sonner'
+import { useI18n } from '@/hooks/useI18n'
+import { usePreferences } from '@/contexts/PreferencesContext'
 
-const CATEGORIES = [
-  { key: '', label: 'الكل' },
-  { key: 'عناية بالبشرة', label: 'عناية بالبشرة' },
-  { key: 'مكياج', label: 'مكياج' },
-  { key: 'عناية بالشعر', label: 'عناية بالشعر' },
-  { key: 'عطور', label: 'عطور' },
-  { key: 'أظافر', label: 'أظافر' },
+const CATEGORY_DEFS: { key: string; tKey: string }[] = [
+  { key: '', tKey: 'store.catAll' },
+  { key: 'عناية بالبشرة', tKey: 'store.catSkincare' },
+  { key: 'مكياج', tKey: 'store.catMakeup' },
+  { key: 'عناية بالشعر', tKey: 'store.catHair' },
+  { key: 'عطور', tKey: 'store.catPerfume' },
+  { key: 'أظافر', tKey: 'store.catNails' },
 ]
 
 export default function Store() {
+  const { t } = useI18n()
+  const { lang } = usePreferences()
   const [products, setProducts] = useState<Product[]>([])
   const [q, setQ] = useState('')
   const [cat, setCat] = useState('')
@@ -27,7 +31,7 @@ export default function Store() {
     let c = true
     async function load() {
       try {
-        let query = supabase.from('products').select('*').eq('is_active', true)
+        let query = supabase.from('products').select('*').eq('is_active', true).eq('is_demo', false)
         if (cat) query = query.eq('category', cat)
         const { data, error } = await query
         if (error) throw error
@@ -55,14 +59,14 @@ export default function Store() {
       price: Number(p.price),
       quantity: 1,
     })
-    toast.success('أُضيف للسلة')
+    toast.success(t('store.addedToast'))
   }
 
   return (
     <div className="min-h-dvh bg-rosera-light pb-28 dark:bg-rosera-dark">
       <header className="sticky top-0 z-20 border-b border-primary/10 bg-white px-4 py-4 dark:bg-card">
         <div className="flex items-center justify-between gap-3">
-          <h1 className="text-xl font-extrabold">متجر الجمال 🛍️</h1>
+          <h1 className="text-xl font-extrabold">{t('store.title')}</h1>
           <Link to="/cart" className="relative flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 text-primary">
             <ShoppingCart className="h-6 w-6" />
             {count() > 0 && (
@@ -76,13 +80,13 @@ export default function Store() {
           <Search className="absolute start-3 top-1/2 h-5 w-5 -translate-y-1/2 text-rosera-gray" />
           <Input
             className="rounded-2xl ps-10"
-            placeholder="بحث في المتجر..."
+            placeholder={t('store.searchPlaceholder')}
             value={q}
             onChange={(e) => setQ(e.target.value)}
           />
         </div>
         <div className="mt-3 flex gap-2 overflow-x-auto scrollbar-hide pb-1">
-          {CATEGORIES.map(({ key, label }) => (
+          {CATEGORY_DEFS.map(({ key, tKey }) => (
             <button
               key={key || 'all'}
               type="button"
@@ -91,7 +95,7 @@ export default function Store() {
                 cat === key ? 'bg-gradient-to-l from-[#9C27B0] to-[#E91E8C] text-white' : 'border bg-white dark:bg-card'
               }`}
             >
-              {label}
+              {t(tKey)}
             </button>
           ))}
         </div>
@@ -105,7 +109,10 @@ export default function Store() {
             ))}
           </div>
         ) : filtered.length === 0 ? (
-          <p className="py-16 text-center text-rosera-gray">لا توجد منتجات</p>
+          <div className="py-16 text-center">
+            <p className="font-bold text-foreground">{t('store.emptyTitle')}</p>
+            <p className="mt-2 text-sm text-rosera-gray">{t('store.emptySub')}</p>
+          </div>
         ) : (
           <div className="grid grid-cols-2 gap-4">
             {filtered.map((p) => (
@@ -119,16 +126,18 @@ export default function Store() {
                     <p className="text-xs text-rosera-gray">{p.brand_ar}</p>
                   </Link>
                   <div className="mt-1 flex items-center gap-1">
-                    <Star className="h-4 w-4 fill-[#C9A227] text-[#C9A227]" />
+                    <Star className="h-4 w-4 fill-[#9B2257] text-[#9B2257]" />
                     <span className="text-xs font-bold">{Number(p.rating || 0).toFixed(1)}</span>
                   </div>
-                  <p className="mt-1 text-lg font-bold text-primary">{Number(p.price).toLocaleString('ar-SA')} ر.س</p>
+                  <p className="mt-1 text-lg font-bold text-primary">
+                    {Number(p.price).toLocaleString(lang === 'en' ? 'en-US' : 'ar-SA')} {t('common.sar')}
+                  </p>
                   <Button
                     size="sm"
                     className="mt-2 w-full rounded-xl bg-gradient-to-l from-[#9C27B0] to-[#E91E8C] text-xs"
                     onClick={() => addToCart(p)}
                   >
-                    أضيفي للسلة
+                    {t('store.addCart')}
                   </Button>
                 </div>
               </div>

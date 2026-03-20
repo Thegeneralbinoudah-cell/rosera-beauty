@@ -5,6 +5,13 @@ const cors = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
+function json(body: Record<string, unknown>, status = 200) {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { ...cors, 'Content-Type': 'application/json' },
+  })
+}
+
 function internalEmail(phone: string) {
   const d = phone.replace(/\D/g, '')
   return `p${d}@rosera.phone`
@@ -13,12 +20,16 @@ function internalEmail(phone: string) {
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: cors })
   try {
-    const { phone, otp } = await req.json()
-    if (!phone || !otp || String(otp).length !== 4) {
-      return new Response(JSON.stringify({ error: 'رمز التحقق غير صحيح' }), {
-        status: 400,
-        headers: { ...cors, 'Content-Type': 'application/json' },
-      })
+    const body = await req.json()
+    const phone = body?.phone as string | undefined
+    const codeRaw = (body?.code ?? body?.otp) as string | number | undefined
+    const code = codeRaw != null ? String(codeRaw).trim() : ''
+
+    if (!phone || typeof phone !== 'string' || !phone.startsWith('+966')) {
+      return json({ success: false, error: 'رقم غير صالح' }, 400)
+    }
+    if (code.length !== 6 || !/^\d{6}$/.test(code)) {
+      return json({ success: false, error: 'رمز غير صحيح أو منتهي' }, 400)
     }
 
     const supabase = createClient(
@@ -31,17 +42,14 @@ Deno.serve(async (req) => {
       .from('otp_codes')
       .select('id')
       .eq('phone', phone)
-      .eq('otp', String(otp))
+      .eq('code', code)
       .eq('used', false)
       .gt('expires_at', now)
       .order('created_at', { ascending: false })
       .limit(1)
 
     if (qErr || !rows?.length) {
-      return new Response(JSON.stringify({ error: 'رمز التحقق غير صحيح' }), {
-        status: 401,
-        headers: { ...cors, 'Content-Type': 'application/json' },
-      })
+      return json({ success: false, error: 'رمز غير صحيح أو منتهي' })
     }
 
     const otpId = rows[0].id
@@ -59,7 +67,6 @@ Deno.serve(async (req) => {
     const url = Deno.env.get('SUPABASE_URL')!
     const anon = Deno.env.get('SUPABASE_ANON_KEY')!
     const service = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
-
     let userId: string
 
     if (mapRow?.user_id) {
@@ -109,27 +116,18 @@ Deno.serve(async (req) => {
     const tokenJson = await tokenRes.json()
     if (!tokenRes.ok || !tokenJson.access_token) {
       console.error(tokenJson)
-      return new Response(JSON.stringify({ error: 'رمز التحقق غير صحيح' }), {
-        status: 401,
-        headers: { ...cors, 'Content-Type': 'application/json' },
-      })
+      return json({ success: false, error: 'رمز غير صحيح أو منتهي' })
     }
 
-    return new Response(
-      JSON.stringify({
-        success: true,
-        access_token: tokenJson.access_token,
-        refresh_token: tokenJson.refresh_token,
-        expires_in: tokenJson.expires_in,
-        user: tokenJson.user,
-      }),
-      { headers: { ...cors, 'Content-Type': 'application/json' } }
-    )
+    return json({
+      success: true,
+      access_token: tokenJson.access_token,
+      refresh_token: tokenJson.refresh_token,
+      expires_in: tokenJson.expires_in,
+      user: tokenJson.user,
+    })
   } catch (e) {
     console.error(e)
-    return new Response(JSON.stringify({ error: 'رمز التحقق غير صحيح' }), {
-      status: 500,
-      headers: { ...cors, 'Content-Type': 'application/json' },
-    })
+    return json({ success: false, error: 'رمز غير صحيح أو منتهي' }, 500)
   }
 })

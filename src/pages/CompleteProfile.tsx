@@ -115,7 +115,7 @@ export default function CompleteProfile() {
   if (profile?.full_name?.trim()) return null
 
   return (
-    <div className="min-h-dvh bg-gradient-to-b from-[#fdf2f8] to-white px-6 py-12 dark:from-rosera-dark dark:to-rosera-dark">
+    <div className="min-h-dvh bg-white px-6 py-12 dark:bg-rosera-dark">
       <div className="mx-auto max-w-md">
         <h1 className="text-2xl font-extrabold text-center text-foreground">أكملي ملفكِ</h1>
         <p className="mt-2 text-center text-sm text-rosera-gray">خطوة واحدة وتنتهين</p>
@@ -152,7 +152,7 @@ export default function CompleteProfile() {
             <Label>المدينة</Label>
             <Select value={city} onValueChange={setCity}>
               <SelectTrigger className="mt-2 rounded-2xl">
-                <SelectValue placeholder="اخترين المدينة" />
+                <SelectValue placeholder="إختاري المدينة" />
               </SelectTrigger>
               <SelectContent>
                 {citiesByRegion.map((c) => (

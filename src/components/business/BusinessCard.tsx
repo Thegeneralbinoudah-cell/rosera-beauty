@@ -83,7 +83,7 @@ export function BusinessCard({
     >
       <div className="relative aspect-[4/3] w-full overflow-hidden">
         <img src={img} alt="" className="h-full w-full object-cover" />
-        <Badge className="absolute top-2 start-2 max-w-[70%] truncate text-[10px] shadow-md">
+        <Badge className="absolute top-2 start-2 max-w-[85%] truncate text-[10px] font-semibold shadow-md">
           {label}
         </Badge>
         {showFavorite && (
@@ -100,10 +100,10 @@ export function BusinessCard({
         )}
       </div>
       <div className="p-3">
-        <h3 className="line-clamp-1 font-bold">{b.name_ar}</h3>
-        <div className="mt-1 flex flex-wrap items-center gap-2 text-sm text-rosera-gray">
-          <span className="flex items-center gap-0.5 text-[#C9A227]">
-            <Star className="h-4 w-4 fill-[#C9A227]" />
+        <h3 className="line-clamp-2 text-base font-semibold text-[#1F1F1F] dark:text-foreground">{b.name_ar}</h3>
+        <div className="mt-1 flex flex-wrap items-center gap-2 text-sm font-medium text-[#374151] dark:text-rosera-gray">
+          <span className="flex items-center gap-0.5 text-[#9B2257]">
+            <Star className="h-4 w-4 fill-[#9B2257] text-[#9B2257]" />
             {Number(b.average_rating ?? 0).toFixed(1)}
           </span>
           <span>({b.total_reviews ?? 0})</span>
@@ -129,10 +129,10 @@ export function BusinessRow({ b }: { b: Business }) {
     >
       <img src={img} alt="" className="h-20 w-20 shrink-0 rounded-xl object-cover" />
       <div className="min-w-0 flex-1">
-        <h3 className="font-bold line-clamp-1">{b.name_ar}</h3>
-        <p className="text-sm text-rosera-gray">{b.city}</p>
-        <div className="mt-1 flex items-center gap-1 text-sm text-[#C9A227]">
-          <Star className="h-4 w-4 fill-[#C9A227]" />
+        <h3 className="line-clamp-2 font-semibold text-[#1F1F1F] dark:text-foreground">{b.name_ar}</h3>
+        <p className="text-sm font-medium text-[#374151] dark:text-rosera-gray">{b.city}</p>
+        <div className="mt-1 flex items-center gap-1 text-sm font-medium text-[#9B2257]">
+          <Star className="h-4 w-4 fill-[#9B2257] text-[#9B2257]" />
           {Number(b.average_rating ?? 0).toFixed(1)}
         </div>
       </div>
