@@ -34,7 +34,11 @@ psql "$DATABASE_URL" -f supabase/seed/manual_batch_02_eastern_businesses.sql
 | **`manual_batch_06_women_only.sql`**     | **35 (نسائي فقط — الدفعة الرسمية)** |
 | `manual_batch_06_eastern_businesses.sql` | deprecated — لا تشغّلها مع الملف أعلاه |
 | **`manual_batch_07_women_only.sql`**     | **23 مدرَجة فريدة** — الجزء 1 من دفعة 7؛ المكررة مع 02–06 موثّقة كتعليق `SKIPPED` داخل الملف؛ أرسلي بقية الأسماء لإكمال ~100 |
+| **`manual_batch_08_women_only.sql`**     | **20 مدرَجة فريدة** — قائمة المُرسل كانت ~32 سطراً (ليس 80)؛ الباقي مُستبعد كـ `SKIPPED_DUPLICATES` مقابل 02–07؛ يتضمّن إدراجاً idempotent لـ `سلوى` و`البطحاء` و`قرية العليا` و`رأس تنورة` في `sa_cities` إن لزم |
+| **`manual_batch_09_women_only.sql`**     | **4 مدرَجة فريدة** — الرسالة ~26 سطراً وليست 80؛ الباقي مكرر مع 02–08 (انظر `SKIPPED_DUPLICATES` في الملف) |
+| **`manual_batch_10_women_only.sql`**    | **9 مدرَجة فريدة** — القائمة ~32 سطراً؛ استبعاد بناءً على الهاتف + تكرار العلامة التجارية مقابل 02–09 (راجع `SKIPPED_DUPLICATES`) |
+| **`manual_batch_11_women_only.sql`**     | **10 مدرَجة فريدة** — القائمة ~45 سطراً (ليس 100)؛ استبعاد vs 02–10 (هاتف، رقم وطني، مجمع بنفس السلسلة، علامات تالين/لافندر/لوزان/ندى… — راجع `SKIPPED_DUPLICATES`)؛ تنويع `category_label` لعشر تسميات عربية |
 
 عند إضافة دفعة 7 كاملة: راجعي تعليق **`SKIPPED_DUPLICATES`** في `manual_batch_07_women_only.sql` ثم ألحقي باقي الصفوف أو أنشئي `manual_batch_07b_….sql`.
 
-Append new batches as `manual_batch_08_….sql` or extend a file with more `INSERT` tuples inside the same `VALUES` list.
+Append new batches as `manual_batch_11_….sql` or extend a file with more `INSERT` tuples inside the same `VALUES` list.
