@@ -31,8 +31,8 @@ const sheetVariants = cva(
       side: {
         top: 'inset-x-0 top-0 border-b rounded-b-2xl',
         bottom: 'inset-x-0 bottom-0 border-t rounded-t-2xl max-h-[90vh] overflow-y-auto',
-        left: 'inset-y-0 start-0 h-full w-3/4 border-e sm:max-w-sm',
-        right: 'inset-y-0 end-0 h-full w-3/4 border-s sm:max-w-sm',
+        left: 'inset-y-0 start-0 h-full w-3/4 rounded-e-2xl border-e sm:max-w-sm',
+        right: 'inset-y-0 end-0 h-full w-3/4 rounded-s-2xl border-s sm:max-w-sm',
       },
     },
     defaultVariants: { side: 'right' },
@@ -50,7 +50,7 @@ const SheetContent = React.forwardRef<React.ElementRef<typeof SheetPrimitive.Con
       <SheetPrimitive.Content ref={ref} className={cn(sheetVariants({ side }), className)} {...props}>
         <SheetPrimitive.Title className="sr-only">روزيرا</SheetPrimitive.Title>
         {children}
-        <SheetPrimitive.Close className="absolute end-4 top-4 rounded-lg opacity-70 ring-offset-background transition-opacity hover:opacity-100">
+        <SheetPrimitive.Close className="absolute end-4 top-4 rounded-2xl p-1 opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F9A8C9]">
           <X className="h-4 w-4" />
           <span className="sr-only">إغلاق</span>
         </SheetPrimitive.Close>

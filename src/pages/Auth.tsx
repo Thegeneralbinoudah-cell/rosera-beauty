@@ -9,6 +9,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { toast } from 'sonner'
 import { STORAGE_KEYS } from '@/lib/utils'
+import { consumePostAuthPath } from '@/lib/salonAcquisition'
 import { usePreferences } from '@/contexts/PreferencesContext'
 import PreferencesToggle from '@/components/PreferencesToggle'
 
@@ -62,7 +63,7 @@ export default function Auth() {
         supabase.from('businesses').select('id').eq('owner_id', uid).limit(1).maybeSingle(),
       ])
       if (so || biz) {
-        nav('/owner', { replace: true })
+        nav('/salon/dashboard', { replace: true })
       } else {
         toast.error('حسابك غير مرتبط بصالون')
         nav('/home', { replace: true })
@@ -83,11 +84,17 @@ export default function Auth() {
       return
     }
 
+    const postAuth = consumePostAuthPath()
+    if (postAuth) {
+      nav(postAuth, { replace: true })
+      return
+    }
+
     if (uid) {
       const { data: prof } = await supabase.from('profiles').select('full_name, role').eq('id', uid).single()
       const role = ((prof as { role?: string } | null)?.role ?? 'user').toLowerCase()
       if (role === 'owner') {
-        nav('/owner', { replace: true })
+        nav('/salon/dashboard', { replace: true })
         return
       }
       if (role === 'admin' || role === 'supervisor') {
@@ -181,8 +188,10 @@ export default function Auth() {
       if (uid) {
         const { data: prof } = await supabase.from('profiles').select('role, full_name').eq('id', uid).single()
         const role = ((prof as { role?: string } | null)?.role ?? 'user').toLowerCase()
-        if (role === 'owner') return nav('/owner', { replace: true })
+        if (role === 'owner') return nav('/salon/dashboard', { replace: true })
         if (role === 'admin' || role === 'supervisor') return nav('/admin', { replace: true })
+        const postAuth = consumePostAuthPath()
+        if (postAuth) return nav(postAuth, { replace: true })
         return nav('/home', { replace: true })
       }
       nav('/home', { replace: true })

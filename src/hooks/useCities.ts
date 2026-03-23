@@ -74,7 +74,6 @@ export function useCities(regionId: string | undefined, lang: Lang) {
 
         let r: SaRegionRow
         if (full.error) {
-          console.warn('[useCities] nested query failed, retrying without businesses:', full.error)
           const simple = await withTimeout(
             supabase
               .from('sa_regions')
@@ -120,8 +119,7 @@ export function useCities(regionId: string | undefined, lang: Lang) {
             .sort((a, b) => a.name_ar.localeCompare(b.name_ar, 'ar'))
           setCities(list)
         }
-      } catch (e) {
-        console.error('[useCities] load', e)
+      } catch {
         if (!cancelled) {
           toast.error(tr(lang, 'region.citiesLoadError'))
           setCities([])

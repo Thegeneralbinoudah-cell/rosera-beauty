@@ -9,6 +9,7 @@ import { Label } from '@/components/ui/label'
 import { toast } from 'sonner'
 import { useI18n } from '@/hooks/useI18n'
 import PreferencesToggle from '@/components/PreferencesToggle'
+import { consumePostAuthPath } from '@/lib/salonAcquisition'
 
 /** بعد تسجيل الدخول بالإيميل: توجيه حسب الدور من profiles */
 async function redirectAfterEmailLogin(nav: (path: string, opts?: { replace: boolean }) => void, uid: string) {
@@ -17,11 +18,16 @@ async function redirectAfterEmailLogin(nav: (path: string, opts?: { replace: boo
   const role = (p?.role ?? 'user').toLowerCase()
 
   if (role === 'owner') {
-    nav('/owner', { replace: true })
+    nav('/salon/dashboard', { replace: true })
     return
   }
   if (role === 'admin' || role === 'supervisor') {
     nav('/admin', { replace: true })
+    return
+  }
+  const postAuth = consumePostAuthPath()
+  if (postAuth) {
+    nav(postAuth, { replace: true })
     return
   }
   if (p?.full_name?.trim()) {

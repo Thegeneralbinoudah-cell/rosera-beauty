@@ -812,7 +812,7 @@ export default function SalonOnboarding() {
   const { user, loading } = useAuth()
   const [step, setStep] = useState(1)
   const [submitting, setSubmitting] = useState(false)
-  const saveT = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
+  const saveT = useRef<number | undefined>(undefined)
 
   const merged = useMemo(() => mergeDraft(loadDraft()), [])
 

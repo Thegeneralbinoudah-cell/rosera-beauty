@@ -1,0 +1,98 @@
+import { Link } from 'react-router-dom'
+import { Star, ShoppingBag } from 'lucide-react'
+import type { Product } from '@/lib/supabase'
+import { Button } from '@/components/ui/button'
+import { cn } from '@/lib/utils'
+import { useI18n } from '@/hooks/useI18n'
+import { usePreferences } from '@/contexts/PreferencesContext'
+
+const IMG_FALLBACK =
+  'https://images.unsplash.com/photo-1596462502278-27bfdc403543?w=600&q=80&auto=format&fit=crop'
+
+type StoreProductCardProps = {
+  product: Product
+  sponsored?: boolean
+  onAddToCart: (p: Product) => void
+  className?: string
+}
+
+export function StoreProductCard({ product, sponsored, onAddToCart, className }: StoreProductCardProps) {
+  const { t } = useI18n()
+  const { lang } = usePreferences()
+  const rating = Number(product.rating ?? 0)
+  const reviews = product.review_count ?? 0
+  const priceStr = Number(product.price).toLocaleString(lang === 'en' ? 'en-US' : 'ar-SA')
+
+  return (
+    <article
+      className={cn(
+        'group flex flex-col overflow-hidden rounded-3xl border border-[#F9A8C9]/20 bg-white shadow-[0_8px_32px_-12px_rgba(249,168,201,0.25)] transition-shadow duration-300 hover:border-[#F9A8C9]/40 hover:shadow-[0_16px_40px_-12px_rgba(190,24,93,0.12)] dark:border-border dark:bg-card',
+        className
+      )}
+    >
+      <Link
+        to={`/product/${product.id}`}
+        className="relative block aspect-[4/5] overflow-hidden bg-gradient-to-b from-[#FDF2F8] to-[#FCE7F3]"
+      >
+        <img
+          src={product.image_url || IMG_FALLBACK}
+          alt=""
+          className="h-full w-full object-cover transition-transform duration-500 ease-out group-hover:scale-[1.04]"
+          loading="lazy"
+        />
+        <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/20 via-transparent to-white/10 opacity-60" />
+        {sponsored && (
+          <span className="absolute start-3 top-3 rounded-full bg-white/95 px-2.5 py-1 text-[10px] font-bold tracking-wide text-[#BE185D] shadow-sm backdrop-blur-sm dark:bg-black/75 dark:text-primary">
+            {t('store.sponsored')}
+          </span>
+        )}
+      </Link>
+
+      <div className="flex flex-1 flex-col p-3.5 pt-3">
+        {product.brand_ar && (
+          <p className="mb-0.5 font-cairo text-[11px] font-semibold uppercase tracking-wider text-[#BE185D]/80 dark:text-primary/90">
+            {product.brand_ar}
+          </p>
+        )}
+        <Link to={`/product/${product.id}`} className="min-h-0 flex-1">
+          <h3 className="font-cairo line-clamp-2 text-[15px] font-bold leading-snug text-[#374151] transition-colors hover:text-[#BE185D] dark:text-foreground dark:hover:text-primary">
+            {product.name_ar}
+          </h3>
+        </Link>
+
+        <div className="mt-2 flex items-center gap-1.5">
+          <div className="flex items-center gap-0.5 rounded-full bg-[#FDF2F8] px-2 py-0.5 dark:bg-muted/80">
+            <Star className="h-3.5 w-3.5 fill-[#F9A8C9] text-[#F9A8C9]" strokeWidth={0} aria-hidden />
+            <span className="font-cairo text-xs font-bold text-[#374151] dark:text-foreground">
+              {rating.toFixed(1)}
+            </span>
+          </div>
+          {reviews > 0 && (
+            <span className="font-cairo text-[11px] text-[#6B7280] dark:text-muted-foreground">
+              ({reviews.toLocaleString(lang === 'en' ? 'en-US' : 'ar-SA')} {t('store.reviews')})
+            </span>
+          )}
+        </div>
+
+        <div className="mt-3 flex items-end justify-between gap-2 border-t border-[#F9A8C9]/15 pt-3">
+          <p className="font-cairo text-lg font-extrabold tabular-nums text-[#BE185D] dark:text-primary">
+            {priceStr}
+            <span className="ms-1 text-xs font-bold text-[#6B7280] dark:text-muted-foreground">
+              {t('common.sar')}
+            </span>
+          </p>
+        </div>
+
+        <Button
+          type="button"
+          size="sm"
+          className="mt-3 h-10 w-full gap-2 rounded-2xl text-xs font-bold shadow-sm"
+          onClick={() => onAddToCart(product)}
+        >
+          <ShoppingBag className="h-4 w-4 opacity-90" aria-hidden />
+          {t('store.addCart')}
+        </Button>
+      </div>
+    </article>
+  )
+}

@@ -17,7 +17,7 @@ export function BottomNav() {
   const { t } = useI18n()
 
   return (
-    <nav className="fixed bottom-0 inset-x-0 z-40 border-t border-primary/10 bg-white/95 pb-safe pt-2 shadow-[0_-4px_24px_-4px_rgba(233,30,140,0.08)] backdrop-blur-md dark:bg-rosera-dark/95">
+    <nav className="fixed bottom-0 inset-x-0 z-50 border-t border-primary/25 bg-white/90 pb-safe pt-2 shadow-nav backdrop-blur-xl dark:border-border dark:bg-rosera-dark/95">
       <div className="mx-auto flex max-w-lg items-center justify-around px-1">
         {items.map(({ to, k, Icon, match }) => {
           const active = match(pathname)
@@ -25,19 +25,35 @@ export function BottomNav() {
             <NavLink
               key={to}
               to={to}
+              onMouseEnter={() => {
+                if (to === '/map') void import('@/pages/MapPage')
+              }}
+              onFocus={() => {
+                if (to === '/map') void import('@/pages/MapPage')
+              }}
               className={cn(
-                'relative flex flex-1 flex-col items-center gap-0.5 py-2 text-[10px] font-bold transition-colors',
-                active ? 'text-[#E91E8C]' : 'text-rosera-gray'
+                'relative flex flex-1 flex-col items-center gap-0.5 py-2 text-[10px] font-bold tracking-luxury-tight transition-all duration-200 active:scale-95',
+                active ? 'text-[#BE185D]' : 'text-muted-foreground'
               )}
             >
               {active && (
                 <motion.span
                   layoutId="navdot"
-                  className="absolute -top-0.5 h-1 w-8 rounded-full bg-gradient-to-l from-[#9C27B0] to-[#E91E8C]"
+                  className="absolute -top-0.5 h-1 w-8 rounded-full bg-[#F9A8C9]"
                   transition={{ type: 'spring', stiffness: 400, damping: 30 }}
                 />
               )}
-              <Icon className={cn('h-5 w-5', active && 'text-[#E91E8C]')} strokeWidth={active ? 2.5 : 2} />
+              <span
+                className={cn(
+                  'flex h-10 w-10 items-center justify-center rounded-full transition-all duration-200',
+                  active ? 'icon-circle-pink scale-100' : 'bg-transparent'
+                )}
+              >
+                <Icon
+                  className={cn('h-5 w-5 transition-transform duration-200', active ? 'text-[#BE185D]' : 'text-muted-foreground')}
+                  strokeWidth={active ? 2.5 : 2}
+                />
+              </span>
               <span className="leading-tight text-center whitespace-nowrap">{t(k)}</span>
             </NavLink>
           )

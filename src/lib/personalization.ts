@@ -100,7 +100,14 @@ export async function fetchUserRecommendationHistory(userId: string): Promise<Us
   for (const row of eventsRes.data ?? []) {
     const r = row as { event_type: string; entity_type: string; entity_id: string; created_at: string }
     const d = decayFactor(r.created_at)
-    const w = r.event_type === 'book' ? 1.15 : r.event_type === 'click' ? 0.5 : 0.15
+    const w =
+      r.event_type === 'book'
+        ? 1.15
+        : r.event_type === 'click'
+          ? 0.5
+          : r.event_type === 'user_preference'
+            ? 0.55
+            : 0.15
     const add = w * d
     if (r.entity_type === 'service') bumpEventScore(h.serviceEventScore, r.entity_id, add)
     else if (r.entity_type === 'product') bumpEventScore(h.productEventScore, r.entity_id, add)

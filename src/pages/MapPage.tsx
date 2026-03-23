@@ -1,27 +1,23 @@
 import { useEffect, useState, useMemo, useRef, useCallback } from 'react'
-import { limitMarkersNearest } from '@/lib/mapMarkers'
 import { GoogleMapView } from '@/components/map/GoogleMapView'
-import { useNavigate, useSearchParams } from 'react-router-dom'
-import { Search, Crosshair, MapPin, ChevronLeft, RefreshCw } from 'lucide-react'
+import { useNavigate, useSearchParams, useLocation } from 'react-router-dom'
+import { Search, Crosshair, ChevronLeft, RefreshCw } from 'lucide-react'
 import { supabase, type Business } from '@/lib/supabase'
-import { haversineKm } from '@/lib/utils'
+import { haversineKm, cn } from '@/lib/utils'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { SortPills } from '@/components/ui/sort-pills'
 import { Star } from 'lucide-react'
 import { toast } from 'sonner'
 import { useI18n } from '@/hooks/useI18n'
 import { usePreferences } from '@/contexts/PreferencesContext'
-import { resolveBusinessCoverImage } from '@/lib/businessImages'
 import { openNativeMapsDirections } from '@/lib/openNativeMapsDirections'
 import { fetchGooglePlacesBeautySalons } from '@/lib/fetchGooglePlacesBeauty'
-import {
-  dedupeBusinessesForDisplay,
-  filterFemaleBeautyBusinesses,
-} from '@/lib/roseraBusinessFilters'
+import { dedupeBusinessesForDisplay, filterMapDisplayBusinesses } from '@/lib/roseraBusinessFilters'
 import { GOOGLE_MAPS_API_KEY_EMBEDDED } from '@/config/googleMapsApiKey'
 import { tr } from '@/lib/i18n'
+import { hasGeolocationKnown, markGeolocationKnown } from '@/lib/geoSession'
 
 /** مساحة آمنة أسفل الخريطة: شريط التنقل + ~100px + منطقة آمنة */
 const MAP_BOTTOM_SAFE =
@@ -35,6 +31,8 @@ const GOOGLE_MAP_PAD_RIGHT_PX = 32
 
 const DEFAULT_CENTER: [number, number] = [26.2172, 50.1971] // Al Khobar (fallback if GPS unavailable)
 const DEFAULT_ZOOM = 12
+/** تقريب أقرب عند أول تحديد للموقع أو زر التمركز */
+const USER_LOCATION_ZOOM = 16
 const MAP_PREFS_KEY = 'rosera:map:prefs'
 /** sonner id — يُزال تلقائياً عند نجاح الجلب */
 const MAP_DATA_ERROR_TOAST_ID = 'rosera-map-data-error'
@@ -59,10 +57,89 @@ function isEasternProvinceRegion(region: string | null | undefined): boolean {
   )
 }
 
+/** مدن وبلدات شائعة في الشرقية — يُكمّل حقل `region` إن كان فارغًا أو غير متطابق */
+const EASTERN_CITY_KEYWORDS = [
+  'الخبر',
+  'الدمام',
+  'الظهران',
+  'الأحساء',
+  'الاحساء',
+  'حفر الباطن',
+  'الجبيل',
+  'القطيف',
+  'الخفجي',
+  'رأس تنورة',
+  'بقيق',
+  'النعيرية',
+  'قرية العليا',
+  'العديد',
+  'الهفوف',
+  'المبرز',
+  'العيون',
+]
+
+/** تقريبًا: شبه جزيرة الشرقية داخل السعودية (إحداثيات WGS84) */
+function isInEasternProvinceBBox(lat: number, lng: number): boolean {
+  return lat >= 22.2 && lat <= 28.85 && lng >= 47.8 && lng <= 55.85
+}
+
+const EASTERN_EN_KEYWORDS = [
+  'khobar',
+  'dammam',
+  'dhahran',
+  'al ahsa',
+  'al hasa',
+  'hofuf',
+  'hufuf',
+  'khafji',
+  'nairiyah',
+  'jubail',
+  'qatif',
+  'ras tanura',
+  'eastern province',
+  'ash sharqiyah',
+]
+
+/** تطابق مدن الشرقية في `city` أو في الاسم (عربي/إنجليزي) لتفادي اختلاف التسمية في البيانات */
+function matchesEasternCityOrName(b: Pick<Business, 'city' | 'name_ar' | 'name_en'>): boolean {
+  const blob = [b.city, b.name_ar, b.name_en].filter(Boolean).join(' ')
+  if (!blob.trim()) return false
+  if (EASTERN_CITY_KEYWORDS.some((k) => blob.includes(k))) return true
+  const low = blob.toLowerCase()
+  return EASTERN_EN_KEYWORDS.some((k) => low.includes(k))
+}
+
+/** تضمين منشأة عند فلتر «الشرقية» — منطقة، أو مدينة معروفة، أو إحداثيات داخل الصندوق */
+function isEasternProvinceBusiness(b: Business): boolean {
+  if (isEasternProvinceRegion(b.region)) return true
+  if (matchesEasternCityOrName(b)) return true
+  const la = Number(b.latitude)
+  const ln = Number(b.longitude)
+  if (Number.isFinite(la) && Number.isFinite(ln) && isInEasternProvinceBBox(la, ln)) return true
+  return false
+}
+
+function normalizeBusinessCoords(row: Business): Business {
+  const rawLat = row.latitude as unknown
+  const rawLng = row.longitude as unknown
+  const lat =
+    rawLat == null || rawLat === ''
+      ? undefined
+      : Number(rawLat)
+  const lng =
+    rawLng == null || rawLng === ''
+      ? undefined
+      : Number(rawLng)
+  const latitude = lat != null && Number.isFinite(lat) ? lat : undefined
+  const longitude = lng != null && Number.isFinite(lng) ? lng : undefined
+  return { ...row, latitude, longitude }
+}
+
 export default function MapPage() {
   const { t } = useI18n()
   const { lang } = usePreferences()
   const nav = useNavigate()
+  const location = useLocation()
   const [params, setParams] = useSearchParams()
   const storedPrefs = (() => {
     try {
@@ -70,6 +147,7 @@ export default function MapPage() {
         q?: string
         region?: 'all' | 'eastern'
         sort?: 'rating' | 'booked' | 'nearest' | 'name' | 'newest'
+        city?: string
       }
     } catch {
       return {}
@@ -77,12 +155,25 @@ export default function MapPage() {
   })()
 
   const initialQ = params.get('q') ?? storedPrefs.q ?? ''
-  const initialRegion = params.get('region') === 'all' ? 'all' : (storedPrefs.region ?? 'eastern')
-  const urlSort = params.get('sort')
+  const urlRegion = params.get('region')
+  const initialRegion: 'all' | 'eastern' =
+    urlRegion === 'all' || urlRegion === 'eastern'
+      ? urlRegion
+      : storedPrefs.region === 'eastern' || storedPrefs.region === 'all'
+        ? storedPrefs.region
+        : 'all'
+  const urlSortRaw = params.get('sort')
+  const urlSort =
+    urlSortRaw === 'booked' ||
+    urlSortRaw === 'nearest' ||
+    urlSortRaw === 'rating' ||
+    urlSortRaw === 'name' ||
+    urlSortRaw === 'newest'
+      ? urlSortRaw
+      : null
   const initialSort =
-    urlSort === 'booked' || urlSort === 'nearest' || urlSort === 'rating' || urlSort === 'name' || urlSort === 'newest'
-      ? urlSort
-      : (storedPrefs.sort ?? 'rating')
+    urlSort ?? (hasGeolocationKnown() ? 'nearest' : (storedPrefs.sort ?? 'rating'))
+  const initialCity = params.get('city') ?? storedPrefs.city ?? ''
 
   const [businesses, setBusinesses] = useState<Business[]>([])
   /** أماكن حقيقية من Google Places (الخبر + الدمام) — تُدمج مع Supabase */
@@ -93,9 +184,9 @@ export default function MapPage() {
   const [mapCenter, setMapCenter] = useState<[number, number]>(DEFAULT_CENTER)
   const [mapZoom, setMapZoom] = useState(DEFAULT_ZOOM)
   const [userPos, setUserPos] = useState<[number, number] | null>(null)
-  const [nearestSheetOpen, setNearestSheetOpen] = useState(false)
   const [regionFilter, setRegionFilter] = useState<'all' | 'eastern'>(initialRegion)
   const [sortBy, setSortBy] = useState<'rating' | 'booked' | 'nearest' | 'name' | 'newest'>(initialSort)
+  const [mapCity, setMapCity] = useState(initialCity)
   const searchInputRef = useRef<HTMLInputElement>(null)
   const fetchFailureNotified = useRef(false)
   const locationDeniedNotified = useRef(false)
@@ -107,6 +198,8 @@ export default function MapPage() {
   const hasAutoCenteredOnGpsRef = useRef(false)
   /** يُزال «جاري التحديث» بعد أول إحداثيات ناجحة (حتى لا يبقى عالقاً إذا تأخر جلب المنشآت) */
   const clearedMapLoadingAfterFirstCoordsRef = useRef(false)
+  /** مزامنة `city` من الرابط عند الانتقال من صفحات أخرى (بدون مسح المدينة المحفوظة إذا لم يكن `city` في الـ URL) */
+  const lastMapSearchSyncedRef = useRef<string | null>(null)
 
   const openDirections = (
     lat: number | null | undefined,
@@ -122,10 +215,10 @@ export default function MapPage() {
 
   const resetMapFilters = () => {
     setQ('')
+    setMapCity('')
     setRegionFilter('eastern')
     setSortBy('rating')
     setSelected(null)
-    setNearestSheetOpen(false)
     setMapCenter(DEFAULT_CENTER)
     setMapZoom(DEFAULT_ZOOM)
     localStorage.removeItem(MAP_PREFS_KEY)
@@ -141,34 +234,40 @@ export default function MapPage() {
         mapFetchBusyCount.current += 1
         setMapLoading(true)
         safetyClear = setTimeout(() => {
-          if (import.meta.env.DEV) {
-            console.warn('[MapPage] businesses fetch safety timeout — forcing mapLoading off')
-          }
           mapFetchBusyCount.current = 0
           setMapLoading(false)
         }, 55_000)
       }
+      let supabaseOk = false
+      let placesCount = 0
       try {
         const { data, error } = await supabase
           .from('businesses')
           .select('*')
           .eq('is_active', true)
           .eq('is_demo', false)
-          .not('latitude', 'is', null)
-          .not('longitude', 'is', null)
         if (error) throw error
-        const rows = Array.isArray(data) ? (data as Business[]) : []
+        const rows = Array.isArray(data) ? (data as Business[]).map(normalizeBusinessCoords) : []
         setBusinesses(rows)
+        supabaseOk = true
 
-        let placesCount = 0
+        /** إظهار الخريطة فوراً ببيانات Supabase — Google Places يُكمّل لاحقاً دون حجب التحميل */
+        if (busy) {
+          mapFetchBusyCount.current = Math.max(0, mapFetchBusyCount.current - 1)
+          if (mapFetchBusyCount.current === 0) setMapLoading(false)
+        }
+        if (safetyClear) {
+          clearTimeout(safetyClear)
+          safetyClear = null
+        }
+
         const gKey = GOOGLE_MAPS_API_KEY_EMBEDDED.trim()
         if (gKey) {
           try {
             const places = await fetchGooglePlacesBeautySalons(gKey)
-            setGooglePlaces(places)
+            setGooglePlaces(places.map(normalizeBusinessCoords))
             placesCount = places.length
-          } catch (pe) {
-            if (import.meta.env.DEV) console.warn('[MapPage] Google Places fetch failed', pe)
+          } catch {
             setGooglePlaces([])
           }
         } else {
@@ -180,8 +279,15 @@ export default function MapPage() {
         if (opts?.showToast) {
           toast.success(tr(lang, 'map.refreshed', { count: rows.length + placesCount }))
         }
-      } catch (e) {
-        console.error('[MapPage] businesses fetch failed', e)
+      } catch {
+        if (!supabaseOk) {
+          setBusinesses([])
+          setGooglePlaces([])
+        }
+        if (busy && !supabaseOk) {
+          mapFetchBusyCount.current = Math.max(0, mapFetchBusyCount.current - 1)
+          if (mapFetchBusyCount.current === 0) setMapLoading(false)
+        }
         if (opts?.showToast) {
           toast.error(tr(lang, 'map.dataLoadError'), { id: MAP_DATA_ERROR_TOAST_ID })
         } else if (!opts?.suppressErrorToast && busy && !fetchFailureNotified.current) {
@@ -190,10 +296,6 @@ export default function MapPage() {
         }
       } finally {
         if (safetyClear) clearTimeout(safetyClear)
-        if (busy) {
-          mapFetchBusyCount.current = Math.max(0, mapFetchBusyCount.current - 1)
-          if (mapFetchBusyCount.current === 0) setMapLoading(false)
-        }
       }
     },
     [lang]
@@ -202,12 +304,6 @@ export default function MapPage() {
   useEffect(() => {
     void fetchBusinesses({ busyIndicator: true })
   }, [fetchBusinesses])
-
-  useEffect(() => {
-    if (!import.meta.env.DEV) return
-    const g = GOOGLE_MAPS_API_KEY_EMBEDDED.trim()
-    if (!g) console.warn('[MapPage] embedded Google Maps key missing (googleMapsApiKey.ts)')
-  }, [])
 
   useEffect(() => {
     const onVis = () => {
@@ -242,11 +338,46 @@ export default function MapPage() {
   }, [sortBy])
 
   useEffect(() => {
+    if (sortBy !== 'nearest') return
+    if (!navigator.geolocation) return
+    if (Array.isArray(userPos) && userPos.length >= 2) return
+    navigator.geolocation.getCurrentPosition(
+      (p) => {
+        const lat = p.coords?.latitude
+        const lng = p.coords?.longitude
+        if (typeof lat === 'number' && typeof lng === 'number' && Number.isFinite(lat) && Number.isFinite(lng)) {
+          markGeolocationKnown()
+          setUserPos([lat, lng])
+        }
+      },
+      () => {},
+      { enableHighAccuracy: true, timeout: 15000, maximumAge: 60_000 }
+    )
+  }, [sortBy, userPos])
+
+  useEffect(() => {
+    const s = location.search
+    if (lastMapSearchSyncedRef.current === s) return
+    lastMapSearchSyncedRef.current = s
+    const sp = new URLSearchParams(s)
+    if (sp.has('city')) {
+      const c = sp.get('city') ?? ''
+      setMapCity((prev) => (prev === c ? prev : c))
+    }
+  }, [location.search])
+
+  useEffect(() => {
+    const sp = new URLSearchParams(window.location.search)
+    const focusKeep = sp.get('focus')
     const p = new URLSearchParams()
     if (q.trim()) p.set('q', q.trim())
     else p.delete('q')
     p.set('region', regionFilter)
     p.set('sort', sortBy)
+    const ct = mapCity.trim()
+    if (ct) p.set('city', ct)
+    else p.delete('city')
+    if (focusKeep?.trim()) p.set('focus', focusKeep.trim())
     setParams(p, { replace: true })
     localStorage.setItem(
       MAP_PREFS_KEY,
@@ -254,9 +385,10 @@ export default function MapPage() {
         q: q.trim(),
         region: regionFilter,
         sort: sortBy,
+        city: ct,
       })
     )
-  }, [q, regionFilter, sortBy, setParams])
+  }, [q, regionFilter, sortBy, mapCity, setParams])
 
   useEffect(() => {
     if (!navigator.geolocation) return
@@ -278,6 +410,7 @@ export default function MapPage() {
           return
         }
         const pos: [number, number] = [lat, lng]
+        markGeolocationKnown()
         tryClearMapLoadingAfterFirstCoords()
         setUserPos(pos)
         lastReportedUserPosRef.current = pos
@@ -285,7 +418,7 @@ export default function MapPage() {
         if (!hasAutoCenteredOnGpsRef.current) {
           hasAutoCenteredOnGpsRef.current = true
           setMapCenter(pos)
-          setMapZoom(14)
+          setMapZoom(USER_LOCATION_ZOOM)
         }
       },
       (err) => {
@@ -298,8 +431,6 @@ export default function MapPage() {
           setMapZoom(DEFAULT_ZOOM)
           return
         }
-        /** مهلة/خطأ آخر: لا نُرجع الخريطة للافتراضي — قد ينجح watchPosition لاحقاً */
-        if (import.meta.env.DEV) console.warn('[MapPage] getCurrentPosition', err.code)
       },
       acc
     )
@@ -319,6 +450,7 @@ export default function MapPage() {
             if (meters < GEO_WATCH_MIN_MOVE_METERS) return
           }
           tryClearMapLoadingAfterFirstCoords()
+          markGeolocationKnown()
           const next: [number, number] = [lat, lng]
           lastReportedUserPosRef.current = next
           setUserPos(next)
@@ -341,50 +473,63 @@ export default function MapPage() {
     }
   }, [lang])
 
-  const centerOnUser = useCallback(
-    (opts?: { openNearest?: boolean }) => {
-      if (!navigator.geolocation) {
-        toast.error(tr(lang, 'map.locationUnavailable'))
-        return
-      }
-      navigator.geolocation.getCurrentPosition(
-        (p) => {
-          const lat = p.coords?.latitude
-          const lng = p.coords?.longitude
-          if (typeof lat !== 'number' || typeof lng !== 'number' || !Number.isFinite(lat) || !Number.isFinite(lng)) {
-            toast.error(tr(lang, 'map.enableLocation'))
-            return
-          }
-          const pos: [number, number] = [lat, lng]
-          setUserPos(pos)
-          setMapCenter(pos)
-          setMapZoom(14)
-          if (opts?.openNearest) setNearestSheetOpen(true)
-        },
-        (err) => {
-          if (err.code === err.PERMISSION_DENIED) {
-            toast.error(tr(lang, 'map.locationDenied'))
-          } else if (err.code === err.TIMEOUT) {
-            toast.error(tr(lang, 'map.locationTimeout'))
-          } else {
-            toast.error(tr(lang, 'map.enableLocation'))
-          }
-        },
-        { enableHighAccuracy: true, timeout: 25000, maximumAge: 0 }
-      )
-    },
-    [lang]
-  )
+  const centerOnUser = useCallback(() => {
+    if (!navigator.geolocation) {
+      toast.error(tr(lang, 'map.locationUnavailable'))
+      return
+    }
+    navigator.geolocation.getCurrentPosition(
+      (p) => {
+        const lat = p.coords?.latitude
+        const lng = p.coords?.longitude
+        if (typeof lat !== 'number' || typeof lng !== 'number' || !Number.isFinite(lat) || !Number.isFinite(lng)) {
+          toast.error(tr(lang, 'map.enableLocation'))
+          return
+        }
+        const pos: [number, number] = [lat, lng]
+        markGeolocationKnown()
+        setUserPos(pos)
+        setMapCenter(pos)
+        setMapZoom(USER_LOCATION_ZOOM)
+      },
+      (err) => {
+        if (err.code === err.PERMISSION_DENIED) {
+          toast.error(tr(lang, 'map.locationDenied'))
+        } else if (err.code === err.TIMEOUT) {
+          toast.error(tr(lang, 'map.locationTimeout'))
+        } else {
+          toast.error(tr(lang, 'map.enableLocation'))
+        }
+      },
+      { enableHighAccuracy: true, timeout: 25000, maximumAge: 0 }
+    )
+  }, [lang])
 
   const businessesSafe = useMemo(() => {
     const a = Array.isArray(businesses) ? businesses : []
     const b = Array.isArray(googlePlaces) ? googlePlaces : []
     const merged = dedupeBusinessesForDisplay([...a, ...b])
-    return filterFemaleBeautyBusinesses(merged)
+    return filterMapDisplayBusinesses(merged)
   }, [businesses, googlePlaces])
+
+  /** من المحادثة: `/map?focus=<businessId>` — تمركز الخريطة وفتح البطاقة عند توفر البيانات */
+  useEffect(() => {
+    const sp = new URLSearchParams(location.search)
+    const fid = sp.get('focus')?.trim()
+    if (!fid) return
+    const b = businessesSafe.find((x) => String(x.id) === fid)
+    if (!b || !isValidLatLng(b.latitude, b.longitude)) return
+    setSelected(b)
+    setMapCenter([Number(b.latitude), Number(b.longitude)])
+    setMapZoom(15)
+    const next = new URLSearchParams(location.search)
+    next.delete('focus')
+    setParams(next, { replace: true })
+  }, [businessesSafe, location.search, setParams])
 
   const filtered = useMemo(() => {
     const qq = q.trim()
+    const cityTrim = mapCity.trim()
     let rows = businessesSafe.filter((b) => {
       const inText =
         !qq ||
@@ -392,8 +537,12 @@ export default function MapPage() {
         (b.city ?? '').includes(qq) ||
         (b.region && b.region.includes(qq)) ||
         (b.category_label && b.category_label.includes(qq))
-      const inRegion = regionFilter === 'all' || isEasternProvinceRegion(b.region)
-      return inText && inRegion
+      const inRegion = regionFilter === 'all' || isEasternProvinceBusiness(b)
+      const blobCity = [b.city, b.name_ar, b.name_en].filter(Boolean).join(' ')
+      const inCity =
+        !cityTrim ||
+        (blobCity.includes(cityTrim) || blobCity.toLowerCase().includes(cityTrim.toLowerCase()))
+      return inText && inRegion && inCity
     })
 
     rows = rows.filter(
@@ -416,12 +565,20 @@ export default function MapPage() {
           Number(b.total_bookings ?? 0) - Number(a.total_bookings ?? 0) ||
           Number(b.average_rating ?? 0) - Number(a.average_rating ?? 0)
       )
-    } else if (sortBy === 'nearest' && Array.isArray(userPos) && userPos.length >= 2) {
-      rows = [...rows].sort(
-        (a, b) =>
-          haversineKm(userPos[0], userPos[1], a.latitude!, a.longitude!) -
-          haversineKm(userPos[0], userPos[1], b.latitude!, b.longitude!)
-      )
+    } else if (sortBy === 'nearest') {
+      if (Array.isArray(userPos) && userPos.length >= 2) {
+        rows = [...rows].sort(
+          (a, b) =>
+            haversineKm(userPos[0], userPos[1], a.latitude!, a.longitude!) -
+            haversineKm(userPos[0], userPos[1], b.latitude!, b.longitude!)
+        )
+      } else {
+        rows = [...rows].sort(
+          (a, b) =>
+            Number(b.average_rating ?? 0) - Number(a.average_rating ?? 0) ||
+            Number(b.total_reviews ?? 0) - Number(a.total_reviews ?? 0)
+        )
+      }
     } else if (sortBy === 'name') {
       rows = [...rows].sort((a, b) => (a.name_ar ?? '').localeCompare(b.name_ar ?? '', 'ar'))
     } else if (sortBy === 'newest') {
@@ -432,7 +589,7 @@ export default function MapPage() {
       })
     }
     return rows
-  }, [businessesSafe, q, regionFilter, sortBy, userPos])
+  }, [businessesSafe, q, mapCity, regionFilter, sortBy, userPos])
 
   /** صفوف جاهزة للـ Marker — إحداثيات رقمية صالحة فقط */
   const ratingPinFmt = useMemo(
@@ -444,41 +601,46 @@ export default function MapPage() {
     [lang]
   )
 
+  /** أعلى 3 صالونات بالتقييم ضمن النتائج المفلترة — تمييز على الخريطة */
+  const topSalonIds = useMemo(() => {
+    const withCoords = filtered.filter((b) => b.id != null && isValidLatLng(b.latitude, b.longitude))
+    const sorted = [...withCoords].sort(
+      (a, b) =>
+        Number(b.average_rating ?? 0) - Number(a.average_rating ?? 0) ||
+        Number(b.total_reviews ?? 0) - Number(a.total_reviews ?? 0)
+    )
+    return new Set(sorted.slice(0, 3).map((b) => String(b.id)))
+  }, [filtered])
+
   const mapMarkers = useMemo(() => {
     return filtered
       .filter((b) => b.id != null && isValidLatLng(b.latitude, b.longitude))
       .map((b) => {
         const r = Number(b.average_rating ?? 0)
+        const id = String(b.id)
         return {
-          id: String(b.id),
+          id,
           b,
           position: [Number(b.latitude), Number(b.longitude)] as [number, number],
           rating: r,
           pinRatingLabel: ratingPinFmt.format(r),
+          tier: topSalonIds.has(id) ? ('top' as const) : ('default' as const),
         }
       })
-  }, [filtered, ratingPinFmt])
+  }, [filtered, ratingPinFmt, topSalonIds])
 
   const activeFiltersCount = useMemo(() => {
     let n = 0
     if (q.trim()) n += 1
-    if (regionFilter !== 'eastern') n += 1
+    if (mapCity.trim()) n += 1
+    if (regionFilter !== 'all') n += 1
     if (sortBy !== 'rating') n += 1
     return n
-  }, [q, regionFilter, sortBy])
+  }, [q, mapCity, regionFilter, sortBy])
 
   const handleSortChange = (v: string) => {
     setSortBy(v as 'rating' | 'booked' | 'nearest' | 'name' | 'newest')
   }
-
-  const nearestWithKm = useMemo(() => {
-    if (!Array.isArray(userPos) || userPos.length < 2) return filtered.map((b) => ({ b, km: 0 }))
-    return filtered
-      .map((b) => ({ b, km: haversineKm(userPos[0], userPos[1], b.latitude!, b.longitude!) }))
-      .sort((a, b) => a.km - b.km)
-  }, [filtered, userPos])
-
-  const goToNearest = () => centerOnUser({ openNearest: true })
 
   /** أرقام فقط في deps — لا يُعاد إنشاء مصفوفة جديدة إلا عند تغيّر الإحداثيات فعلياً */
   const safeMapCenter: [number, number] = useMemo(() => {
@@ -494,107 +656,94 @@ export default function MapPage() {
     setMapZoom(13)
   }, [])
 
-  /**
-   * مرجع «أقرب N» علامة — يعتمد على مركز الخريطة البرمجي فقط (لا يتبع كل حدث idle ولا تحديث GPS الدوري)
-   * حتى لا تُعاد ترتيب العلامات باستمرار ويحدث وميض.
-   */
-  const refForMarkerLimit = useMemo((): [number, number] => safeMapCenter, [safeMapCenter])
-
-  /** أقرب N علامة للخريطة؛ القائمة والبحث يظهران الكل */
-  const mapMarkersToShow = useMemo(() => {
-    return limitMarkersNearest(mapMarkers, refForMarkerLimit[0], refForMarkerLimit[1])
-  }, [mapMarkers, refForMarkerLimit])
-
   /** توقيع ثابت للـ memo — لا يعتمد على مرجع المصفوفة فقط */
   const mapMarkersSignature = useMemo(
     () =>
-      mapMarkersToShow
-        .map(
-          (m) =>
-            `${m.id}:${m.position[0].toFixed(5)},${m.position[1].toFixed(5)}:${m.pinRatingLabel}:${m.rating.toFixed(2)}`
-        )
+      mapMarkers
+        .map((m) => {
+          const la = m.position[0]
+          const ln = m.position[1]
+          if (!Number.isFinite(la) || !Number.isFinite(ln)) return ''
+          const r = typeof m.rating === 'number' && Number.isFinite(m.rating) ? m.rating : 0
+          return `${m.id}:${la.toFixed(5)},${ln.toFixed(5)}:${m.pinRatingLabel}:${r.toFixed(2)}:${m.tier ?? 'default'}`
+        })
+        .filter(Boolean)
         .join('|'),
-    [mapMarkersToShow]
+    [mapMarkers]
   )
 
   return (
     <div
-      className="rosera-map-page fixed inset-0 z-10 flex h-[100dvh] max-h-[100dvh] w-full flex-col overflow-hidden bg-rosera-dark"
+      className="rosera-map-page fixed inset-0 z-10 flex h-[100dvh] max-h-[100dvh] w-full flex-col overflow-hidden bg-white dark:bg-rosera-dark"
       dir={lang === 'ar' ? 'rtl' : 'ltr'}
     >
       <button
         type="button"
         onClick={() => nav('/home')}
-        className="absolute start-3 top-[calc(env(safe-area-inset-top,0px)+4.25rem)] z-[600] inline-flex items-center gap-2 rounded-full bg-white px-4 py-2 text-sm font-semibold text-[#1F1F1F] shadow-lg hover:bg-white/95 dark:bg-card dark:text-white"
+        className="absolute start-3 top-[calc(env(safe-area-inset-top,0px)+4.25rem)] z-[600] inline-flex items-center gap-2 rounded-2xl bg-white px-4 py-2.5 text-sm font-semibold text-[#374151] shadow-md ring-1 ring-[#E5E7EB] transition-all duration-200 hover:bg-[#FDF2F8] active:scale-95 dark:bg-card dark:text-white dark:ring-border"
         style={{ direction: lang === 'ar' ? 'rtl' : 'ltr' }}
       >
         <ChevronLeft className="h-5 w-5 shrink-0" aria-hidden />
         {lang === 'ar' ? 'الرئيسية' : 'Home'}
       </button>
-      <div className="absolute start-0 end-0 top-0 z-[500] space-y-2 p-3 pt-safe" dir={lang === 'ar' ? 'rtl' : 'ltr'}>
+      <div
+        className="absolute start-0 end-0 top-0 z-[500] space-y-1.5 px-3 pb-2 pt-[max(0.75rem,env(safe-area-inset-top,0px))]"
+        dir={lang === 'ar' ? 'rtl' : 'ltr'}
+      >
         <div className="relative mx-auto max-w-lg">
-          <Search className="absolute start-3 top-1/2 h-5 w-5 -translate-y-1/2 text-rosera-gray" />
+          <Search className="pointer-events-none absolute start-3 top-1/2 h-5 w-5 -translate-y-1/2 text-rosera-gray" />
           <Input
             ref={searchInputRef}
-            className="rounded-2xl bg-white/95 ps-10 shadow-lg"
+            className="h-11 rounded-2xl border-0 bg-white/95 ps-10 shadow-md ring-1 ring-black/5 dark:bg-card dark:ring-border"
             placeholder={sortBy === 'name' ? t('map.searchByNamePh') : t('map.searchPlaceholder')}
             value={q}
             onChange={(e) => setQ(e.target.value)}
           />
         </div>
-        <div className="mx-auto flex max-w-lg items-center gap-2">
-          <Button
-            type="button"
-            size="sm"
-            variant={regionFilter === 'eastern' ? 'default' : 'secondary'}
-            className="rounded-full"
-            onClick={() => setRegionFilter(regionFilter === 'eastern' ? 'all' : 'eastern')}
-          >
-            {regionFilter === 'eastern' ? t('map.regionEasternOn') : t('map.regionEastern')}
-          </Button>
-          <Select value={sortBy} onValueChange={handleSortChange}>
-            <SelectTrigger className="h-9 max-w-[9.5rem] rounded-full bg-white/95 text-xs">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="rating">{t('city.sort.rating')}</SelectItem>
-              <SelectItem value="booked">{t('city.sort.booked')}</SelectItem>
-              <SelectItem value="nearest">{t('search.sortNearest')}</SelectItem>
-              <SelectItem value="name">{t('map.sortByName')}</SelectItem>
-              <SelectItem value="newest">{t('map.sortNewest')}</SelectItem>
-            </SelectContent>
-          </Select>
-          <Button type="button" size="sm" variant="ghost" className="rounded-full text-xs gap-1" onClick={resetMapFilters}>
-            {t('common.reset')}
-            {activeFiltersCount > 0 && (
-              <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-extrabold text-white">
-                {activeFiltersCount}
-              </span>
-            )}
-          </Button>
-          <Button
-            type="button"
-            size="sm"
-            variant="secondary"
-            className="rounded-full text-xs gap-1"
-            disabled={mapLoading}
-            onClick={() => void fetchBusinesses({ showToast: true, busyIndicator: true })}
-            title={lang === 'ar' ? 'إعادة جلب المنشآت من السيرفر' : 'Reload places from server'}
-          >
-            <RefreshCw className={`h-3.5 w-3.5 ${mapLoading ? 'animate-spin' : ''}`} aria-hidden />
-            {mapLoading ? t('map.refreshing') : t('map.refresh')}
-          </Button>
-        </div>
-        <div className="flex justify-center mt-2" dir={lang === 'ar' ? 'rtl' : 'ltr'}>
-          <Button
-            type="button"
-            size="sm"
-            className="rounded-full border-2 border-white bg-[#9B2257] text-base font-bold text-white shadow-lg gap-1.5 hover:bg-[#9B2257]/90"
-            onClick={goToNearest}
-          >
-            <MapPin className="h-5 w-5 text-white" aria-hidden />
-            {t('map.nearestBtn')}
-          </Button>
+        <div className="mx-auto flex max-w-lg flex-col gap-1.5">
+          <div className="flex flex-wrap items-center gap-1.5">
+            <Button
+              type="button"
+              size="sm"
+              variant={regionFilter === 'eastern' ? 'default' : 'secondary'}
+              onClick={() => setRegionFilter(regionFilter === 'eastern' ? 'all' : 'eastern')}
+            >
+              {regionFilter === 'eastern' ? t('map.regionEasternOn') : t('map.regionEastern')}
+            </Button>
+            <Button type="button" size="sm" variant="ghost" className="gap-1 text-xs" onClick={resetMapFilters}>
+              {t('common.reset')}
+              {activeFiltersCount > 0 && (
+                <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-[#F9A8C9] px-1 text-[10px] font-extrabold text-[#374151]">
+                  {activeFiltersCount}
+                </span>
+              )}
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant="secondary"
+              className="gap-1 text-xs"
+              disabled={mapLoading}
+              onClick={() => void fetchBusinesses({ showToast: true, busyIndicator: true })}
+              title={lang === 'ar' ? 'إعادة جلب المنشآت من السيرفر' : 'Reload places from server'}
+            >
+              <RefreshCw className={`h-3.5 w-3.5 ${mapLoading ? 'animate-spin' : ''}`} aria-hidden />
+              {mapLoading ? t('map.refreshing') : t('map.refresh')}
+            </Button>
+          </div>
+          <SortPills
+            value={sortBy}
+            onChange={handleSortChange}
+            nowrap
+            options={[
+              { value: 'rating', label: t('city.sort.rating') },
+              { value: 'booked', label: t('city.sort.booked') },
+              { value: 'nearest', label: t('search.sortNearest') },
+              { value: 'name', label: t('map.sortByName') },
+              { value: 'newest', label: t('map.sortNewest') },
+            ]}
+            className="scrollbar-hide overflow-x-auto pb-0.5"
+          />
         </div>
       </div>
 
@@ -607,8 +756,9 @@ export default function MapPage() {
           centerLat={safeMapCenter[0]}
           centerLng={safeMapCenter[1]}
           zoom={mapZoom}
-          markers={mapMarkersToShow}
+          markers={mapMarkers}
           markersSignature={mapMarkersSignature}
+          highlightMarkerId={selected?.id ?? null}
           userPosition={
             Array.isArray(userPos) && userPos.length >= 2 && Number.isFinite(userPos[0]) && Number.isFinite(userPos[1])
               ? userPos
@@ -619,24 +769,41 @@ export default function MapPage() {
           leftPaddingPx={GOOGLE_MAP_PAD_LEFT_PX}
           rightPaddingPx={GOOGLE_MAP_PAD_RIGHT_PX}
         />
+        <div
+          className={cn(
+            'pointer-events-none absolute inset-0 z-[120] flex items-center justify-center bg-white/45 transition-opacity duration-500 ease-out dark:bg-rosera-dark/45',
+            mapLoading ? 'opacity-100' : 'opacity-0'
+          )}
+          aria-busy={mapLoading}
+          aria-hidden={!mapLoading}
+        >
+          <div className="flex max-w-[min(100%,18rem)] flex-col items-center gap-4 rounded-2xl border border-primary/25 bg-white/95 px-8 py-6 text-center shadow-soft backdrop-blur-sm animate-premium-in dark:border-border dark:bg-card/95">
+            <div className="relative flex h-14 w-14 items-center justify-center">
+              <span className="absolute inset-0 animate-ping rounded-full bg-primary/25 [animation-duration:1.8s]" aria-hidden />
+              <RefreshCw className="relative h-8 w-8 animate-spin text-[#BE185D]" aria-hidden />
+            </div>
+            <p className="text-sm font-semibold leading-snug text-rosera-text">{t('map.loadingOverlay')}</p>
+          </div>
+        </div>
       </div>
 
       <Button
         type="button"
         size="icon"
-        className="absolute right-4 z-[500] h-12 w-12 rounded-full border-0 bg-gradient-to-br from-[#9C27B0] to-[#E91E8C] shadow-lg"
+        variant="default"
+        className="absolute right-4 z-[500] h-12 w-12 shadow-lg"
         style={{ bottom: MAP_BOTTOM_SAFE }}
         onClick={() => centerOnUser()}
         aria-label={lang === 'ar' ? 'توسيط الخريطة على موقعك' : 'Center map on your location'}
       >
-        <Crosshair className="h-6 w-6 text-white" />
+        <Crosshair className="h-6 w-6 text-[#374151]" />
       </Button>
 
       <Button
         type="button"
         variant="secondary"
         size="sm"
-        className="absolute left-4 z-[500] rounded-full shadow-lg"
+        className="absolute left-4 z-[500] shadow-md"
         style={{ bottom: MAP_BOTTOM_SAFE }}
         onClick={() => {
           setMapCenter(DEFAULT_CENTER)
@@ -663,12 +830,17 @@ export default function MapPage() {
               <p dir="auto" className="text-start font-bold text-foreground line-clamp-2">
                 {selected.name_ar}
               </p>
+              {topSalonIds.has(String(selected.id)) && (
+                <span className="mt-1 inline-flex items-center rounded-full border border-amber-400/60 bg-amber-50 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-amber-800 dark:bg-amber-950/40 dark:text-amber-200">
+                  {t('map.topSalonBadge')}
+                </span>
+              )}
               <div
                 dir="ltr"
                 style={{ unicodeBidi: 'isolate' }}
-                className="mt-1 flex items-center justify-start gap-1 text-[#9B2257]"
+                className="mt-1 flex items-center justify-start gap-1 text-[#BE185D]"
               >
-                <Star className="h-4 w-4 shrink-0 fill-[#9B2257] text-[#9B2257]" aria-hidden />
+                <Star className="h-4 w-4 shrink-0 fill-[#BE185D] text-[#BE185D]" aria-hidden />
                 <span className="tabular-nums font-semibold">
                   {ratingPinFmt.format(Number(selected.average_rating ?? 0))}
                 </span>
@@ -681,7 +853,7 @@ export default function MapPage() {
               <div className="mt-3 flex flex-wrap gap-2">
                 <Button
                   size="sm"
-                  className="rounded-xl bg-gradient-to-l from-[#9C27B0] to-[#E91E8C]"
+                  variant="default"
                   onClick={() => {
                     if (selected.is_google_place) {
                       if (selected.google_maps_uri) {
@@ -710,42 +882,6 @@ export default function MapPage() {
         </div>
       )}
 
-      {nearestSheetOpen && (
-        <div className="absolute bottom-0 start-0 end-0 z-[500] max-h-[45vh] overflow-hidden rounded-t-3xl bg-white shadow-2xl dark:bg-card" dir={lang === 'ar' ? 'rtl' : 'ltr'}>
-          <div className="sticky top-0 flex items-center justify-between border-b border-primary/10 bg-white p-4 dark:bg-card">
-            <h3 className="font-bold">{t('map.nearestSheetTitle')}</h3>
-            <button type="button" className="text-rosera-gray" onClick={() => setNearestSheetOpen(false)}>✕</button>
-          </div>
-          <ul className="overflow-y-auto p-4 space-y-2 max-h-[38vh]">
-            {nearestWithKm.slice(0, 15).map(({ b, km }) => (
-              <li key={b.id}>
-                <button
-                  type="button"
-                  className="flex w-full items-center gap-3 rounded-2xl border border-primary/10 p-3 text-start"
-                  onClick={() => {
-                    if (!isValidLatLng(b.latitude, b.longitude)) return
-                    setSelected(b)
-                    setMapCenter([Number(b.latitude), Number(b.longitude)])
-                    setMapZoom(14)
-                    setNearestSheetOpen(false)
-                  }}
-                >
-                  <img src={resolveBusinessCoverImage(b)} alt="" className="h-12 w-12 rounded-xl object-cover" />
-                  <div className="min-w-0 flex-1">
-                    <p dir="auto" className="text-start font-bold line-clamp-1">
-                      {b.name_ar}
-                    </p>
-                    <p dir="ltr" className="text-start text-xs tabular-nums text-rosera-gray">
-                      {Number(km).toFixed(1)} {t('common.km')} ·{' '}
-                      {ratingPinFmt.format(Number(b.average_rating ?? 0))} ★
-                    </p>
-                  </div>
-                </button>
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
     </div>
   )
 }

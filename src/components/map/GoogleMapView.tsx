@@ -1,9 +1,36 @@
 import { memo, useEffect, useRef, useState } from 'react'
 import { importLibrary, setOptions } from '@googlemaps/js-api-loader'
+import { MarkerClusterer, type Renderer } from '@googlemaps/markerclusterer'
 import type { Business } from '@/lib/supabase'
 import type { MapMarkerRow } from '@/lib/mapMarkers'
 import { GOOGLE_MAPS_API_KEY_EMBEDDED } from '@/config/googleMapsApiKey'
 import { clearStaleGoogleMapsScript } from '@/lib/googleMapsLoaderBootstrap'
+
+/** دوائر تجميع بألوان روزيرا */
+const roseraClusterRenderer: Renderer = {
+  render({ count, position }, _stats, _map) {
+    const scale = Math.min(26, 12 + Math.min(count, 24) * 0.65)
+    return new google.maps.Marker({
+      position,
+      label: {
+        text: String(count),
+        color: '#374151',
+        fontSize: '11px',
+        fontWeight: '700',
+        className: 'rosera-map-pin-rating-label',
+      },
+      icon: {
+        path: google.maps.SymbolPath.CIRCLE,
+        scale,
+        fillColor: '#F9A8C9',
+        fillOpacity: 0.95,
+        strokeColor: '#FDF2F8',
+        strokeWeight: 2,
+      },
+      zIndex: 600 + count,
+    })
+  },
+}
 
 const MAP_IDLE_DEBOUNCE_MS = 500
 const RESIZE_DEBOUNCE_MS = 500
@@ -34,6 +61,8 @@ type Props = {
   markersSignature: string
   userPosition: [number, number] | null
   onMarkerClick: (b: Business, pos: [number, number]) => void
+  /** يبرز الدبوس ويتحرك قليلاً عند اختيار صالون من البطاقة */
+  highlightMarkerId?: string | null
   bottomPaddingPx: number
   /** حشوة أفقية حتى لا تتداخل أرجاء Google مع زر الرجوع/التحكم — الخريطة تبقى dir=ltr */
   leftPaddingPx?: number
@@ -50,6 +79,7 @@ function GoogleMapViewInner({
   markersSignature,
   userPosition,
   onMarkerClick,
+  highlightMarkerId = null,
   bottomPaddingPx,
   leftPaddingPx = 0,
   rightPaddingPx = 0,
@@ -58,7 +88,7 @@ function GoogleMapViewInner({
   const containerRef = useRef<HTMLDivElement>(null)
   /** مثيل الخريطة الوحيد — لا يُعاد إنشاؤه عند تغيّر state في الأب */
   const googleMapInstanceRef = useRef<google.maps.Map | null>(null)
-  const markersRef = useRef<google.maps.Marker[]>([])
+  const clustererRef = useRef<MarkerClusterer | null>(null)
   const userMarkerRef = useRef<google.maps.Marker | null>(null)
   const lastProgrammaticViewRef = useRef<{ lat: number; lng: number; z: number } | null>(null)
 
@@ -75,9 +105,6 @@ function GoogleMapViewInner({
     const el = containerRef.current
     const apiKey = GOOGLE_MAPS_API_KEY_EMBEDDED.trim()
     if (!el || !apiKey) {
-      if (import.meta.env.DEV) {
-        console.warn('[GoogleMapView] missing container or embedded API key (googleMapsApiKey.ts)')
-      }
       return
     }
 
@@ -173,8 +200,8 @@ function GoogleMapViewInner({
           }, 250)
         }
         window.addEventListener('orientationchange', orientHandler)
-      } catch (e) {
-        console.error('[GoogleMapView] init failed', e)
+      } catch {
+        /* فشل تحميل الخرائط — الواجهة تبقى بدون خريطة دون إسقاط التطبيق */
       }
     })()
 
@@ -189,10 +216,15 @@ function GoogleMapViewInner({
       resizeObserver?.disconnect()
       if (orientHandler) window.removeEventListener('orientationchange', orientHandler)
 
-      markersRef.current.forEach((m) => {
-        m.setMap(null)
-      })
-      markersRef.current = []
+      if (clustererRef.current) {
+        try {
+          clustererRef.current.clearMarkers()
+          clustererRef.current.setMap(null)
+        } catch {
+          /* ignore */
+        }
+        clustererRef.current = null
+      }
 
       if (userMarkerRef.current) {
         userMarkerRef.current.setMap(null)
@@ -254,32 +286,55 @@ function GoogleMapViewInner({
     const map = googleMapInstanceRef.current
     if (!map || !mapReady) return
 
-    markersRef.current.forEach((m) => m.setMap(null))
-    markersRef.current = []
-
     void importLibrary('marker').then((markerLib) => {
       if (!googleMapInstanceRef.current) return
-      const sym: google.maps.Symbol = {
+      const mapInst = googleMapInstanceRef.current
+
+      const symDefault: google.maps.Symbol = {
         path: google.maps.SymbolPath.CIRCLE,
         scale: 11,
-        fillColor: '#E91E8C',
+        fillColor: '#F9A8C9',
         fillOpacity: 1,
         strokeColor: '#ffffff',
         strokeWeight: 2,
       }
+      const symTop: google.maps.Symbol = {
+        path: google.maps.SymbolPath.CIRCLE,
+        scale: 14,
+        fillColor: '#BE185D',
+        fillOpacity: 1,
+        strokeColor: '#FBBF24',
+        strokeWeight: 3,
+      }
+      const symSelected: google.maps.Symbol = {
+        path: google.maps.SymbolPath.CIRCLE,
+        scale: 17,
+        fillColor: '#F9A8C9',
+        fillOpacity: 1,
+        strokeColor: '#BE185D',
+        strokeWeight: 4,
+      }
+
+      const created: google.maps.Marker[] = []
       for (const row of markers) {
+        const lat = row.position?.[0]
+        const lng = row.position?.[1]
+        if (!Number.isFinite(lat) || !Number.isFinite(lng)) continue
         const nameAr = row.b.name_ar?.trim() || row.b.name_en || ''
         const titleRtl = nameAr ? `${nameAr} · ${row.pinRatingLabel}` : row.pinRatingLabel
+        const isTop = row.tier === 'top'
+        const isHi = Boolean(highlightMarkerId && row.id === highlightMarkerId)
+        const icon = isHi ? symSelected : isTop ? symTop : symDefault
         const m = new markerLib.Marker({
-          position: { lat: row.position[0], lng: row.position[1] },
-          map: googleMapInstanceRef.current,
+          position: { lat: lat as number, lng: lng as number },
           title: titleRtl,
-          icon: sym,
+          icon,
           optimized: true,
+          zIndex: isHi ? 4000 : isTop ? 500 : 100,
           label: {
             text: row.pinRatingLabel,
-            color: '#ffffff',
-            fontSize: '11px',
+            color: isHi ? '#1F2937' : '#ffffff',
+            fontSize: isHi ? '12px' : isTop ? '12px' : '11px',
             fontWeight: 'bold',
             className: 'rosera-map-pin-rating-label',
           },
@@ -287,10 +342,45 @@ function GoogleMapViewInner({
         m.addListener('click', () => {
           onMarkerClickRef.current(row.b, row.position)
         })
-        markersRef.current.push(m)
+        created.push(m)
+      }
+
+      if (highlightMarkerId) {
+        for (let i = 0; i < markers.length; i++) {
+          if (markers[i].id === highlightMarkerId) {
+            const mk = created[i]
+            if (mk) {
+              mk.setAnimation(google.maps.Animation.BOUNCE)
+              window.setTimeout(() => {
+                try {
+                  mk.setAnimation(null)
+                } catch {
+                  /* ignore */
+                }
+              }, 700)
+            }
+            break
+          }
+        }
+      }
+
+      if (created.length === 0) {
+        clustererRef.current?.clearMarkers()
+        return
+      }
+
+      if (clustererRef.current) {
+        clustererRef.current.clearMarkers()
+        clustererRef.current.addMarkers(created)
+      } else {
+        clustererRef.current = new MarkerClusterer({
+          map: mapInst,
+          markers: created,
+          renderer: roseraClusterRenderer,
+        })
       }
     })
-  }, [markersSignature, mapReady])
+  }, [markersSignature, mapReady, highlightMarkerId])
 
   const userLat = userPosition?.[0]
   const userLng = userPosition?.[1]
@@ -348,6 +438,7 @@ export const GoogleMapView = memo(GoogleMapViewInner, (prev, next) => {
     prev.leftPaddingPx === next.leftPaddingPx &&
     prev.rightPaddingPx === next.rightPaddingPx &&
     prev.markersSignature === next.markersSignature &&
+    prev.highlightMarkerId === next.highlightMarkerId &&
     prev.userPosition?.[0] === next.userPosition?.[0] &&
     prev.userPosition?.[1] === next.userPosition?.[1] &&
     prev.onMarkerClick === next.onMarkerClick &&

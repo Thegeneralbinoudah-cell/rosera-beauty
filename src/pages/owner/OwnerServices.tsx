@@ -114,9 +114,10 @@ export default function OwnerServices() {
   }
 
   return (
-    <div>
-      <h1 className="text-2xl font-bold">إدارة الخدمات</h1>
-      <div className="mt-6 space-y-3 rounded-xl border bg-white p-4 dark:bg-card">
+    <div className="space-y-2">
+      <h1 className="text-2xl font-extrabold text-[#880e4f] dark:text-[#f48fb1]">الخدمات</h1>
+      <p className="text-sm text-muted-foreground">السعر والمدة كما تظهر لعملائك</p>
+      <div className="mt-4 space-y-3 rounded-2xl border border-pink-100/80 bg-white/90 p-4 shadow-sm dark:border-border dark:bg-card">
         <p className="font-bold text-sm">إضافة خدمة</p>
         <div className="flex flex-wrap gap-2">
           <Input placeholder="اسم الخدمة" value={name} onChange={(e) => setName(e.target.value)} className="max-w-xs" />
@@ -137,11 +138,11 @@ export default function OwnerServices() {
           <Button onClick={() => void add()}>إضافة</Button>
         </div>
       </div>
-      <ul className="mt-6 space-y-2">
+      <ul className="mt-4 space-y-2">
         {services.map((s) => (
           <li
             key={s.id}
-            className="flex flex-wrap items-center justify-between gap-2 rounded-xl border bg-white p-4 dark:bg-card"
+            className="flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-pink-100/70 bg-white/90 p-4 shadow-sm dark:border-border dark:bg-card"
           >
             <div>
               <span className="font-bold">{s.name_ar}</span>

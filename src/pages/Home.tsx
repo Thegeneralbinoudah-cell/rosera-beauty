@@ -66,14 +66,14 @@ export default function Home() {
   }
 
   return (
-    <div className="min-h-dvh bg-rosera-light pb-28 dark:bg-rosera-dark">
-      <header className="sticky top-0 z-30 border-b border-primary/10 bg-gradient-to-b from-white via-[#fff5fb] to-white/95 px-4 py-4 backdrop-blur-md dark:from-rosera-dark dark:via-rosera-dark">
+    <div className="min-h-dvh bg-white pb-28 dark:bg-rosera-dark">
+      <header className="sticky top-0 z-30 border-b border-[#F9A8C9]/25 bg-white px-4 py-4 shadow-sm backdrop-blur-md dark:border-border dark:bg-card">
         <div className="mx-auto flex max-w-lg items-center justify-between gap-2">
           <div className="flex min-w-0 items-center gap-3">
             <img src={ROSERA_LOGO_SRC} alt="" className="w-18 h-18 shrink-0 rounded-2xl object-contain" />
             <div className="min-w-0">
-              <p className="text-sm font-medium text-[#374151] dark:text-[#D1D5DB]">{ui.hello}</p>
-              <h1 className="truncate text-xl font-extrabold text-[#1F1F1F] dark:text-foreground">{ui.title}</h1>
+              <p className="text-sm font-medium text-[#6B7280] dark:text-[#D1D5DB]">{ui.hello}</p>
+              <h1 className="truncate text-xl font-extrabold text-[#374151] dark:text-foreground">{ui.title}</h1>
             </div>
           </div>
           <div className="flex items-center gap-2">
@@ -83,24 +83,24 @@ export default function Home() {
               className="relative flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-primary/15 to-[#9C27B0]/15 shadow-sm"
             >
               <Bell className="h-5 w-5 text-primary" />
-              <span className="absolute top-1.5 end-1.5 h-2 w-2 rounded-full bg-[#E91E8C]" />
+              <span className="absolute top-1.5 end-1.5 h-2 w-2 rounded-full bg-[#BE185D]" />
             </Link>
           </div>
         </div>
       </header>
 
       <section className="mx-auto max-w-lg px-4 pt-4">
-        <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-[#9C27B0] via-[#E91E8C] to-[#f48fb1] px-6 py-8 text-center text-white shadow-[0_16px_48px_-12px_rgba(233,30,140,0.45)]">
+        <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-[#F9A8C9] via-[#fbcfe8] to-[#fce7f3] px-6 py-8 text-center text-[#374151] shadow-[0_16px_48px_-12px_rgba(249,168,201,0.35)]">
           <div className="absolute inset-0 bg-[url('data:image/svg+xml,%3Csvg width=\'60\' height=\'60\' viewBox=\'0 0 60 60\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cg fill=\'none\' fill-rule=\'evenodd\'%3E%3Cg fill=\'%23ffffff\' fill-opacity=\'0.06\'%3E%3Cpath d=\'M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z\'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E')] opacity-50" />
-          <p className="relative text-sm font-medium text-white/95">{ui.heroSub}</p>
-          <h2 className="relative mt-2 text-2xl font-extrabold leading-tight">{ui.heroTitle}</h2>
+          <p className="relative text-sm font-medium text-[#6B7280]">{ui.heroSub}</p>
+          <h2 className="relative mt-2 text-2xl font-extrabold leading-tight text-[#374151]">{ui.heroTitle}</h2>
           <button
             type="button"
             onClick={() => nav('/search')}
-            className="relative mt-6 flex w-full items-center gap-3 rounded-2xl bg-white/95 px-4 py-4 text-start shadow-lg"
+            className="relative mt-6 flex w-full items-center gap-3 rounded-2xl bg-white px-4 py-4 text-start shadow-md ring-1 ring-[#F9A8C9]/40 transition-all duration-200 hover:shadow-lg active:scale-[0.99]"
           >
-            <Search className="h-6 w-6 shrink-0 text-[#E91E8C]" />
-            <span className="text-rosera-gray">{ui.searchPlaceholder}</span>
+            <Search className="h-6 w-6 shrink-0 text-[#BE185D]" />
+            <span className="text-[#6B7280]">{ui.searchPlaceholder}</span>
           </button>
         </div>
       </section>
@@ -114,7 +114,7 @@ export default function Home() {
               type="button"
               whileTap={{ scale: 0.97 }}
               onClick={() => nav(`/search?categoryLabel=${encodeURIComponent(q)}`)}
-              className="shrink-0 rounded-full border border-primary/20 bg-gradient-to-br from-white to-[#fce4ec]/80 px-5 py-2.5 text-sm font-semibold text-[#1F1F1F] shadow-sm dark:from-card dark:to-card dark:text-foreground"
+              className="shrink-0 rounded-2xl border border-[#F9A8C9]/35 bg-white px-5 py-2.5 text-sm font-semibold text-[#374151] shadow-sm transition-all duration-200 hover:bg-[#FDF2F8] active:scale-95 dark:border-border dark:bg-card dark:text-foreground"
             >
               {label}
             </motion.button>

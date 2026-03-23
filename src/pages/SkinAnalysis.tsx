@@ -16,7 +16,7 @@ import {
   type SkinAnalysisResultPayload,
   type UserSkinProfile,
 } from '@/lib/personalization'
-import { trackUserEvent } from '@/lib/userEvents'
+import { trackEvent } from '@/lib/analytics'
 import { getEdgeFunctionErrorMessage, getEdgeFunctionHttpErrorDetail } from '@/lib/edgeInvoke'
 
 const DISCLAIMER =
@@ -276,14 +276,14 @@ export default function SkinAnalysis() {
                           state={{ preselect: s.id }}
                           className="font-semibold text-primary underline-offset-2 hover:underline"
                           onClick={() => {
-                            trackUserEvent({
-                              userId: user.id,
+                            trackEvent({
+                              user_id: user.id,
                               event_type: 'click',
                               entity_type: 'service',
                               entity_id: s.id,
                             })
-                            trackUserEvent({
-                              userId: user.id,
+                            trackEvent({
+                              user_id: user.id,
                               event_type: 'click',
                               entity_type: 'business',
                               entity_id: s.business_id,

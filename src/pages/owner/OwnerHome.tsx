@@ -80,10 +80,10 @@ export default function OwnerHome() {
       </div>
       <div className="mt-8 flex flex-wrap gap-3">
         <Button asChild className="rounded-2xl bg-green-600 hover:bg-green-700">
-          <Link to="/owner/bookings">قبول حجز</Link>
+          <Link to="/salon/bookings">قبول حجز</Link>
         </Button>
         <Button asChild variant="secondary" className="rounded-2xl">
-          <Link to="/owner/services">إضافة خدمة</Link>
+          <Link to="/salon/services">إضافة خدمة</Link>
         </Button>
       </div>
     </div>

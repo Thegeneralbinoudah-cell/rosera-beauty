@@ -8,6 +8,7 @@ import {
   CalendarHeart,
   LogOut,
   Smartphone,
+  Sparkles,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
@@ -17,6 +18,7 @@ const links = [
   { to: '/owner/bookings', label: 'الحجوزات', icon: CalendarHeart },
   { to: '/owner/services', label: 'الخدمات', icon: Scissors },
   { to: '/owner/schedule', label: 'الجدول', icon: Clock },
+  { to: '/owner/subscription', label: 'الاشتراك', icon: Sparkles },
   { to: '/owner/reports', label: 'التقارير', icon: BarChart3 },
 ]
 

@@ -2,10 +2,9 @@ import type { Business } from '@/lib/supabase'
 import { haversineKm } from '@/lib/utils'
 
 /**
- * أقرب N علامة إلى مركز الخريطة البرمجي — يُبقي الواجهة سلسة على الأجهزة.
- * استيراد كامل المنشآت للشرقية سيكون لاحقاً عبر سكربت → Supabase.
+ * سقف احتياطي إن أردت لاحقاً تقييد العلامات (الخريطة تعرض حالياً الكل من MapPage).
  */
-export const MAX_MARKERS = 50
+export const MAX_MARKERS = 2000
 
 export type MapMarkerRow = {
   id: string
@@ -14,6 +13,8 @@ export type MapMarkerRow = {
   rating: number
   /** تقييم على الدبوس — مُنسَّق (مثلاً ar-SA) */
   pinRatingLabel: string
+  /** أعلى 3 صالونات حسب التقييم ضمن النتائج الظاهرة */
+  tier?: 'top' | 'default'
 }
 
 /** أقرب N علامة إلى مرجع الخريطة (Google Maps) */

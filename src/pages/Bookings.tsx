@@ -1,11 +1,15 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { Ban, CalendarHeart, CheckCircle2 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/contexts/AuthContext'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { EmptyState } from '@/components/ui/empty-state'
+import { buildMapExploreUrl } from '@/lib/mapExploreUrl'
 import { toast } from 'sonner'
+import { useI18n } from '@/hooks/useI18n'
 
 type Row = {
   id: string
@@ -19,6 +23,7 @@ type Row = {
 }
 
 export default function Bookings() {
+  const { t } = useI18n()
   const { user } = useAuth()
   const nav = useNavigate()
   const [rows, setRows] = useState<Row[]>([])
@@ -101,14 +106,14 @@ export default function Bookings() {
             <Button size="sm" variant="secondary" onClick={() => nav(`/salon/${r.business_id}`)}>
               إعادة حجز
             </Button>
-            {r.status === 'completed' && (
-              <Button size="sm">تقييم</Button>
-            )}
+            {r.status === 'completed' && <Button size="sm">تقييم</Button>}
           </div>
         </div>
       </div>
     )
   }
+
+  const goMap = () => nav(buildMapExploreUrl())
 
   return (
     <div className="min-h-dvh bg-rosera-light px-4 py-6 dark:bg-rosera-dark">
@@ -120,13 +125,16 @@ export default function Bookings() {
           <TabsTrigger value="can">الملغاة</TabsTrigger>
         </TabsList>
         <TabsContent value="up">
-          {filter('pending')
-            .concat(filter('confirmed'))
-            .length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-16 text-center">
-              <span className="text-6xl">📅</span>
-              <p className="mt-4 font-bold text-foreground">لا حجوزات قادمة</p>
-              <p className="mt-1 text-sm text-rosera-gray">احجزي من صفحة أي صالون</p>
+          {filter('pending').concat(filter('confirmed')).length === 0 ? (
+            <div className="py-10">
+              <EmptyState
+                icon={CalendarHeart}
+                title={t('bookings.emptyUpTitle')}
+                subtitle={t('bookings.emptyUpSub')}
+                ctaLabel={t('bookings.emptyUpCta')}
+                onClick={goMap}
+                analyticsSource="bookings"
+              />
             </div>
           ) : (
             filter('pending')
@@ -136,10 +144,16 @@ export default function Bookings() {
         </TabsContent>
         <TabsContent value="done">
           {filter('completed').length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-16 text-center">
-              <span className="text-6xl">✅</span>
-              <p className="mt-4 font-bold text-foreground">لا حجوزات مكتملة بعد</p>
-              <p className="mt-1 text-sm text-rosera-gray">ستظهر هنا بعد انتهاء موعدكِ</p>
+            <div className="py-10">
+              <EmptyState
+                icon={CheckCircle2}
+                title={t('bookings.emptyDoneTitle')}
+                subtitle={t('bookings.emptyDoneSub')}
+                ctaLabel={t('bookings.emptyDoneCta')}
+                onClick={goMap}
+                analyticsSource="bookings"
+                ctaVariant="secondary"
+              />
             </div>
           ) : (
             filter('completed').map((r) => <Card key={r.id} r={r} />)
@@ -147,15 +161,19 @@ export default function Bookings() {
         </TabsContent>
         <TabsContent value="can">
           {filter('cancelled').length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-16 text-center">
-              <span className="text-6xl">🚫</span>
-              <p className="mt-4 font-bold text-foreground">لا حجوزات ملغاة</p>
-              <p className="mt-1 text-sm text-rosera-gray">الحجوزات الملغاة تظهر هنا</p>
+            <div className="py-10">
+              <EmptyState
+                icon={Ban}
+                title={t('bookings.emptyCanTitle')}
+                subtitle={t('bookings.emptyCanSub')}
+                ctaLabel={t('bookings.emptyCanCta')}
+                onClick={goMap}
+                analyticsSource="bookings"
+                ctaVariant="secondary"
+              />
             </div>
           ) : (
-            filter('cancelled').map((r) => (
-              <Card key={r.id} r={r} />
-            ))
+            filter('cancelled').map((r) => <Card key={r.id} r={r} />)
           )}
         </TabsContent>
       </Tabs>

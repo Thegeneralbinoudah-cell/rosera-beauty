@@ -1,14 +1,21 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link, useParams, useSearchParams } from 'react-router-dom'
 import { ChevronLeft } from 'lucide-react'
 import { BusinessCard } from '@/components/business/BusinessCard'
+import { CityComingSoonEmpty } from '@/components/empty-states/CityComingSoonEmpty'
 import { Skeleton } from '@/components/ui/skeleton'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Button } from '@/components/ui/button'
+import { SortPills } from '@/components/ui/sort-pills'
 import { toast } from 'sonner'
 import { useI18n } from '@/hooks/useI18n'
 import { usePreferences } from '@/contexts/PreferencesContext'
 import { useCitySalons } from '@/hooks/useCitySalons'
 import { fetchActiveBusinessBoostMeta, type BoostMeta } from '@/lib/boosts'
+import {
+  fetchActiveSalonFeaturedAdSalonIds,
+  partitionSalonsWithFeaturedAdsFirst,
+} from '@/lib/salonAds'
+import { haversineKm } from '@/lib/utils'
 
 const CITY_SORT_PREFS_KEY = 'rosera:city:sort'
 
@@ -19,13 +26,16 @@ export default function CitySalons() {
   const [params, setParams] = useSearchParams()
   const storedSort = (() => {
     const x = localStorage.getItem(CITY_SORT_PREFS_KEY)
-    return x === 'booked' ? 'booked' : 'rating'
+    return x === 'booked' || x === 'nearest' ? x : 'rating'
   })()
   const { cityName, regionId, salons, loading } = useCitySalons(cityId, lang)
   const [salonBoostMeta, setSalonBoostMeta] = useState<Map<string, BoostMeta>>(new Map())
-  const [sortBy, setSortBy] = useState<'rating' | 'booked'>(() =>
-    params.get('sort') === 'booked' ? 'booked' : storedSort
+  const [featuredAdIds, setFeaturedAdIds] = useState<Set<string>>(new Set())
+  const urlSort = params.get('sort')
+  const [sortBy, setSortBy] = useState<'rating' | 'booked' | 'nearest'>(() =>
+    urlSort === 'booked' || urlSort === 'nearest' ? urlSort : storedSort
   )
+  const [userPos, setUserPos] = useState<{ lat: number; lng: number } | null>(null)
   const activeFiltersCount = sortBy !== 'rating' ? 1 : 0
 
   const resetCityFilters = () => {
@@ -36,9 +46,31 @@ export default function CitySalons() {
   }
 
   useEffect(() => {
-    const p = new URLSearchParams()
-    p.set('sort', sortBy)
-    setParams(p, { replace: true })
+    navigator.geolocation?.getCurrentPosition(
+      (p) => setUserPos({ lat: p.coords.latitude, lng: p.coords.longitude }),
+      () => {}
+    )
+  }, [])
+
+  useEffect(() => {
+    if (sortBy !== 'nearest') return
+    if (userPos) return
+    navigator.geolocation?.getCurrentPosition(
+      (p) => setUserPos({ lat: p.coords.latitude, lng: p.coords.longitude }),
+      () => {},
+      { enableHighAccuracy: true, timeout: 15000, maximumAge: 60_000 }
+    )
+  }, [sortBy, userPos])
+
+  useEffect(() => {
+    setParams(
+      (prev) => {
+        const p = new URLSearchParams(prev)
+        p.set('sort', sortBy)
+        return p
+      },
+      { replace: true }
+    )
     localStorage.setItem(CITY_SORT_PREFS_KEY, sortBy)
   }, [sortBy, setParams])
 
@@ -56,50 +88,87 @@ export default function CitySalons() {
     }
   }, [salons])
 
+  useEffect(() => {
+    if (!salons.length) {
+      setFeaturedAdIds(new Set())
+      return
+    }
+    let c = true
+    void fetchActiveSalonFeaturedAdSalonIds(salons.map((s) => s.id)).then((s) => {
+      if (c) setFeaturedAdIds(s)
+    })
+    return () => {
+      c = false
+    }
+  }, [salons])
+
+  const displaySalons = useMemo(() => {
+    const sorted = [...salons].sort((a, b) => {
+      if (sortBy === 'booked') {
+        return (
+          Number(b.total_bookings ?? 0) - Number(a.total_bookings ?? 0) ||
+          Number(b.average_rating ?? 0) - Number(a.average_rating ?? 0)
+        )
+      }
+      if (sortBy === 'nearest' && userPos) {
+        const da =
+          a.latitude != null && a.longitude != null
+            ? haversineKm(userPos.lat, userPos.lng, a.latitude, a.longitude)
+            : 99999
+        const db =
+          b.latitude != null && b.longitude != null
+            ? haversineKm(userPos.lat, userPos.lng, b.latitude, b.longitude)
+            : 99999
+        return da - db
+      }
+      return (
+        Number(b.average_rating ?? 0) - Number(a.average_rating ?? 0) ||
+        Number(b.total_reviews ?? 0) - Number(a.total_reviews ?? 0)
+      )
+    })
+    return partitionSalonsWithFeaturedAdsFirst(sorted, featuredAdIds)
+  }, [salons, sortBy, userPos, featuredAdIds])
+
   return (
-    <div className="min-h-dvh bg-rosera-light pb-28 dark:bg-rosera-dark">
-      <header className="sticky top-0 z-20 border-b border-primary/10 bg-gradient-to-b from-[#fce4ec]/90 to-white px-4 py-4 backdrop-blur dark:from-rosera-dark dark:to-rosera-dark">
+    <div className="min-h-dvh bg-white pb-28 dark:bg-rosera-dark">
+      <header className="sticky top-0 z-20 border-b border-[#F9A8C9]/25 bg-white px-4 py-4 shadow-sm dark:border-border dark:bg-card">
         <div className="mx-auto flex max-w-lg items-center gap-3">
           {regionId && (
             <Link
               to={`/region/${regionId}`}
-              className="inline-flex shrink-0 items-center gap-0.5 text-sm font-semibold text-[#9B2257] dark:text-primary"
+              className="inline-flex shrink-0 items-center gap-0.5 text-sm font-semibold text-[#BE185D] transition-colors hover:text-[#9D174D] dark:text-primary"
             >
               <ChevronLeft className="h-4 w-4" aria-hidden />
               {t('city.backRegion')}
             </Link>
           )}
           <div className="min-w-0 flex-1">
-            <h1 className="truncate text-xl font-semibold text-[#1F1F1F] dark:text-foreground">{cityName || '...'}</h1>
-            <p className="text-sm font-medium text-[#374151] dark:text-rosera-gray">{t('city.subtitle')}</p>
+            <h1 className="truncate text-xl font-semibold text-[#374151] dark:text-foreground">{cityName || '...'}</h1>
+            <p className="text-sm font-medium text-[#6B7280] dark:text-muted-foreground">{t('city.subtitle')}</p>
           </div>
         </div>
       </header>
 
       <div className="mx-auto max-w-lg px-4 py-6">
         {!loading && salons.length > 0 && (
-          <div className="mb-4 flex items-center gap-2">
-            <Select value={sortBy} onValueChange={(v: 'rating' | 'booked') => setSortBy(v)}>
-              <SelectTrigger className="h-10 rounded-xl bg-white dark:bg-card">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="rating">{t('city.sort.rating')}</SelectItem>
-                <SelectItem value="booked">{t('city.sort.booked')}</SelectItem>
-              </SelectContent>
-            </Select>
-            <button
-              type="button"
-              className="inline-flex h-10 items-center gap-1 rounded-xl border border-primary/20 px-3 text-xs font-bold text-primary"
-              onClick={resetCityFilters}
-            >
+          <div className="mb-4 space-y-3">
+            <SortPills
+              value={sortBy}
+              onChange={(v) => setSortBy(v)}
+              options={[
+                { value: 'rating', label: t('city.sort.rating') },
+                { value: 'booked', label: t('city.sort.booked') },
+                { value: 'nearest', label: t('search.sortNearest') },
+              ]}
+            />
+            <Button variant="ghost" size="sm" className="gap-1" onClick={resetCityFilters}>
               {t('common.reset')}
               {activeFiltersCount > 0 && (
-                <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-extrabold text-white">
+                <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-[#F9A8C9] px-1 text-[10px] font-extrabold text-[#374151]">
                   {activeFiltersCount}
                 </span>
               )}
-            </button>
+            </Button>
           </div>
         )}
         {loading ? (
@@ -109,34 +178,22 @@ export default function CitySalons() {
             ))}
           </div>
         ) : salons.length === 0 ? (
-          <p className="py-16 text-center text-rosera-gray">{t('city.empty')}</p>
+          <CityComingSoonEmpty ctaTo={regionId ? `/region/${regionId}` : '/home'} />
         ) : (
           <div className="grid gap-4 sm:grid-cols-2">
-            {[...salons]
-              .sort((a, b) => {
-                if (sortBy === 'booked') {
-                  return (
-                    Number(b.total_bookings ?? 0) - Number(a.total_bookings ?? 0) ||
-                    Number(b.average_rating ?? 0) - Number(a.average_rating ?? 0)
-                  )
-                }
-                return (
-                  Number(b.average_rating ?? 0) - Number(a.average_rating ?? 0) ||
-                  Number(b.total_reviews ?? 0) - Number(a.total_reviews ?? 0)
-                )
-              })
-              .map((b) => {
-                const meta = salonBoostMeta.get(b.id)
-                return (
-              <BusinessCard
-                key={b.id}
-                b={b}
-                showFavorite
-                isSponsored={!!meta}
-                sponsorLabel={meta?.boost_type}
-              />
-                )
-              })}
+            {displaySalons.map((b) => {
+              const meta = salonBoostMeta.get(b.id)
+              return (
+                <BusinessCard
+                  key={b.id}
+                  b={b}
+                  showFavorite
+                  isSponsored={!!meta}
+                  sponsorLabel={meta?.boost_type}
+                  isFeaturedAd={featuredAdIds.has(b.id)}
+                />
+              )
+            })}
           </div>
         )}
       </div>

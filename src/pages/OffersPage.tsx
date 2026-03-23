@@ -66,7 +66,7 @@ export default function OffersPage() {
               setLoading(true)
               setFilter(x.k)
             }}
-            className={`shrink-0 rounded-full px-4 py-2 font-semibold ${filter === x.k ? 'gradient-rosera text-white' : 'bg-white dark:bg-card'}`}
+            className={`shrink-0 rounded-2xl px-4 py-2.5 text-sm font-semibold transition-all duration-200 active:scale-95 ${filter === x.k ? 'gradient-rosera shadow-sm' : 'bg-white text-[#374151] ring-1 ring-[#E5E7EB] dark:bg-card dark:text-foreground'}`}
           >
             {x.l}
           </button>

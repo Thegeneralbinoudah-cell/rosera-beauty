@@ -1,98 +1,171 @@
 import { useEffect, useState, useMemo } from 'react'
 import { supabase } from '@/lib/supabase'
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts'
+import { formatPrice } from '@/lib/utils'
+import { BarChart, Bar, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer, CartesianGrid } from 'recharts'
 
-type Booking = { total_price: number | null; created_at: string; business_id: string }
+type BookingRow = {
+  total_price: number | null
+  commission_amount: number | null
+  created_at: string
+  business_id: string
+}
 
 export default function AdminRevenue() {
-  const [bookings, setBookings] = useState<Booking[]>([])
+  const [bookings, setBookings] = useState<BookingRow[]>([])
   const [biz, setBiz] = useState<{ id: string; name_ar: string; city: string }[]>([])
 
   useEffect(() => {
     void supabase
       .from('bookings')
-      .select('total_price, created_at, business_id')
+      .select('total_price, commission_amount, created_at, business_id')
       .eq('status', 'completed')
-      .then(({ data }) => setBookings((data ?? []) as Booking[]))
+      .then(({ data }) => setBookings((data ?? []) as BookingRow[]))
     void supabase.from('businesses').select('id, name_ar, city').then(({ data }) => setBiz(data ?? []))
   }, [])
 
+  const totals = useMemo(() => {
+    let gmv = 0
+    let commission = 0
+    for (const b of bookings) {
+      gmv += Number(b.total_price || 0)
+      commission += Number(b.commission_amount || 0)
+    }
+    return { gmv, commission, count: bookings.length }
+  }, [bookings])
+
   const byMonth = useMemo(() => {
-    const m: Record<string, number> = {}
+    const m: Record<string, { revenue: number; commission: number }> = {}
     for (const b of bookings) {
       const key = (b.created_at || '').slice(0, 7)
       if (!key) continue
-      m[key] = (m[key] ?? 0) + Number(b.total_price || 0)
+      if (!m[key]) m[key] = { revenue: 0, commission: 0 }
+      m[key].revenue += Number(b.total_price || 0)
+      m[key].commission += Number(b.commission_amount || 0)
     }
     return Object.entries(m)
       .sort(([a], [b]) => a.localeCompare(b))
-      .map(([month, revenue]) => ({ month, revenue: Math.round(revenue) }))
+      .map(([month, v]) => ({
+        month,
+        revenue: Math.round(v.revenue),
+        commission: Math.round(v.commission * 100) / 100,
+      }))
   }, [bookings])
 
   const byRegion = useMemo(() => {
-    const map = new Map<string, number>()
+    const map = new Map<string, { revenue: number; commission: number }>()
     const idToCity = new Map(biz.map((x) => [x.id, x.city]))
     for (const b of bookings) {
       const city = idToCity.get(b.business_id) ?? 'أخرى'
-      map.set(city, (map.get(city) ?? 0) + Number(b.total_price || 0))
+      const cur = map.get(city) ?? { revenue: 0, commission: 0 }
+      cur.revenue += Number(b.total_price || 0)
+      cur.commission += Number(b.commission_amount || 0)
+      map.set(city, cur)
     }
-    const total = [...map.values()].reduce((a, x) => a + x, 0) || 1
+    const totalRev = [...map.values()].reduce((a, x) => a + x.revenue, 0) || 1
     return [...map.entries()]
-      .sort((a, b) => b[1] - a[1])
-      .map(([region, rev]) => ({ region, revenue: Math.round(rev), pct: Math.round((rev / total) * 100) }))
+      .sort((a, b) => b[1].revenue - a[1].revenue)
+      .map(([region, v]) => ({
+        region,
+        revenue: Math.round(v.revenue),
+        commission: Math.round(v.commission * 100) / 100,
+        pct: Math.round((v.revenue / totalRev) * 100),
+      }))
   }, [bookings, biz])
 
   const topSalons = useMemo(() => {
-    const rev = new Map<string, number>()
+    const rev = new Map<string, { gmv: number; commission: number }>()
     for (const b of bookings) {
-      rev.set(b.business_id, (rev.get(b.business_id) ?? 0) + Number(b.total_price || 0))
+      const cur = rev.get(b.business_id) ?? { gmv: 0, commission: 0 }
+      cur.gmv += Number(b.total_price || 0)
+      cur.commission += Number(b.commission_amount || 0)
+      rev.set(b.business_id, cur)
     }
     const name = new Map(biz.map((x) => [x.id, x.name_ar]))
     return [...rev.entries()]
-      .sort((a, b) => b[1] - a[1])
+      .sort((a, b) => b[1].commission - a[1].commission)
       .slice(0, 8)
-      .map(([id, r]) => ({ name: name.get(id) ?? id, revenue: Math.round(r) }))
+      .map(([id, v]) => ({
+        name: name.get(id) ?? id,
+        gmv: Math.round(v.gmv),
+        commission: Math.round(v.commission * 100) / 100,
+      }))
   }, [bookings, biz])
 
   return (
     <div>
       <h1 className="text-2xl font-bold">الإيرادات</h1>
-      <div className="mt-8 h-72 w-full rounded-xl border bg-white p-4 dark:bg-card">
-        <p className="mb-2 text-sm font-bold text-rosera-gray">الإيرادات حسب الشهر</p>
-        <ResponsiveContainer width="100%" height="90%">
+      <p className="mt-1 text-sm text-muted-foreground">
+        الأرقام من حجوزات <span className="font-semibold text-foreground">مكتملة</span> فقط — عمولة المنصة ={' '}
+        <code className="rounded bg-muted px-1">commission_amount</code>.
+      </p>
+
+      <div className="mt-6 grid gap-4 sm:grid-cols-3">
+        <div className="rounded-xl border bg-white p-4 dark:bg-card">
+          <p className="text-xs font-semibold text-muted-foreground">حجوزات مكتملة</p>
+          <p className="mt-1 text-2xl font-extrabold tabular-nums">{totals.count.toLocaleString('ar-SA')}</p>
+        </div>
+        <div className="rounded-xl border bg-white p-4 dark:bg-card">
+          <p className="text-xs font-semibold text-muted-foreground">مجمّع المبيعات (GMV)</p>
+          <p className="mt-1 text-2xl font-extrabold tabular-nums text-foreground">
+            {formatPrice(totals.gmv)}
+          </p>
+        </div>
+        <div className="rounded-xl border border-primary/20 bg-primary/5 p-4 dark:bg-card">
+          <p className="text-xs font-semibold text-primary">عمولة المنصة (إجمالي)</p>
+          <p className="mt-1 text-2xl font-extrabold tabular-nums text-primary">
+            {formatPrice(totals.commission)}
+          </p>
+        </div>
+      </div>
+
+      <div className="mt-8 h-80 w-full rounded-xl border bg-white p-4 dark:bg-card">
+        <p className="mb-2 text-sm font-bold text-muted-foreground">شهرياً — GMV وعمولة المنصة</p>
+        <ResponsiveContainer width="100%" height="88%">
           <BarChart data={byMonth}>
             <CartesianGrid strokeDasharray="3 3" className="opacity-30" />
             <XAxis dataKey="month" tick={{ fontSize: 11 }} />
             <YAxis tick={{ fontSize: 11 }} />
-            <Tooltip formatter={(v) => [`${Number(v ?? 0).toLocaleString('ar-SA')} ر.س`, 'الإيرادات']} />
-            <Bar dataKey="revenue" fill="#E91E8C" radius={[6, 6, 0, 0]} name="ر.س" />
+            <Tooltip
+              formatter={(v, name) => [`${Number(v ?? 0).toLocaleString('ar-SA')} ر.س`, name === 'revenue' ? 'GMV' : 'عمولة']}
+            />
+            <Legend />
+            <Bar dataKey="revenue" fill="#E8B4D4" radius={[6, 6, 0, 0]} name="GMV" />
+            <Bar dataKey="commission" fill="#E91E8C" radius={[6, 6, 0, 0]} name="عمولة" />
           </BarChart>
         </ResponsiveContainer>
       </div>
+
       <div className="mt-8 grid gap-6 md:grid-cols-2">
         <div className="rounded-xl border bg-white p-4 dark:bg-card">
           <p className="font-bold text-primary">حسب المدينة</p>
           <ul className="mt-4 space-y-3">
             {byRegion.map((r) => (
               <li key={r.region}>
-                <div className="flex justify-between text-sm">
+                <div className="flex flex-wrap justify-between gap-2 text-sm">
                   <span>{r.region}</span>
-                  <span className="font-bold">{r.revenue.toLocaleString('ar-SA')} ر.س</span>
+                  <span className="font-bold">{formatPrice(r.revenue)}</span>
                 </div>
+                <p className="text-xs text-muted-foreground">عمولة: {formatPrice(r.commission)}</p>
                 <div className="mt-1 h-2 overflow-hidden rounded-full bg-muted">
-                  <div className="h-full rounded-full bg-gradient-to-l from-[#9C27B0] to-[#E91E8C]" style={{ width: `${r.pct}%` }} />
+                  <div
+                    className="h-full rounded-full bg-gradient-to-l from-[#9C27B0] to-[#E91E8C]"
+                    style={{ width: `${r.pct}%` }}
+                  />
                 </div>
               </li>
             ))}
           </ul>
         </div>
         <div className="rounded-xl border bg-white p-4 dark:bg-card">
-          <p className="font-bold text-primary">أعلى الصالونات دخلاً</p>
+          <p className="font-bold text-primary">أعلى الصالونات عمولةً</p>
           <ol className="mt-4 list-decimal space-y-2 pe-4 text-sm">
             {topSalons.map((s) => (
-              <li key={s.name} className="flex justify-between gap-2">
-                <span>{s.name}</span>
-                <span className="font-bold whitespace-nowrap">{s.revenue.toLocaleString('ar-SA')} ر.س</span>
+              <li key={s.name} className="flex flex-col gap-0.5 border-b border-border/60 pb-2 last:border-0">
+                <div className="flex justify-between gap-2 font-semibold">
+                  <span>{s.name}</span>
+                  <span className="whitespace-nowrap text-primary">{formatPrice(s.commission)}</span>
+                </div>
+                <span className="text-xs text-muted-foreground">GMV: {formatPrice(s.gmv)}</span>
               </li>
             ))}
           </ol>

@@ -14,6 +14,9 @@ const cors = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
+/** Matches client `FEATURED_AD_AI_RANK_BOOST` in aiRanking / salonAds. */
+const FEATURED_AD_RANK_BOOST = 58
+
 const OPENAI_MODEL = 'gpt-4o'
 
 type Msg = { role: 'user' | 'assistant' | 'system'; content: string }
@@ -50,6 +53,143 @@ type SalonRow = {
   average_rating: number | null
   address_ar: string | null
   opening_hours: Record<string, { open: string; close: string }> | null
+  latitude?: number | null
+  longitude?: number | null
+  total_bookings?: number | null
+  cover_image?: string | null
+  google_photo_resource?: string | null
+  price_range?: string | null
+  is_featured?: boolean | null
+  rosy_pricing_flexible?: boolean | null
+  rosy_discount_allowed?: boolean | null
+  rosy_max_discount_percent?: number | null
+  /** Active B2B subscription plan (joined after fetch) */
+  subscription_plan?: 'basic' | 'pro' | 'premium' | null
+  /** Paid featured ad (salon_ads) in date window — set after fetch */
+  has_active_featured_ad?: boolean
+}
+
+type RozySalonOut = {
+  id: string
+  name_ar: string
+  average_rating: number | null
+  distance_km: number | null
+  cover_image: string | null
+  google_photo_resource: string | null
+}
+
+type RozyActionOut = {
+  id: string
+  label: string
+  salon_id?: string | null
+  kind?: string
+  service_id?: string | null
+  discount_percent?: number | null
+}
+
+function haversineKm(lat1: number, lon1: number, lat2: number, lon2: number): number {
+  const R = 6371
+  const dLat = ((lat2 - lat1) * Math.PI) / 180
+  const dLon = ((lon2 - lon1) * Math.PI) / 180
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos((lat1 * Math.PI) / 180) * Math.cos((lat2 * Math.PI) / 180) * Math.sin(dLon / 2) ** 2
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
+}
+
+function shouldIncludeSalonCards(intent: IntentName, utterance: string): boolean {
+  if (intent === 'search_salon' || intent === 'recommend_service' || intent === 'booking_request') return true
+  if (intent !== 'general_question') return false
+  return /صالون|حجز|موعد|سبا|أظافر|شعر|ليزر|مكياج|تجميل|عيادة|أقرب|تقييم|رخيص|سعر|غال[يى]|غالي|خصم|أرخص|ارخص|ابي\s*خصم|أبي\s*خصم|ابغى\s*خصم|فيه\s*أرخص|في\s*أرخص|وش\s*الأفضل|وش\s*احسن|دلّيني|دليني|نصايح|اقتراح/i.test(
+    utterance
+  )
+}
+
+function rankSalonsForRosy(
+  salons: SalonRow[],
+  reco: UserRecommendationHistory,
+  userLatLng: { lat: number; lng: number } | null,
+  flags: {
+    luxury?: boolean
+    priceSensitive?: boolean
+    similarToBooked?: boolean
+    urgentToday?: boolean
+    preferredPriceRange?: string | null
+  }
+): SalonRow[] {
+  const scored = salons.map((s) => {
+    const lat = Number(s.latitude)
+    const lng = Number(s.longitude)
+    let dist = 0
+    if (userLatLng && Number.isFinite(lat) && Number.isFinite(lng)) {
+      dist = haversineKm(userLatLng.lat, userLatLng.lng, lat, lng)
+    }
+    const rating = Number(s.average_rating ?? 0)
+    const bookings = Number(s.total_bookings ?? 0)
+    let score = rating * 4.2 + Math.log1p(Math.max(0, bookings)) * 2.8
+    const sub = s.subscription_plan
+    if (sub === 'premium') score += 50
+    else if (sub === 'pro') score += 25
+    if (s.is_featured) score += 40
+    if (s.has_active_featured_ad) score += FEATURED_AD_RANK_BOOST
+    if (reco.favoriteBusinessIds.has(s.id)) score += 6
+    if (reco.bookedBusinessIds.has(s.id)) score += 9
+    if (userLatLng && dist > 0 && Number.isFinite(dist)) {
+      const distW = flags.urgentToday ? 0.38 : 0.22
+      score -= Math.min(dist, 80) * distW
+    }
+    if (flags.luxury) {
+      score += rating >= 4.5 ? 4 : 0
+    }
+    if (flags.priceSensitive) {
+      score += rating > 0 && rating <= 4.2 ? 2 : 0
+      const pr = (s.price_range || '').toLowerCase()
+      if (/\$|econom|low|اقتصاد|منخفض|رخيص|budget/i.test(pr)) score += 5
+      const pref = flags.preferredPriceRange?.trim()
+      if (pref && s.price_range && s.price_range.trim() === pref) score += 10
+    }
+    return { s, score, dist }
+  })
+  scored.sort((a, b) => b.score - a.score)
+  return scored.map((x) => x.s)
+}
+
+function partitionFeaturedSalonsFirst(salons: SalonRow[]): SalonRow[] {
+  const withAd: SalonRow[] = []
+  const rest: SalonRow[] = []
+  for (const s of salons) {
+    if (s.has_active_featured_ad) withAd.push(s)
+    else rest.push(s)
+  }
+  return [...withAd, ...rest]
+}
+
+function salonsToPayload(rows: SalonRow[], userLatLng: { lat: number; lng: number } | null): RozySalonOut[] {
+  return rows.slice(0, 3).map((s) => {
+    const lat = Number(s.latitude)
+    const lng = Number(s.longitude)
+    let distance_km: number | null = null
+    if (userLatLng && Number.isFinite(lat) && Number.isFinite(lng)) {
+      distance_km = Math.round(haversineKm(userLatLng.lat, userLatLng.lng, lat, lng) * 10) / 10
+    }
+    return {
+      id: s.id,
+      name_ar: s.name_ar,
+      average_rating: s.average_rating,
+      distance_km,
+      cover_image: s.cover_image ?? null,
+      google_photo_resource: s.google_photo_resource ?? null,
+    }
+  })
+}
+
+function buildActionsForSalons(salons: RozySalonOut[]): RozyActionOut[] {
+  if (salons.length === 0) return []
+  const first = salons[0]
+  return [
+    { id: 'book_now', label: 'احجزي الآن', salon_id: first.id, kind: 'book' },
+    { id: 'more_options', label: 'شوفي خيارات ثانية', kind: 'more' },
+  ]
 }
 
 type ServiceRow = ServiceForRank
@@ -135,7 +275,14 @@ async function fetchRecoHistory(sb: SupabaseClient, userId: string): Promise<Use
   for (const row of eventsRes.data ?? []) {
     const r = row as { event_type: string; entity_type: string; entity_id: string; created_at: string }
     const d = decayFactorReco(r.created_at)
-    const w = r.event_type === 'book' ? 1.15 : r.event_type === 'click' ? 0.5 : 0.15
+    const w =
+      r.event_type === 'book'
+        ? 1.15
+        : r.event_type === 'click'
+          ? 0.5
+          : r.event_type === 'user_preference'
+            ? 0.55
+            : 0.15
     const add = w * d
     if (r.entity_type === 'service') bumpRecoScore(h.serviceEventScore, r.entity_id, add)
     else if (r.entity_type === 'product') bumpRecoScore(h.productEventScore, r.entity_id, add)
@@ -284,17 +431,476 @@ function pickSlotsFromOpeningHours(oh: Record<string, { open: string; close: str
   return [a, b, c]
 }
 
+const SALON_SELECT =
+  'id,name_ar,city,city_id,category,category_label,average_rating,address_ar,opening_hours,latitude,longitude,total_bookings,cover_image,google_photo_resource,price_range,is_featured,rosy_pricing_flexible,rosy_discount_allowed,rosy_max_discount_percent'
+
+function utteranceWantsPriceNegotiation(utterance: string): boolean {
+  const t = utterance.trim()
+  if (!t) return false
+  return /غال[يى]|غالي|غاليه|أرخص|ارخص|رخيص|خصم|تخفيض|سعر\s*عالي|فيه\s*أرخص|في\s*أرخص|ابي\s*خصم|أبي\s*خصم|ابغى\s*خصم|ابغي\s*خصم|مبالغ\s*في|غالي\s*علي|expensive|too\s*much/i.test(
+    t
+  )
+}
+
+function pickFocusSalonIdForNegotiation(
+  rankedSalons: SalonRow[],
+  entities: Record<string, unknown>
+): string | null {
+  const hint = typeof entities.salon_hint === 'string' ? entities.salon_hint.trim() : ''
+  const q = typeof entities.query === 'string' ? entities.query.trim() : ''
+  if (hint) {
+    const h = hint.toLowerCase()
+    const hit = rankedSalons.find((s) => s.name_ar.toLowerCase().includes(h))
+    if (hit) return hit.id
+  }
+  if (q) {
+    const ql = q.toLowerCase()
+    const hit = rankedSalons.find((s) => s.name_ar.toLowerCase().includes(ql))
+    if (hit) return hit.id
+  }
+  return rankedSalons[0]?.id ?? null
+}
+
+type NegotiationPack = {
+  systemAppendix: string
+  replyPrefix: string
+  actions: RozyActionOut[]
+}
+
+function buildPriceNegotiationPack(
+  focus: SalonRow,
+  servicesAll: ServiceRow[],
+  rankedSalons: SalonRow[]
+): NegotiationPack {
+  const flex = focus.rosy_pricing_flexible !== false
+  const discAllowed = focus.rosy_discount_allowed === true
+  const maxDisc = Math.min(15, Math.max(0, Number(focus.rosy_max_discount_percent ?? 10)))
+
+  const svcFocus = servicesAll.filter((s) => s.business_id === focus.id && Number(s.price) > 0)
+  const sorted = [...svcFocus].sort((a, b) => Number(a.price) - Number(b.price))
+  const cheapest = sorted[0]
+  const priciest = sorted.length ? sorted[sorted.length - 1] : null
+
+  let cheaperSameSalon: { id: string; name_ar: string; price: number } | null = null
+  if (flex && cheapest && priciest && cheapest.id !== priciest.id && Number(cheapest.price) < Number(priciest.price)) {
+    cheaperSameSalon = {
+      id: cheapest.id,
+      name_ar: cheapest.name_ar,
+      price: Math.round(Number(cheapest.price) * 100) / 100,
+    }
+  }
+
+  let altSalonId: string | null = null
+  let altMin = Infinity
+  let altName: string | null = null
+  if (flex) {
+    const focusMin = sorted.length ? Number(sorted[0].price) : Infinity
+    for (const s of rankedSalons) {
+      if (s.id === focus.id) continue
+      const mins = servicesAll
+        .filter((x) => x.business_id === s.id)
+        .map((x) => Number(x.price))
+        .filter((p) => p > 0)
+      const m = mins.length ? Math.min(...mins) : Infinity
+      if (m < altMin && Number.isFinite(m) && m < focusMin - 0.01) {
+        altMin = m
+        altSalonId = s.id
+        altName = s.name_ar
+      }
+    }
+  }
+
+  let appliedDiscountPercent: number | null = null
+  let anchorPrice: number | null = null
+  let discountedPrice: number | null = null
+  if (discAllowed && maxDisc >= 5) {
+    const chosen = Math.min(maxDisc, 10)
+    appliedDiscountPercent = chosen
+    anchorPrice = priciest ? Number(priciest.price) : cheapest ? Number(cheapest.price) : null
+    if (anchorPrice != null && anchorPrice > 0) {
+      discountedPrice = Math.round(anchorPrice * (1 - chosen / 100) * 100) / 100
+    }
+  }
+
+  const lines: string[] = []
+  lines.push(`## تفاوض السعر (روزي) — بيانات من النظام؛ التزمي بها حرفياً`)
+  lines.push(
+    `- الصالون المحوري: **${focus.name_ar}** (\`${focus.id}\`) — اقتراح بدائل أرخص: **${flex ? 'مسموح' : 'غير مسموح'}** — خصم إضافي عبر روزي: **${discAllowed && maxDisc >= 5 ? `مسموح حتى ${maxDisc}%` : 'غير مسموح'}**.`
+  )
+  if (cheaperSameSalon && priciest) {
+    lines.push(
+      `- في **نفس الصالون** خدمة أوفر: **${cheaperSameSalon.name_ar}** بسعر **${cheaperSameSalon.price}** ر.س (مقارنة بأغلى خدمات تصل إلى **${Math.round(Number(priciest.price) * 100) / 100}** ر.س).`
+    )
+  } else if (!flex) {
+    lines.push(`- لا تقترحي خدمات بديلة أرخص داخل نفس الصالون (المرونة معطّلة لصاحبة الصالون).`)
+  }
+  if (altSalonId && altName && Number.isFinite(altMin)) {
+    lines.push(
+      `- **بديل أرخص قريب** في النتائج: **${altName}** (\`${altSalonId}\`) — أقل سعر خدمة تقريباً **${Math.round(altMin * 100) / 100}** ر.س. يمكن قول: «أو عندي خيار قريب بنفس الجودة بس أرخص 👇».`
+    )
+  }
+  if (discAllowed && appliedDiscountPercent != null && anchorPrice != null && discountedPrice != null) {
+    lines.push(
+      `- **مسموح** عرض خصم إضافي **${appliedDiscountPercent}%** فقط (لا تتجاوزي ${maxDisc}%). مثال على أغلى خدمة في القائمة: **${Math.round(anchorPrice * 100) / 100}** → **${discountedPrice}** ر.س. صيغي: «أقدر أضبط لك خصم بسيط ✨ يصير السعر **${discountedPrice}** بدل **${Math.round(anchorPrice * 100) / 100}**» عندما يناسب السياق.`
+    )
+  } else {
+    lines.push(
+      `- **ممنوع** وعد بنسبة خصم أو سعر مخفّض لهذا الصالون. اقتصري على البدائل الواردة أعلاه أو لطف عام بدون أرقام خصم.`
+    )
+  }
+  lines.push(`- أضيفي جملة إلحاح واحدة: **العرض متاح اليوم فقط 🔥** (أسلوب تسويقي خفيف).`)
+  lines.push(
+    `- جملة «أفهمك 💖 خليني أشوف لك خيار أفضل» تُعرَض تلقائياً قبل ردك؛ تابعي مباشرة بعدها **بدون** تكرار نفس الجملة حرفياً.`
+  )
+  lines.push(`- لا تختلقي أسعاراً أو نسباً غير مذكورة هنا.`)
+
+  const actions: RozyActionOut[] = []
+  if (appliedDiscountPercent != null && appliedDiscountPercent > 0 && discAllowed) {
+    actions.push({
+      id: 'rosy-negotiated-book',
+      label: 'احجزي بالسعر الجديد',
+      salon_id: focus.id,
+      kind: 'negotiated_book',
+      service_id: cheaperSameSalon?.id ?? null,
+      discount_percent: appliedDiscountPercent,
+    })
+  }
+
+  return {
+    systemAppendix: lines.join('\n'),
+    replyPrefix: 'أفهمك 💖 خليني أشوف لك خيار أفضل\n\n',
+    actions,
+  }
+}
+
+type BizMini = { name_ar?: string | null; category_label?: string | null }
+
+function unwrapBiz<T>(raw: T | T[] | null | undefined): T | null {
+  if (!raw) return null
+  return Array.isArray(raw) ? (raw[0] ?? null) : raw
+}
+
+type MemoryPack = { narrative: string; preferredPriceRange: string | null }
+
+async function fetchMemoryPack(sb: SupabaseClient, userId: string): Promise<MemoryPack> {
+  const lines: string[] = []
+  let preferredPriceRange: string | null = null
+
+  try {
+    const { data: bk } = await sb
+      .from('bookings')
+      .select('created_at,businesses(name_ar,category_label)')
+      .eq('user_id', userId)
+      .neq('status', 'cancelled')
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+
+    const b = unwrapBiz((bk as { businesses?: BizMini | BizMini[] | null })?.businesses) as BizMini | null
+    if (b?.name_ar?.trim()) {
+      const cl = b.category_label?.trim() || ''
+      lines.push(`- آخر حجز: صالون «${b.name_ar.trim()}»${cl ? ` (${cl})` : ''}`)
+    }
+  } catch {
+    /* ignore */
+  }
+
+  try {
+    const { data: favRows } = await sb
+      .from('favorites')
+      .select('businesses(name_ar)')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false })
+      .limit(5)
+
+    const names: string[] = []
+    for (const row of favRows ?? []) {
+      const x = unwrapBiz((row as { businesses?: { name_ar?: string | null } | null }).businesses)
+      const n = x && typeof (x as { name_ar?: string }).name_ar === 'string' ? (x as { name_ar: string }).name_ar.trim() : ''
+      if (n) names.push(n)
+    }
+    if (names.length) lines.push(`- مفضلات: ${names.join('، ')}`)
+  } catch {
+    /* ignore */
+  }
+
+  try {
+    const { data: evs } = await sb
+      .from('user_events')
+      .select('metadata,created_at')
+      .eq('user_id', userId)
+      .eq('event_type', 'user_preference')
+      .order('created_at', { ascending: false })
+      .limit(48)
+
+    const svc = new Set<string>()
+    const prices = new Map<string, number>()
+    const locs = new Map<string, number>()
+    for (const r of evs ?? []) {
+      const m = r.metadata as Record<string, unknown> | null
+      if (!m || typeof m !== 'object') continue
+      if (typeof m.service === 'string' && m.service.trim()) svc.add(m.service.trim())
+      if (typeof m.price_range === 'string' && m.price_range.trim()) {
+        const p = m.price_range.trim()
+        prices.set(p, (prices.get(p) ?? 0) + 1)
+      }
+      if (typeof m.location === 'string' && m.location.trim()) {
+        const loc = m.location.trim()
+        locs.set(loc, (locs.get(loc) ?? 0) + 1)
+      }
+    }
+    if (svc.size) lines.push(`- اهتمامات خدمات من السلوك: ${[...svc].join('، ')}`)
+    const topPrice = [...prices.entries()].sort((a, b) => b[1] - a[1])[0]?.[0]
+    if (topPrice) {
+      lines.push(`- نطاق سعر يُفضّل (من السلوك): ${topPrice}`)
+      preferredPriceRange = topPrice
+    }
+    const topLoc = [...locs.entries()].sort((a, b) => b[1] - a[1])[0]?.[0]
+    if (topLoc) lines.push(`- مدينة/منطقة مفضلة: ${topLoc}`)
+  } catch {
+    /* ignore */
+  }
+
+  if (lines.length === 0) return { narrative: '', preferredPriceRange: null }
+
+  const narrative = `## ذاكرة وتفضيلات المستخدمة (حقيقية — لا تعيدي سؤالاً إن وُجد الجواب هنا)
+${lines.join('\n')}
+- **لا تكرري** نفس السؤال إن أجابت المستخدمة سابقاً في المحادثة.
+- عند أول توصية مناسبة يمكنكِ مرة واحدة جملة مثل: «آخر مرة حجزتي أظافر 💅 تبغي نفس الشي اليوم؟» إن كانت «أظافر/nails» ضمن الاهتمامات أو آخر حجز واضح.
+- هدفكِ دائماً تقريبها من **الحجز** بلطف (CTA قصير).`
+
+  return { narrative, preferredPriceRange }
+}
+
+async function attachActiveSubscriptionPlans(sb: SupabaseClient, salons: SalonRow[]): Promise<void> {
+  if (salons.length === 0) return
+  try {
+    await sb.rpc('expire_salon_subscriptions')
+  } catch {
+    /* ignore */
+  }
+  const ids = salons.map((s) => s.id)
+  const now = new Date().toISOString()
+  const { data } = await sb
+    .from('salon_subscriptions')
+    .select('salon_id, plan')
+    .in('salon_id', ids)
+    .eq('status', 'active')
+    .gt('expires_at', now)
+
+  const rank = (p: string) => (p === 'premium' ? 3 : p === 'pro' ? 2 : p === 'basic' ? 1 : 0)
+  const map = new Map<string, 'basic' | 'pro' | 'premium'>()
+  for (const row of data ?? []) {
+    const sid = row.salon_id as string
+    const plan = row.plan as string
+    if (plan !== 'basic' && plan !== 'pro' && plan !== 'premium') continue
+    const cur = map.get(sid)
+    if (!cur || rank(plan) > rank(cur)) map.set(sid, plan as 'basic' | 'pro' | 'premium')
+  }
+  for (const s of salons) {
+    s.subscription_plan = map.get(s.id) ?? null
+  }
+}
+
+async function attachSalonFeaturedAds(sb: SupabaseClient, salons: SalonRow[]): Promise<void> {
+  if (salons.length === 0) return
+  try {
+    await sb.rpc('expire_salon_ads')
+  } catch {
+    /* ignore */
+  }
+  const ids = salons.map((s) => s.id)
+  const t = new Date().toISOString().slice(0, 10)
+  const { data } = await sb
+    .from('salon_ads')
+    .select('salon_id')
+    .in('salon_id', ids)
+    .eq('status', 'active')
+    .lte('start_date', t)
+    .gte('end_date', t)
+  const set = new Set<string>()
+  for (const row of data ?? []) {
+    const sid = (row as { salon_id?: string }).salon_id
+    if (sid) set.add(sid)
+  }
+  for (const s of salons) {
+    s.has_active_featured_ad = set.has(s.id)
+  }
+}
+
+type SalonOwnerB2BContext = {
+  is_owner: boolean
+  salon_id: string | null
+  salon_name_ar: string | null
+  plan: 'basic' | 'pro' | 'premium' | null
+}
+
+type SalonOwnerSalesMetrics = {
+  impressions_7d: number
+  clicks_7d: number
+  bookings_7d: number
+}
+
+type RosyUpsellStateRow = {
+  last_cta_at: string
+  follow_up_at: string | null
+}
+
+type SalonSubscriptionUpsellDecision = {
+  showCta: boolean
+  followUpMode: boolean
+  rpcMode: 'primary' | 'follow_up' | null
+  analyticsLines: string
+}
+
+async function fetchSalonOwnerB2BContext(sb: SupabaseClient, userId: string): Promise<SalonOwnerB2BContext> {
+  const { data: soRows } = await sb.from('salon_owners').select('salon_id').eq('user_id', userId).limit(1)
+  let salonId = (soRows?.[0] as { salon_id?: string } | undefined)?.salon_id
+  if (!salonId) {
+    const { data: ob } = await sb.from('businesses').select('id').eq('owner_id', userId).limit(1).maybeSingle()
+    salonId = (ob as { id?: string } | null)?.id
+  }
+  if (!salonId) {
+    return { is_owner: false, salon_id: null, salon_name_ar: null, plan: null }
+  }
+  const { data: bizFull } = await sb.from('businesses').select('name_ar').eq('id', salonId).maybeSingle()
+  const nameAr = (bizFull as { name_ar?: string } | null)?.name_ar ?? null
+  try {
+    await sb.rpc('expire_salon_subscriptions')
+  } catch {
+    /* ignore */
+  }
+  const now = new Date().toISOString()
+  const { data: subRows } = await sb
+    .from('salon_subscriptions')
+    .select('plan')
+    .eq('salon_id', salonId)
+    .eq('status', 'active')
+    .gt('expires_at', now)
+    .order('expires_at', { ascending: false })
+    .limit(1)
+  const row = subRows?.[0] as { plan?: string } | undefined
+  const p = row?.plan
+  const plan = p === 'basic' || p === 'pro' || p === 'premium' ? (p as 'basic' | 'pro' | 'premium') : null
+  return { is_owner: true, salon_id: salonId, salon_name_ar: nameAr, plan }
+}
+
+function ownerMentionedSalonBusinessVisibility(utterance: string): boolean {
+  return /صالوني|صالون\s*حقتي|صاحبة\s*صالون|مالكة\s*صالون|زباين|زبائن|عملاء|ما\s*يجيني|قليل\s*حجوز|حجوزات\s*قليل|ظهور|ترتيب|أول\s*القائمة|نمو|تسويق|اشتراك|باقة|بريميوم|مميزة|premium|ترويج|وضوح|مش\s*ظاهر|ليه\s*ما\s*يطلع/i.test(
+    utterance
+  )
+}
+
+function computeSalonSubscriptionUpsellDecision(
+  ctx: SalonOwnerB2BContext,
+  metrics: SalonOwnerSalesMetrics,
+  rankedForCity: SalonRow[],
+  utterance: string,
+  state: RosyUpsellStateRow | null,
+  hadClickSinceLastCta: boolean
+): SalonSubscriptionUpsellDecision {
+  const analyticsLines = `- انطباعات (مشاهدات/ظهور في التطبيق) آخر 7 أيام: **${metrics.impressions_7d}**
+- نقرات ذات صلة آخر 7 أيام: **${metrics.clicks_7d}**
+- حجوزات (حسب تاريخ اليوم في الحجز) آخر 7 أيام: **${metrics.bookings_7d}**`
+
+  if (!ctx.is_owner || ctx.plan === 'premium') {
+    return { showCta: false, followUpMode: false, rpcMode: null, analyticsLines }
+  }
+
+  const utteranceTriggered = ownerMentionedSalonBusinessVisibility(utterance)
+
+  if (hadClickSinceLastCta && !utteranceTriggered) {
+    return { showCta: false, followUpMode: false, rpcMode: null, analyticsLines }
+  }
+
+  if (utteranceTriggered) {
+    return { showCta: true, followUpMode: false, rpcMode: 'primary', analyticsLines }
+  }
+
+  const idx = ctx.salon_id ? rankedForCity.findIndex((s) => s.id === ctx.salon_id) : -1
+  const n = rankedForCity.length
+  const notInTop = n === 0 ? false : idx < 0 ? n >= 4 : idx >= 4
+  const lowBookings = metrics.bookings_7d <= 2
+  const lowVisibilitySignals = metrics.impressions_7d < 20 && metrics.clicks_7d < 10
+  const trafficNoConversion = metrics.impressions_7d >= 35 && metrics.bookings_7d <= 3
+  const dataTriggered = notInTop || lowBookings || trafficNoConversion || lowVisibilitySignals
+
+  const now = Date.now()
+  const lastCtaMs = state?.last_cta_at ? new Date(state.last_cta_at).getTime() : 0
+  const daysSinceCta = lastCtaMs > 0 ? (now - lastCtaMs) / 86_400_000 : 999
+
+  if (
+    state &&
+    !state.follow_up_at &&
+    daysSinceCta >= 2 &&
+    daysSinceCta < 14 &&
+    lastCtaMs > 0
+  ) {
+    return {
+      showCta: true,
+      followUpMode: true,
+      rpcMode: 'follow_up',
+      analyticsLines,
+    }
+  }
+
+  const throttlePrimary = daysSinceCta < 3 && lastCtaMs > 0
+  if (dataTriggered && !throttlePrimary) {
+    return { showCta: true, followUpMode: false, rpcMode: 'primary', analyticsLines }
+  }
+
+  return { showCta: false, followUpMode: false, rpcMode: null, analyticsLines }
+}
+
+function buildSalonOwnerSubscriptionSalesSystemAppendix(
+  ctx: SalonOwnerB2BContext,
+  rankedForCity: SalonRow[],
+  decision: SalonSubscriptionUpsellDecision
+): string {
+  if (!ctx.is_owner || ctx.plan === 'premium') return ''
+  const idx = ctx.salon_id ? rankedForCity.findIndex((s) => s.id === ctx.salon_id) : -1
+  const rankLine =
+    rankedForCity.length === 0
+      ? '- لا توجد قائمة نتائج مدينة مُحسّنة حالياً لهذا السياق.'
+      : idx >= 0
+        ? `- ترتيب صالونها **التقريبي** في نتائج مدينتها ضمن بيانات روزي الحالية: **${idx + 1}/${rankedForCity.length}** (بعد ترتيب الظهور الداخلي).`
+        : `- صالونها **ليس ضمن أعلى النتائج** في القائمة الحالية لمدينتها (${rankedForCity.length} صالوناً معروضاً).`
+  const planLabel = ctx.plan === 'pro' ? 'Pro' : ctx.plan === 'basic' ? 'Basic' : 'لا يوجد اشتراك B2B فعّال'
+
+  const pitchBlock = decision.showCta
+    ? decision.followUpMode
+      ? `- **متابعة بعد يومين** — المستخدمة لم تضغط «تفعيل الآن» بعد العرض السابق. ذكّريها بلطف بجملة قصيرة ثم اربطي بأرقام الأداء أدناه إن وُجدت.
+- أضيفي سطراً عن **عرض خاص اليوم ✨ خصم 20%** كـ حافز (تسويقي — إن لم يكن الخصم مفعّلاً في المنتج فصيغيها كاقتراح عام دون وعد سعر).`
+      : `- **مساعدة مبيعات ذكية**: استخدمي أرقام الأداء أدناه لتخصيص الرد (مثال أسلوب: «صالونك انشاف X مرة هذا الأسبوع لكن الحجوزات قليلة…»).
+- **الجملة الأساسية** (حافظي على المعنى؛ يمكن تقسيم سطرين):
+«لاحظت إن ظهور صالونك قليل 😔
+لو ترقينه لباقة مميزة ⭐
+راح يزيد عدد الحجوزات بشكل واضح ✨»
+- **إلحاح تسويقي** — أضيفي مرة واحدة قريبة من نهاية الجزء الترويجي:
+«عرض خاص اليوم ✨ خصم 20%»
+(إن كان الخصم غير مفعّل في النظام، قدّميه كـ «عرض ترويجي» بدون ضمان فني.)
+- في الواجهة سيظهر زر **تفعيل الآن**؛ لا تكرري روابط يدوية لنفس الغرض.
+- إن كانت المستخدمة تتكلّم بالصوت: جمل **قصيرة**، نبرة ودودة وناعمة، ختام بسؤال يقبل «اي / تمام»؛ اربطي بأرقام المشاهدات والحجوزات والترتيب عندما تكون في سياق البيانات أدناه.
+- **لا تبالغي**: جزء ترويجي واحد مختصر في هذا الرد.`
+    : `- لا تبيعي الاشتراك في **هذا** الرد إلا إن سألت صراحة عن عملاء أو ظهور أو نمو؛ عندها استخدمي نفس أسلوب المبيعات أعلاه باختصار.`
+
+  return `
+
+## أنتِ مساعدة مبيعات ذكية لروزيرا — صاحبات الصالونات (داخلي)
+- هذه المستخدمة **مالكة صالون**: «${ctx.salon_name_ar || 'صالونها المسجل'}». الخطة الحالية: **${planLabel}** (ليست Premium ⭐).
+${rankLine}
+## أداء الصالون في التطبيق (7 أيام — بيانات حقيقية)
+${decision.analyticsLines}
+${pitchBlock}`
+}
+
 async function fetchSalonsForUser(
   sb: SupabaseClient,
   profileCity: string,
   intent: IntentName,
   entities: Record<string, unknown>
 ): Promise<SalonRow[]> {
-  let q = sb
-    .from('businesses')
-    .select('id,name_ar,city,city_id,category,category_label,average_rating,address_ar,opening_hours')
-    .eq('is_active', true)
-    .eq('is_demo', false)
+  let q = sb.from('businesses').select(SALON_SELECT).eq('is_active', true).eq('is_demo', false)
 
   const searchQ = typeof entities.query === 'string' ? entities.query.trim() : ''
   const salonHint = typeof entities.salon_hint === 'string' ? entities.salon_hint.trim() : ''
@@ -307,19 +913,21 @@ async function fetchSalonsForUser(
     q = q.eq('city', profileCity)
   }
 
-  const { data, error } = await q.order('average_rating', { ascending: false }).limit(22)
+  const { data, error } = await q.order('average_rating', { ascending: false }).limit(40)
   if (error) throw error
   let list = (data ?? []) as SalonRow[]
   if (list.length === 0 && profileCity) {
     const fb = await sb
       .from('businesses')
-      .select('id,name_ar,city,city_id,category,category_label,average_rating,address_ar,opening_hours')
+      .select(SALON_SELECT)
       .eq('is_active', true)
       .eq('is_demo', false)
       .order('average_rating', { ascending: false })
-      .limit(18)
+      .limit(28)
     if (!fb.error) list = (fb.data ?? []) as SalonRow[]
   }
+  await attachActiveSubscriptionPlans(sb, list)
+  await attachSalonFeaturedAds(sb, list)
   return list
 }
 
@@ -375,6 +983,7 @@ function formatSkinContextBlock(row: SkinContextRow | null): string {
 }
 
 function buildBrainContext(params: {
+  memoryNarrative: string
   profile: ProfileRow
   historyText: string
   salons: SalonRow[]
@@ -384,13 +993,28 @@ function buildBrainContext(params: {
   rankedServicesLines: string
   rankedProductsLines: string
 }): string {
-  const { profile, historyText, salons, services, products, skinBlock, rankedServicesLines, rankedProductsLines } = params
+  const {
+    memoryNarrative,
+    profile,
+    historyText,
+    salons,
+    services,
+    products,
+    skinBlock,
+    rankedServicesLines,
+    rankedProductsLines,
+  } = params
+  const mem = memoryNarrative.trim() ? `${memoryNarrative.trim()}\n\n` : ''
   const salonLines =
     salons
-      .map(
-        (b) =>
-          `- [${b.id}] ${b.name_ar} — ${b.city} — ${b.category_label || b.category || ''} — تقييم ${Number(b.average_rating ?? 0).toFixed(1)} — ${b.address_ar || ''}`
-      )
+      .map((b) => {
+        const bits: string[] = []
+        if (b.has_active_featured_ad) bits.push('إعلان مميز ⭐')
+        if (b.subscription_plan === 'premium' || b.is_featured) bits.push('صالون مميز ⭐')
+        else if (b.subscription_plan === 'pro') bits.push('خطة Pro')
+        const tag = bits.length ? ` — ${bits.join('، ')}` : ''
+        return `- [${b.id}] ${b.name_ar} — ${b.city} — ${b.category_label || b.category || ''} — تقييم ${Number(b.average_rating ?? 0).toFixed(1)} — شعبية حجوزات ${Number(b.total_bookings ?? 0)} — نطاق سعر: ${b.price_range || '—'} — ${b.address_ar || ''}${tag}`
+      })
       .join('\n') || '(لا توجد صالونات مطابقة في البيانات)'
 
   const svcLines =
@@ -415,7 +1039,7 @@ ${rankedProductsLines.trim() || '(لا توجد)'}
 `
       : ''
 
-  return `## الملف الشخصي
+  return `${mem}## الملف الشخصي
 - الاسم: ${profile.full_name || '—'}
 - المدينة المفضلة في الملف: ${profile.city || '—'}
 
@@ -430,6 +1054,43 @@ ${svcLines}
 
 ## منتجات المتجر
 ${prodLines}`
+}
+
+function buildRosyPersonalityBlock(params: {
+  intent: IntentName
+  hasBookedBefore: boolean
+  isFrequentChatter: boolean
+  luxuryHint: boolean
+  priceSensitive: boolean
+}): string {
+  const { intent, hasBookedBefore, isFrequentChatter, luxuryHint, priceSensitive } = params
+  let s = `## شخصية روزي (إلزامي — مستوى مساعد ذكي)
+- سعودية (لهجة بيضاء مفهومة)، دافئة، أنثوية، **قصيرة** — تفهمين السوق والسلانج (يالله، وش، ابغى، زين، يلا، حيل، ضبطي…).
+- أمثلة نبرة: "أكيد حبيبتي 💖"، "تمام يا الغالية"، "لقيت لك أفضل الخيارات 👇✨"
+- **استنتاجي**: اربطي بالمحادثة السابقة؛ لا تكرري سؤالاً إن الجواب ظاهر في التاريخ أو في ذاكرة المستخدمة.
+- **مسار**: قصد المستخدمة → اقتراح واضح (أفضل 3) → تأكيد خفيف → دفع لطيف نحو الحجز.
+- التصنيف الحالي للرسالة: **${intent}**.
+- لا تعرضي JSON أو جداول؛ البطاقات تظهر في الواجهة — اكتفي بجملة قصيرة + إيموجي واحد أو اثنين كحد أقصى.
+- بعد عرض خيارات الصالونات: وجّهي للحجز: "تحبي أحجز لكِ من هنا؟ 💕" أو "نكمّل الحجز؟ ✨"
+- **إن لم تُجد صالونات مناسبة في البيانات** ابدئي بالضبط: "ما لقيت شيء مناسب 😢\\nخليني أوريك الأقرب لك" ثم نصيحة قصيرة (خريطة/بحث).
+`
+  if (isFrequentChatter || hasBookedBefore) {
+    s += `- مستخدمة واثقة مع التطبيق — **قلّلي الأسئلة** وقدّمي خيارات مباشرة.\n`
+  }
+  if (hasBookedBefore) {
+    s += `- عندها حجوزات سابقة — رشّحي صالونات بذوق مشابه (نفس المدينة/التصنيف عند التوفر) أو زارتها سابقاً.\n`
+  }
+  if (luxuryHint) {
+    s += `- يبدو تفضيل **فخم** — رجّحي الأعلى تقييماً والأكثر تميزاً في البيانات.\n`
+  }
+  if (priceSensitive) {
+    s += `- حساسية للسعر — رجّحي خيارات منطقية وذكّري بأسعار الخدمات من البيانات عند الحاجة.\n`
+  }
+  s += `
+## أسئلة ذكية (فقط عند الحاجة)
+- إن لم تُعرف المدينة وطلبتِ توصية مكانية وليست في الملف: سؤال **واحد** مثل "تبغي الأقرب لك ولا الأعلى تقييم؟" — لا سلسلة أسئلة.
+`
+  return s
 }
 
 Deno.serve(async (req) => {
@@ -494,6 +1155,8 @@ Deno.serve(async (req) => {
       imageBase64?: string
       imageMimeType?: string
       contextBlock?: string
+      userLat?: number
+      userLng?: number
     }
 
     const historyMsgs = Array.isArray(body.messages) ? body.messages.filter((m) => m.role !== 'system').slice(-16) : []
@@ -516,23 +1179,30 @@ Deno.serve(async (req) => {
       )
     }
 
-    const [{ data: prof, error: pErr }, { data: histRows, error: hErr }, { data: skinRow, error: skErr }] =
-      await Promise.all([
-        userSb.from('profiles').select('id,full_name,city,preferred_language').eq('id', userId).maybeSingle(),
-        userSb
-          .from('chat_messages')
-          .select('message,response,is_user,created_at')
-          .eq('user_id', userId)
-          .order('created_at', { ascending: false })
-          .limit(10),
-        userSb
-          .from('skin_analysis')
-          .select('skin_type,issues,analysis_result,created_at')
-          .eq('user_id', userId)
-          .order('created_at', { ascending: false })
-          .limit(1)
-          .maybeSingle(),
-      ])
+    const [
+      { data: prof, error: pErr },
+      { data: histRows, error: hErr },
+      { data: skinRow, error: skErr },
+      memoryPack,
+      ownerB2bCtx,
+    ] = await Promise.all([
+      userSb.from('profiles').select('id,full_name,city,preferred_language').eq('id', userId).maybeSingle(),
+      userSb
+        .from('chat_messages')
+        .select('message,response,is_user,created_at')
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false })
+        .limit(16),
+      userSb
+        .from('skin_analysis')
+        .select('skin_type,issues,analysis_result,created_at')
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle(),
+      fetchMemoryPack(userSb, userId),
+      fetchSalonOwnerB2BContext(userSb, userId),
+    ])
 
     if (pErr) console.warn('[rozi-chat] profile', pErr.message)
     if (hErr) console.warn('[rozi-chat] history', hErr.message)
@@ -551,17 +1221,23 @@ Deno.serve(async (req) => {
     try {
       const cls = await openaiJson<{ intent?: string; entities?: Record<string, unknown> }>(
         apiKey,
-        `You classify user messages for a Saudi women's beauty app (Rosera). Reply with JSON only:
-{"intent":"search_salon"|"recommend_service"|"booking_request"|"general_question","entities":{}}
+        `Classify for Rosera (Saudi women's beauty app). JSON only:
+{"intent":"search_salon"|"recommend_service"|"booking_request"|"general_question","entities":{...}}
 
-Definitions:
-- search_salon: looking for a salon/clinic/spa by name, area, or type.
-- recommend_service: wants service advice (nails, hair, laser, spa, etc.).
-- booking_request: wants to book, reserve, or pick date/time.
-- general_question: chit-chat, products, app help, or image/skin analysis.
+Intents:
+- booking_request: أبغى أحجز، ابغى احجز، احجز، احجزي، موعد، نحجز، ابي احجز، reserve
+- search_salon: وش الأفضل، وش احسن، وين صالون، أقرب، دوري لي، استكشاف، مقارنة صالونات، "وش تنصحين"
+- recommend_service: تركيز على خدمة: أظافر، شعر، ليزر، سبا، مكياج…
+- general_question: منتجات، التطبيق، شكر، تحية، صورة، غير واضح
 
-entities may include: query (string), service_keyword (string), salon_hint (string), city (string), date_hint (string).
-Use Arabic context. If unclear, intent general_question and empty entities.`,
+entities (optional):
+- query, service_keyword, salon_hint, city, date_hint (strings)
+- budget_tier: "low"|"mid"|"high"|null — رخيص، أرخص، توفير، ميزانية، غالي، سعر، خصم → low
+- urgency: "today"|"soon"|null — اليوم، الحين، الآن، عاجل، حالاً → today
+- style: "luxury"|"budget"|null — فخم، VIP، لوكس → luxury
+- browse_mode: boolean — true إن كانت تتصفح/تقارن فقط بدون نية حجز صريحة
+
+افهمي السوق واللهجة الخفيفة (يالله، زين، يلا، نفس، ضبطي). If unsure: general_question + {}.`,
         `User message:\n${utterance.slice(0, 1200)}`
       )
       intent = normalizeIntent(cls.intent)
@@ -577,12 +1253,90 @@ Use Arabic context. If unclear, intent general_question and empty entities.`,
           ? entities.query
           : ''
 
-    const salons = await fetchSalonsForUser(userSb, profileCity, intent, entities)
-    const businessIds = salons.map((s) => s.id)
-    const services = await fetchServices(userSb, businessIds, serviceKeyword || undefined)
-    const products = await fetchProducts(userSb)
+    const userLatRaw = typeof body.userLat === 'number' ? body.userLat : NaN
+    const userLngRaw = typeof body.userLng === 'number' ? body.userLng : NaN
+    const userLatLng =
+      Number.isFinite(userLatRaw) && Number.isFinite(userLngRaw) ? { lat: userLatRaw, lng: userLngRaw } : null
+
+    const luxuryHint =
+      entities.style === 'luxury' || /فخم|فاخر|vip|لوكس|luxury/i.test(utterance)
+    const priceSensitive =
+      entities.budget_tier === 'low' ||
+      /رخيص|أرخص|سعر|خصم|budget|غال[يى]|غالي|مبالغ/i.test(utterance)
+    const urgentToday =
+      entities.urgency === 'today' || /اليوم|الحين|الآن|عاجل|حالاً|اليوم$/i.test(utterance)
 
     const recoHistory = await fetchRecoHistory(userSb, userId)
+    const hasBookedBefore = recoHistory.bookedBusinessIds.size > 0
+    const isFrequentChatter = (histRows ?? []).length >= 8
+
+    const salonsRaw = await fetchSalonsForUser(userSb, profileCity, intent, entities)
+    const rankedSalons = partitionFeaturedSalonsFirst(
+      rankSalonsForRosy(salonsRaw, recoHistory, userLatLng, {
+        luxury: luxuryHint,
+        priceSensitive,
+        similarToBooked: hasBookedBefore,
+        urgentToday,
+        preferredPriceRange: memoryPack.preferredPriceRange,
+      })
+    )
+
+    const emptyMetrics: SalonOwnerSalesMetrics = { impressions_7d: 0, clicks_7d: 0, bookings_7d: 0 }
+    let salesMetrics = emptyMetrics
+    let upsellStateRow: RosyUpsellStateRow | null = null
+    if (ownerB2bCtx.is_owner && ownerB2bCtx.salon_id) {
+      const sid = ownerB2bCtx.salon_id
+      const weekAgoIso = new Date(Date.now() - 7 * 86_400_000).toISOString()
+      const fromDate = weekAgoIso.slice(0, 10)
+      const VIEW_TYPES = new Set(['view', 'view_salon', 'ai_recommended_view'])
+      const CLICK_TYPES = new Set(['click', 'booking_click', 'salon_clicks'])
+      const [{ data: evs }, { count: bkCount }, { data: st, error: stErr }] = await Promise.all([
+        userSb.from('user_events').select('event_type').eq('entity_type', 'business').eq('entity_id', sid).gte('created_at', weekAgoIso),
+        userSb
+          .from('bookings')
+          .select('id', { count: 'exact', head: true })
+          .eq('business_id', sid)
+          .gte('booking_date', fromDate)
+          .in('status', ['pending', 'confirmed', 'completed']),
+        userSb.from('rosey_subscription_upsell_state').select('last_cta_at, follow_up_at').eq('user_id', userId).maybeSingle(),
+      ])
+      if (stErr) console.warn('[rozi-chat] rosey_subscription_upsell_state', stErr.message)
+      let impressions_7d = 0
+      let clicks_7d = 0
+      for (const row of evs ?? []) {
+        const t = (row as { event_type?: string }).event_type
+        if (t && VIEW_TYPES.has(t)) impressions_7d++
+        else if (t && CLICK_TYPES.has(t)) clicks_7d++
+      }
+      salesMetrics = { impressions_7d, clicks_7d, bookings_7d: bkCount ?? 0 }
+      upsellStateRow = stErr ? null : ((st as RosyUpsellStateRow | null) ?? null)
+    }
+
+    let hadClickSinceLastCta = false
+    if (upsellStateRow?.last_cta_at) {
+      const { data: clk } = await userSb
+        .from('user_events')
+        .select('id')
+        .eq('user_id', userId)
+        .eq('event_type', 'rosy_salon_subscription_upsell_click')
+        .gte('created_at', upsellStateRow.last_cta_at)
+        .limit(1)
+        .maybeSingle()
+      hadClickSinceLastCta = !!clk
+    }
+
+    const upsellDecision = computeSalonSubscriptionUpsellDecision(
+      ownerB2bCtx,
+      salesMetrics,
+      rankedSalons,
+      utterance,
+      upsellStateRow,
+      hadClickSinceLastCta
+    )
+
+    const businessIds = rankedSalons.map((s) => s.id)
+    const services = await fetchServices(userSb, businessIds, serviceKeyword || undefined)
+    const products = await fetchProducts(userSb)
     const skinPayload = skinPayloadFromRow((skinRow ?? null) as SkinContextRow | null)
     const tokens = skinTokensFromPayload(skinPayload)
     const rankedSvc = rankServices(services as ServiceForRank[], skinPayload, tokens, recoHistory, 10)
@@ -598,9 +1352,10 @@ Use Arabic context. If unclear, intent general_question and empty entities.`,
       .join('\n')
 
     const brainContext = buildBrainContext({
+      memoryNarrative: memoryPack.narrative,
       profile,
       historyText,
-      salons,
+      salons: rankedSalons,
       services,
       products,
       skinBlock,
@@ -608,26 +1363,57 @@ Use Arabic context. If unclear, intent general_question and empty entities.`,
       rankedProductsLines,
     })
 
+    let negotiationExtraSystem = ''
+    let negotiationReplyPrefix = ''
+    let negotiationActions: RozyActionOut[] = []
+    if (utteranceWantsPriceNegotiation(utterance) && rankedSalons.length > 0) {
+      const fid = pickFocusSalonIdForNegotiation(rankedSalons, entities)
+      const focusSalon = fid ? rankedSalons.find((s) => s.id === fid) ?? null : null
+      if (focusSalon) {
+        const pack = buildPriceNegotiationPack(focusSalon, services, rankedSalons)
+        negotiationExtraSystem = `\n\n${pack.systemAppendix}`
+        negotiationReplyPrefix = pack.replyPrefix
+        negotiationActions = pack.actions
+      }
+    }
+
     const extraLegacy = legacyCtx ? `\n\n## سياق إضافي من العميل (قديم — اختياري)\n${legacyCtx}` : ''
 
-    const systemMain = `أنتِ "روزي" — عقل روزيرا (Rosy Brain): خبيرة تجميل وجمال رقمية تتحدثين بالعربية فقط بأسلوب ودود واحترافي للنساء في السعودية.
+    const personality = buildRosyPersonalityBlock({
+      intent,
+      hasBookedBefore,
+      isFrequentChatter,
+      luxuryHint,
+      priceSensitive,
+    })
 
-## مهمتكِ
-- فهم نية المستخدمة: التصنيف الحالي من النظام هو **${intent}**.
-- الاعتماد على **البيانات الحقيقية** في قسم "بيانات حقيقية" أدناه فقط لذكر صالون/خدمة/منتج محدد (استخدمي المعرف [uuid] عند الإشارة للحجز: رابط الصالون /salon/{id} ثم زر احجزي → /booking/{id}).
-- شجّعي على الحجز عند المناسب بجملة واضحة.
-- للمنتجات: وجّهي لـ /store و /product/{id} عند توفر المعرف في البيانات.
-- صورة الوجه: إن وُجدت في الرسالة، حللي البشرة باختصار — بدون تشخيص طبي، وذكّري أن النتيجة تقديرية. لا تطلبي حفظ الصور.
-- إن وُجد قسم "تحليل بشرة المستخدمة" في البيانات، استخدميه لتخصيص الرد وقللي "بناءً على تحليل بشرتكِ الأخير في التطبيق..." عندما يناسب السياق.
-- إن وُجد قسم "توصيات مرتبة لبشرتكِ وتفضيلاتكِ"، فاضيفي أحياناً جملة مثل: "أنصحك بهذا الخيار لأنه..." وادمجي 2–3 أسباب من عمود "أسباب" (مثال: يناسب تحليل بشرتكِ + تقييم عالي + شائع بالحجوزات).
+    const premiumTop = rankedSalons[0]?.subscription_plan === 'premium'
+    const premiumSalonHint = premiumTop
+      ? `
 
-## بيانات حقيقية (من Supabase)
+## تمييز الصالونات (B2B)
+- أول صالون في قائمة «صالونات وعيادات» أعلاه ضمن خطة **Premium**. عند التوصية به مباشرة، يمكنكِ **مرة واحدة** جملة مثل: «هذا من أفضل الصالونات المميزة ⭐» مع اسم الصالون، ثم تكملي النصائح والحجز كالمعتاد.`
+      : ''
+
+    const salonSalesAppendix = buildSalonOwnerSubscriptionSalesSystemAppendix(ownerB2bCtx, rankedSalons, upsellDecision)
+
+    const systemMain = `${personality}${premiumSalonHint}${salonSalesAppendix}
+
+## مهمتكِ التنفيذية
+- اعتمدي فقط على **البيانات الحقيقية** في القسم التالي لذكر صالون/خدمة/منتج (معرفات [uuid] للحجز: /salon/{id} ثم /booking/{id}).
+- شجّعي على الحجز بلطف عند المناسب.
+- منتجات المتجر: /store و /product/{id}.
+- صورة الوجه: تحليل مختصر — **ليس تشخيصاً طبياً** — ولا تطلبي حفظ الصور.
+- قسم تحليل البشرة والتوصيات المرتبة: استخدميهما عند الصلة دون إطالة.
+
+## بيانات حقيقية (Supabase)
 ${brainContext}
 ${extraLegacy}
 
 ## ممنوع
-- اختلاق أسماء صالونات أو أسعار أو أرقام غير موجودة في البيانات أعلاه.
-- استخدام الإنجليزية في الرد النهائي (ما عدا معرفات uuid إن لزم).`
+- اختلاق أسماء أو أسعار غير موجودة في البيانات.
+- إظهار أخطاء تقنية أو تفاصيل خوادم.
+- الإنجليزية في الرد (ما عدا uuid).${negotiationExtraSystem}`
 
     const messagesForApi: OpenAIChatMessage[] = [{ role: 'system', content: systemMain }]
 
@@ -666,7 +1452,35 @@ ${extraLegacy}
       }
     }
 
-    const reply = await openaiComplete(apiKey, messagesForApi, 1400)
+    let reply = await openaiComplete(apiKey, messagesForApi, 1200)
+
+    if (negotiationReplyPrefix) {
+      reply = `${negotiationReplyPrefix}${reply}`
+    }
+
+    if (shouldIncludeSalonCards(intent, utterance) && rankedSalons.length === 0) {
+      reply = `ما لقيت شيء مناسب 😢\nخليني أوريك الأقرب لك\n\n${reply}`
+    }
+
+    let salonsOut: RozySalonOut[] = []
+    let actionsOut: RozyActionOut[] = []
+    if (shouldIncludeSalonCards(intent, utterance) && rankedSalons.length > 0) {
+      salonsOut = salonsToPayload(rankedSalons, userLatLng)
+      actionsOut = buildActionsForSalons(salonsOut)
+    }
+    const subscriptionUpsell = upsellDecision.showCta
+    if (subscriptionUpsell) {
+      actionsOut = [
+        ...actionsOut,
+        { id: 'rosy-salon-sub-upgrade', label: 'تفعيل الآن', kind: 'salon_upgrade' },
+      ]
+    }
+    if (negotiationActions.length) {
+      actionsOut = [...actionsOut, ...negotiationActions]
+    }
+    if (urgentToday && salonsOut.length > 0) {
+      reply = `في مواعيد اليوم متاحة 🔥\n\n${reply}`
+    }
 
     let bookingAction: {
       action: 'booking'
@@ -677,7 +1491,7 @@ ${extraLegacy}
     } | null = null
 
     if (intent === 'booking_request') {
-      const salonCatalog = salons.map((s) => ({ id: s.id, name: s.name_ar })).slice(0, 20)
+      const salonCatalog = rankedSalons.map((s) => ({ id: s.id, name: s.name_ar })).slice(0, 20)
       const svcCatalog = services.map((s) => ({ id: s.id, business_id: s.business_id, name: s.name_ar })).slice(0, 30)
       try {
         const extracted = await openaiJson<BookingExtract>(
@@ -693,14 +1507,14 @@ Recent conversation (last user + assistant):\n${utterance}\n---\nAssistant draft
           300
         )
 
-        const sid = extracted.salon_id && salons.some((s) => s.id === extracted.salon_id) ? extracted.salon_id : null
+        const sid = extracted.salon_id && rankedSalons.some((s) => s.id === extracted.salon_id) ? extracted.salon_id : null
         let svcId = extracted.service_id && services.some((s) => s.id === extracted.service_id) ? extracted.service_id : null
         if (svcId && sid && services.find((s) => s.id === svcId)?.business_id !== sid) {
           svcId = null
         }
         const dateOk = extracted.booking_date && /^\d{4}-\d{2}-\d{2}$/.test(extracted.booking_date) ? extracted.booking_date : null
 
-        const salonForSlots = sid ? salons.find((s) => s.id === sid) : null
+        const salonForSlots = sid ? rankedSalons.find((s) => s.id === sid) : null
         const slots = salonForSlots ? pickSlotsFromOpeningHours(salonForSlots.opening_hours) : defaultSlots()
 
         if (sid) {
@@ -717,19 +1531,51 @@ Recent conversation (last user + assistant):\n${utterance}\n---\nAssistant draft
       }
     }
 
+    if (upsellDecision.showCta && upsellDecision.rpcMode) {
+      void userSb.rpc('mark_rosey_subscription_upsell_shown', { p_mode: upsellDecision.rpcMode }).then(
+        () => {},
+        (e) => console.warn('[rozi-chat] mark_rosey_subscription_upsell_shown', e)
+      )
+    }
+
     return new Response(
       JSON.stringify({
         reply,
-        brain: { intent, entities },
+        brain: {
+          intent,
+          entities: {
+            ...entities,
+            rosy_price_negotiation: Boolean(negotiationExtraSystem),
+          },
+          salon_subscription_pitch: subscriptionUpsell,
+          salon_subscription_pitch_follow_up: upsellDecision.followUpMode,
+          salon_owner_metrics_7d: {
+            impressions: salesMetrics.impressions_7d,
+            clicks: salesMetrics.clicks_7d,
+            bookings: salesMetrics.bookings_7d,
+          },
+        },
         action: bookingAction,
+        salons: salonsOut,
+        actions: actionsOut,
       }),
       { headers: { ...cors, 'Content-Type': 'application/json' } }
     )
   } catch (e) {
-    const msg = e instanceof Error ? e.message : 'خطأ غير متوقع'
-    return new Response(JSON.stringify({ error: msg }), {
-      status: 500,
-      headers: { ...cors, 'Content-Type': 'application/json' },
-    })
+    console.error('[rozi-chat] unhandled', e)
+    return new Response(
+      JSON.stringify({
+        reply:
+          'لحظة يا حلوة… صار عندي بطء بسيط 💕 جرّبي تكتبين رسالتك مرة ثانية، وإن بقيت المشكلة رجعي بعد شوي.',
+        brain: { intent: 'general_question' as IntentName, entities: {} },
+        action: null,
+        salons: [],
+        actions: [
+          { id: 'retry_soft', label: 'جرّبي مرة ثانية', kind: 'retry' },
+          { id: 'more_options', label: 'شوفي خيارات ثانية', kind: 'more' },
+        ],
+      }),
+      { status: 200, headers: { ...cors, 'Content-Type': 'application/json' } }
+    )
   }
 })

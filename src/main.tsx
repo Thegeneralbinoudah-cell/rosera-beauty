@@ -17,7 +17,14 @@ if (import.meta.env.DEV && typeof navigator !== 'undefined' && 'serviceWorker' i
 }
 
 const queryClient = new QueryClient({
-  defaultOptions: { queries: { retry: 1, refetchOnWindowFocus: false } },
+  defaultOptions: {
+    queries: {
+      retry: 1,
+      refetchOnWindowFocus: false,
+      staleTime: 60_000,
+      gcTime: 5 * 60_000,
+    },
+  },
 })
 
 if (import.meta.env.PROD && 'serviceWorker' in navigator) {
@@ -46,17 +53,4 @@ if (!rootEl) {
       </RootErrorBoundary>
     </StrictMode>
   )
-}
-
-if (import.meta.env.DEV && typeof window !== 'undefined') {
-  window.addEventListener(
-    'error',
-    (ev) => {
-      console.error('[Rosera] window.error', ev.message, ev.filename, ev.lineno)
-    },
-    true
-  )
-  window.addEventListener('unhandledrejection', (ev) => {
-    console.error('[Rosera] unhandledrejection', ev.reason)
-  })
 }

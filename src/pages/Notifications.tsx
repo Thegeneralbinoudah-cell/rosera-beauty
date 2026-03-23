@@ -4,7 +4,10 @@ import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/contexts/AuthContext'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
-import { Sparkles } from 'lucide-react'
+import { Bell } from 'lucide-react'
+import { EmptyState } from '@/components/ui/empty-state'
+import { useI18n } from '@/hooks/useI18n'
+import { buildMapExploreUrl } from '@/lib/mapExploreUrl'
 
 type NotifRow = {
   id: string
@@ -37,6 +40,7 @@ function configForType(t: string | null | undefined) {
 }
 
 export default function Notifications() {
+  const { t } = useI18n()
   const { user } = useAuth()
   const nav = useNavigate()
   const [list, setList] = useState<NotifRow[]>([])
@@ -150,13 +154,15 @@ export default function Notifications() {
       ) : (
         <ul className="mx-auto mt-6 max-w-lg space-y-3">
           {list.length === 0 ? (
-            <li className="rounded-2xl border border-dashed border-primary/25 bg-white/80 p-10 text-center dark:bg-card/80">
-              <Sparkles className="mx-auto h-10 w-10 text-primary/70" aria-hidden />
-              <p className="mt-4 text-lg font-bold text-foreground">لا إشعارات بعد</p>
-              <p className="mt-2 text-sm leading-relaxed text-rosera-gray">
-                عندما يصلكِ تأكيد حجز، عرض، أو تذكير من روزيرا، سيظهر هنا. يمكنكِ تفعيل التنبيهات من إعدادات الجهاز لعدم
-                تفويت العروض المخصصة لكِ.
-              </p>
+            <li className="list-none py-4">
+              <EmptyState
+                icon={Bell}
+                title={t('notifications.emptyTitle')}
+                subtitle={t('notifications.emptySub')}
+                ctaLabel={t('notifications.emptyCta')}
+                onClick={() => nav(buildMapExploreUrl())}
+                analyticsSource="notifications"
+              />
             </li>
           ) : (
             list.map((n) => {

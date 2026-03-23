@@ -13,3 +13,21 @@ verify_jwt = false
 
 [functions.activate-boost]
 verify_jwt = false
+
+# Daily cron: POST with header x-cron-secret: $RENEWAL_CRON_SECRET
+[functions.renew-salon-subscriptions]
+verify_jwt = false
+
+# Stripe salon subscriptions (JWT validated inside function)
+[functions.create-subscription]
+verify_jwt = false
+
+[functions.stripe-sync-salon-subscription]
+verify_jwt = false
+
+[functions.stripe-update-salon-auto-renew]
+verify_jwt = false
+
+# Stripe Dashboard → webhook → signing secret
+[functions.stripe-webhook]
+verify_jwt = false

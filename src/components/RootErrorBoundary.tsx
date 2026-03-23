@@ -15,7 +15,7 @@ export class RootErrorBoundary extends Component<Props, State> {
   }
 
   componentDidCatch(error: Error, info: ErrorInfo) {
-    console.error('[Rosera] Root error:', error, info.componentStack)
+    console.error('[RootErrorBoundary]', error, info.componentStack)
   }
 
   render() {
@@ -27,7 +27,7 @@ export class RootErrorBoundary extends Component<Props, State> {
         >
           <p className="text-lg font-bold text-white">حدث خطأ في التطبيق</p>
           <p className="max-w-md text-sm text-white/90">
-            افتحي Console في Chrome (F12 → Console) وأرسلي لقطة للخطأ، أو جرّبي تحديث الصفحة.
+            جرّبي تحديث الصفحة. إذا تكرّر الخطأ، تواصلي مع الدعم مع ذكر الوقت تقريباً.
           </p>
           <button
             type="button"

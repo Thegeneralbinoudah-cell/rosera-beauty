@@ -102,3 +102,12 @@ export function filterFemaleBeautyBusinesses(rows: Business[]): Business[] {
     return true
   })
 }
+
+/**
+ * خريطة التطبيق: نعرض منشآت قاعدة البيانات دون اشتراط «نسائي» في الاسم
+ * (كثير من الصفوف المفعّلة لا تحتوي الكلمة لكنها مسجّلة لروزيرا).
+ * ما زلنا نستبعد الحلاقة الرجالية الصريحة والصالات الرياضية.
+ */
+export function filterMapDisplayBusinesses(rows: Business[]): Business[] {
+  return rows.filter((b) => !isMaleOnlyBeautyBusiness(b) && !isGymOrFitnessListing(b))
+}

@@ -8,6 +8,7 @@ import { resolveBusinessCoverImage, DEFAULT_BUSINESS_COVER_IMAGE } from '@/lib/b
 import { usePreferences } from '@/contexts/PreferencesContext'
 import { useAuth } from '@/contexts/AuthContext'
 import { trackEvent } from '@/lib/analytics'
+import { inferPreferenceServiceKey } from '@/lib/roseyUserPreference'
 import { cn } from '@/lib/utils'
 import type { SalonActiveOffer } from '@/lib/offers'
 
@@ -21,6 +22,9 @@ export type SalonPremiumCardData = {
   average_rating?: number | null
   total_reviews?: number | null
   city?: string | null
+  category?: string | null
+  category_label?: string | null
+  price_range?: string | null
 }
 
 function ratingBadgeTier(rating: number): 'top' | 'recommended' | null {
@@ -82,6 +86,25 @@ export function SalonPremiumCard({
       ? Math.min(100, Math.max(0, Math.round(activeOffer.discount_percentage)))
       : null
 
+  const pushPreference = (source: 'salon_card_open' | 'salon_card_book') => {
+    if (!user?.id) return
+    const svc = inferPreferenceServiceKey({
+      category: salon.category ?? '',
+      category_label: salon.category_label ?? null,
+      name_ar: salon.name_ar,
+      name_en: undefined,
+      description_ar: undefined,
+    })
+    trackEvent('user_preference', {
+      user_id: user.id,
+      source,
+      service: svc,
+      salon_id: salon.id.trim(),
+      price_range: salon.price_range ?? null,
+      location: salon.city ?? null,
+    })
+  }
+
   const goSalon = () => {
     if (!salonIdOk) return
     const id = salon.id.trim()
@@ -91,6 +114,7 @@ export function SalonPremiumCard({
       entity_id: id,
       user_id: user?.id,
     })
+    pushPreference('salon_card_open')
     if (isRecommended) {
       trackEvent({
         event_type: 'ai_recommended_view',
@@ -111,6 +135,7 @@ export function SalonPremiumCard({
       entity_id: id,
       user_id: user?.id,
     })
+    pushPreference('salon_card_book')
     nav(`/booking/${id}`, {
       state: {
         salonName: salon.name_ar,

@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from 'react'
-import { useParams, useNavigate, useLocation } from 'react-router-dom'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { useParams, useNavigate, useLocation, useSearchParams } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Check } from 'lucide-react'
 import { supabase, type Business, type Service } from '@/lib/supabase'
@@ -7,12 +7,13 @@ import { useAuth } from '@/contexts/AuthContext'
 import { Button } from '@/components/ui/button'
 import { Calendar } from '@/components/ui/calendar'
 import { startOfToday } from 'date-fns'
-import { formatPrice } from '@/lib/utils'
+import { formatPrice, cn } from '@/lib/utils'
 import { toast } from 'sonner'
 import PaymentForm, { type PaymentResult } from '@/components/payment/PaymentForm'
-import { trackUserEvent } from '@/lib/userEvents'
 import { trackEvent } from '@/lib/analytics'
+import { preferenceMetaFromBusiness } from '@/lib/roseyUserPreference'
 import { pickBestActiveOffer, type OfferRow, type SalonActiveOffer } from '@/lib/offers'
+import { platformCommissionSar } from '@/lib/bookingCommission'
 
 function addDays(d: Date, n: number) {
   const x = new Date(d)
@@ -28,21 +29,32 @@ for (let h = 10; h <= 22; h++) {
   }
 }
 
-const STEPS = ['① الخدمة', '② الموعد', '③ التأكيد']
+const STEPS = ['① الخدمة', '② الموعد', '③ التأكيد', '④ الدفع']
 
-const BOOKING_PAY_OPTIONS: { id: 'mada' | 'visa' | 'apple' | 'tamara'; label: string }[] = [
+const PAYMENT_MODE_FREE =
+  ((import.meta.env.VITE_PAYMENT_MODE as string) || '').trim().toLowerCase() === 'free'
+
+const BOOKING_PAY_OPTIONS: { id: 'mada' | 'visa' | 'apple'; label: string }[] = [
   { id: 'mada', label: 'مدى' },
   { id: 'visa', label: 'فيزا / ماستركارد' },
   { id: 'apple', label: 'Apple Pay' },
-  { id: 'tamara', label: 'تمارا' },
 ]
 
 export default function BookingFlow() {
   const { salonId } = useParams()
   const nav = useNavigate()
+  const [searchParams] = useSearchParams()
   const loc = useLocation() as {
-    state?: { preselect?: string; suggestedDate?: string; suggestedSlots?: string[] }
+    state?: {
+      preselect?: string
+      suggestedDate?: string
+      suggestedSlots?: string[]
+      initialStep?: 1 | 2 | 3 | 4
+      /** من زر «احجزي بالسعر الجديد» في روزي — يُطبَّق فقط إن سمح الصالون */
+      rosyNegotiation?: { discountPercent: number }
+    }
   }
+  const fromRosy = searchParams.get('source') === 'rosy'
   const { user } = useAuth()
   const [step, setStep] = useState(1)
   const [b, setB] = useState<Business | null>(null)
@@ -52,11 +64,14 @@ export default function BookingFlow() {
   const [time, setTime] = useState('10:00')
   const [success, setSuccess] = useState(false)
   const [bookingRef, setBookingRef] = useState<string | null>(null)
+  const [successPlatformFeeSar, setSuccessPlatformFeeSar] = useState<number | null>(null)
   const [loading, setLoading] = useState(false)
   const [pendingRefId, setPendingRefId] = useState<string | null>(null)
   const [salonGateway, setSalonGateway] = useState<'moyasar' | 'cash' | 'disabled'>('moyasar')
-  const [bookingPayMethod, setBookingPayMethod] = useState<'mada' | 'visa' | 'apple' | 'tamara'>('mada')
+  const [bookingPayMethod, setBookingPayMethod] = useState<'mada' | 'visa' | 'apple'>('mada')
   const [salonOffer, setSalonOffer] = useState<SalonActiveOffer | null>(null)
+  const rosyScrollDoneRef = useRef(false)
+  const rosyQuickStepRef = useRef(false)
 
   useEffect(() => {
     if (!user) {
@@ -68,6 +83,7 @@ export default function BookingFlow() {
     let c = true
     async function load() {
       try {
+        const fromRosyUrl = new URLSearchParams(window.location.search).get('source') === 'rosy'
         const { data: biz } = await supabase.from('businesses').select('*').eq('id', salonId).single()
         const bizRow = biz as Business | null
         if (bizRow?.is_demo) {
@@ -88,10 +104,15 @@ export default function BookingFlow() {
           .eq('is_active', true)
         if (!c) return
         setB(bizRow)
-        setServices((svc ?? []) as Service[])
+        const list = (svc ?? []) as Service[]
+        setServices(list)
         setSalonOffer(pickBestActiveOffer((offRows ?? []) as OfferRow[]))
         const pre = loc.state?.preselect
-        if (pre) setSelectedIds(new Set([pre]))
+        if (pre) {
+          setSelectedIds(new Set([pre]))
+        } else if (fromRosyUrl && list.length > 0) {
+          setSelectedIds(new Set([list[0].id]))
+        }
         const sd = loc.state?.suggestedDate
         if (sd && /^\d{4}-\d{2}-\d{2}$/.test(sd)) setDate(sd)
         const sugSlots = loc.state?.suggestedSlots
@@ -115,7 +136,36 @@ export default function BookingFlow() {
     }
     void load()
     return () => { c = false }
-  }, [salonId, user, nav, loc.state?.preselect, loc.state?.suggestedDate, loc.state?.suggestedSlots])
+  }, [salonId, user, nav, loc.state?.preselect, loc.state?.suggestedDate, loc.state?.suggestedSlots, loc.state?.initialStep])
+
+  useEffect(() => {
+    rosyScrollDoneRef.current = false
+    rosyQuickStepRef.current = false
+  }, [salonId])
+
+  const highlightServiceId = useMemo(() => {
+    if (!fromRosy) return null
+    const pre = loc.state?.preselect
+    if (pre && services.some((s) => s.id === pre)) return pre
+    return services[0]?.id ?? null
+  }, [fromRosy, loc.state?.preselect, services])
+
+  useEffect(() => {
+    if (!fromRosy || services.length === 0 || rosyScrollDoneRef.current) return
+    rosyScrollDoneRef.current = true
+    const t = window.setTimeout(() => {
+      document.getElementById('rosey-booking-services')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    }, 280)
+    return () => window.clearTimeout(t)
+  }, [fromRosy, services.length])
+
+  useEffect(() => {
+    if (loc.state?.initialStep !== 2) return
+    if (rosyQuickStepRef.current) return
+    if (services.length === 0 || selectedIds.size === 0) return
+    rosyQuickStepRef.current = true
+    setStep(2)
+  }, [loc.state?.initialStep, services.length, selectedIds.size])
 
   const toggleService = (id: string) => {
     setSelectedIds((prev) => {
@@ -127,16 +177,37 @@ export default function BookingFlow() {
   }
 
   const selectedServices = services.filter((s) => selectedIds.has(s.id))
+  const selectedIdsKey = useMemo(() => [...selectedIds].sort().join(','), [selectedIds])
   const subtotal = selectedServices.reduce((a, s) => a + Number(s.price), 0)
+
+  useEffect(() => {
+    if (step !== 1 && step !== 2) return
+    setPendingRefId(null)
+  }, [date, time, selectedIdsKey, step])
+  const rosyAppliedNegotiationPct = useMemo(() => {
+    if (!b?.rosy_discount_allowed) return 0
+    const raw = loc.state?.rosyNegotiation?.discountPercent
+    if (raw == null) return 0
+    const want = Number(raw)
+    if (!Number.isFinite(want) || want <= 0) return 0
+    const cap = Math.min(15, Math.max(0, Number(b.rosy_max_discount_percent ?? 10)))
+    if (cap < 5) return 0
+    return Math.min(cap, want)
+  }, [b?.rosy_discount_allowed, b?.rosy_max_discount_percent, loc.state?.rosyNegotiation?.discountPercent])
+
   const finalTotal = useMemo(() => {
     const pct =
       salonOffer && Number.isFinite(salonOffer.discount_percentage)
         ? Math.min(100, Math.max(0, salonOffer.discount_percentage))
         : 0
-    if (pct <= 0) return Math.round(subtotal * 100) / 100
-    const x = subtotal * (1 - pct / 100)
-    return Math.round(x * 100) / 100
-  }, [subtotal, salonOffer])
+    let t = subtotal
+    if (pct > 0) t = subtotal * (1 - pct / 100)
+    t = Math.round(t * 100) / 100
+    if (rosyAppliedNegotiationPct > 0) {
+      t = Math.round(t * (1 - rosyAppliedNegotiationPct / 100) * 100) / 100
+    }
+    return t
+  }, [subtotal, salonOffer, rosyAppliedNegotiationPct])
   const selectedDay = date ? new Date(date + 'T12:00:00') : undefined
 
   const insertBooking = async (
@@ -161,15 +232,20 @@ export default function BookingFlow() {
         payment_id: paymentId ?? null,
         payment_amount: paymentAmount ?? finalTotal,
         payment_method: paymentMethod,
+        rosey_negotiated_discount_percent: rosyAppliedNegotiationPct > 0 ? rosyAppliedNegotiationPct : null,
       })
-      .select('id')
+      .select('id, commission_amount, platform_fee_percentage')
       .single()
     if (error) throw error
-    const bookingId = (data as { id: string }).id
+    const row = data as { id: string; commission_amount?: number | null; platform_fee_percentage?: number | null }
+    const bookingId = row.id
     for (const s of selectedServices) {
-      trackUserEvent({ userId: user.id, event_type: 'book', entity_type: 'service', entity_id: s.id })
+      trackEvent({ user_id: user.id, event_type: 'book', entity_type: 'service', entity_id: s.id })
     }
-    trackUserEvent({ userId: user.id, event_type: 'book', entity_type: 'business', entity_id: salonId })
+    trackEvent({ user_id: user.id, event_type: 'book', entity_type: 'business', entity_id: salonId })
+    if (b) {
+      trackEvent('user_preference', { user_id: user.id, ...preferenceMetaFromBusiness(b, 'book') })
+    }
     if (subtotal > finalTotal + 0.005) {
       trackEvent({
         event_type: 'offer_applied',
@@ -178,31 +254,50 @@ export default function BookingFlow() {
         user_id: user.id,
       })
     }
-    return bookingId
+    const fee =
+      typeof row.commission_amount === 'number' && Number.isFinite(row.commission_amount)
+        ? row.commission_amount
+        : platformCommissionSar(finalTotal, typeof row.platform_fee_percentage === 'number' ? row.platform_fee_percentage : undefined)
+    return { id: bookingId, platformFeeSar: fee }
   }
 
   const onPaymentSuccess = async (result: PaymentResult) => {
-    if (result.payment_status === 'free') {
-      setLoading(true)
-      try {
-        const id = await insertBooking('free', null, finalTotal, 'free')
-        if (id) {
-          setBookingRef(id)
-          setSuccess(true)
-        }
-      } catch (e: unknown) {
-        toast.error(e instanceof Error ? e.message : 'فشل الحجز')
-      } finally {
-        setLoading(false)
+    if (result.payment_status !== 'free') return
+    setLoading(true)
+    try {
+      const res = await insertBooking('free', null, finalTotal, 'free')
+      if (res) {
+        await supabase.from('bookings').update({ status: 'confirmed' }).eq('id', res.id)
+        setBookingRef(res.id)
+        setSuccessPlatformFeeSar(res.platformFeeSar)
+        setSuccess(true)
       }
+    } catch (e: unknown) {
+      toast.error(e instanceof Error ? e.message : 'فشل الحجز')
+    } finally {
+      setLoading(false)
     }
   }
 
-  const onPaymentPending = async () => {
+  /** بعد ملخص الحجز: إنشاء حجز pending ثم الانتقال لخطوة Moyasar (ما عدا الوضع التجريبي بدون دفع). */
+  const proceedToPaymentStep = async () => {
+    if (!user || !salonId || selectedServices.length === 0) return
+    if (salonGateway !== 'moyasar') return
+    if (PAYMENT_MODE_FREE) {
+      setStep(4)
+      return
+    }
+    if (pendingRefId) {
+      setStep(4)
+      return
+    }
     setLoading(true)
     try {
-      const id = await insertBooking('pending', null, finalTotal, bookingPayMethod)
-      if (id) setPendingRefId(id)
+      const res = await insertBooking('pending', null, finalTotal, bookingPayMethod)
+      if (res) {
+        setPendingRefId(res.id)
+        setStep(4)
+      }
     } catch (e: unknown) {
       toast.error(e instanceof Error ? e.message : 'فشل إنشاء الحجز')
     } finally {
@@ -213,9 +308,10 @@ export default function BookingFlow() {
   const confirmCashAtSalon = async () => {
     setLoading(true)
     try {
-      const id = await insertBooking('pending', null, finalTotal, 'cash')
-      if (id) {
-        setBookingRef(id)
+      const res = await insertBooking('pending', null, finalTotal, 'cash')
+      if (res) {
+        setBookingRef(res.id)
+        setSuccessPlatformFeeSar(res.platformFeeSar)
         setSuccess(true)
       }
     } catch (e: unknown) {
@@ -238,8 +334,15 @@ export default function BookingFlow() {
         >
           <Check className="h-10 w-10" />
         </motion.div>
-        <h2 className="mt-6 text-2xl font-extrabold">تم الحجز بنجاح!</h2>
-        <p className="mt-2 text-rosera-gray">رقم الحجز: <span className="font-mono font-bold text-foreground">{bookingRef?.slice(0, 8)}</span></p>
+        <h2 className="mt-6 text-2xl font-extrabold">تم الحجز ✨</h2>
+        <p className="mt-2 text-rosera-gray">
+          رقم الحجز: <span className="font-mono font-bold text-foreground">{bookingRef?.slice(0, 8)}</span>
+        </p>
+        {successPlatformFeeSar != null && successPlatformFeeSar > 0 ? (
+          <p className="mt-3 text-center text-base font-bold text-primary">
+            رسوم الخدمة: {formatPrice(successPlatformFeeSar)}
+          </p>
+        ) : null}
         <Button
           className="mt-8 w-full max-w-xs rounded-2xl bg-gradient-to-l from-[#9C27B0] to-[#E91E8C]"
           onClick={() => nav('/home')}
@@ -270,13 +373,24 @@ export default function BookingFlow() {
       <div className="mx-auto max-w-lg px-4 py-6">
         <AnimatePresence mode="wait">
           {step === 1 && (
-            <motion.div key={1} initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0 }} className="space-y-4">
+            <motion.div
+              key={1}
+              id="rosey-booking-services"
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0 }}
+              className="space-y-4 scroll-mt-24"
+            >
               <h2 className="text-lg font-bold">اختيار الخدمات</h2>
               <div className="space-y-2">
                 {services.map((s) => (
                   <label
                     key={s.id}
-                    className="flex cursor-pointer items-center gap-4 rounded-2xl border border-primary/10 bg-white p-4 dark:bg-card"
+                    className={cn(
+                      'flex cursor-pointer items-center gap-4 rounded-2xl border border-primary/10 bg-white p-4 dark:bg-card',
+                      highlightServiceId === s.id &&
+                        'ring-2 ring-pink-400/90 ring-offset-2 ring-offset-white dark:ring-offset-card'
+                    )}
                   >
                     <input
                       type="checkbox"
@@ -299,8 +413,16 @@ export default function BookingFlow() {
                       <p className="text-lg font-bold text-primary">بعد العرض: {formatPrice(finalTotal)}</p>
                     </>
                   ) : (
-                    <p className="text-lg font-bold text-primary">المجموع: {formatPrice(subtotal)}</p>
+                    <p className="text-lg font-bold text-primary">المجموع: {formatPrice(finalTotal)}</p>
                   )}
+                  {rosyAppliedNegotiationPct > 0 ? (
+                    <p className="text-xs font-semibold text-[#BE185D]">
+                      خصم روزي ✨ {rosyAppliedNegotiationPct}% (يُطبَّق بعد عروض الصالون إن وُجدت)
+                    </p>
+                  ) : null}
+                  <p className="text-xs text-rosera-gray">
+                    رسوم خدمة المنصة التقريبية: {formatPrice(platformCommissionSar(finalTotal))} (10٪ من المبلغ)
+                  </p>
                 </div>
               )}
               <Button
@@ -360,8 +482,11 @@ export default function BookingFlow() {
                       <p className="text-xl font-bold text-primary">{formatPrice(finalTotal)}</p>
                     </>
                   ) : (
-                    <p className="text-xl font-bold text-primary">{formatPrice(subtotal)}</p>
+                    <p className="text-xl font-bold text-primary">{formatPrice(finalTotal)}</p>
                   )}
+                  {rosyAppliedNegotiationPct > 0 ? (
+                    <p className="mt-2 text-xs font-semibold text-[#BE185D]">خصم روزي ✨ {rosyAppliedNegotiationPct}%</p>
+                  ) : null}
                 </div>
               </div>
               {salonGateway === 'disabled' && (
@@ -382,37 +507,56 @@ export default function BookingFlow() {
                 </div>
               )}
               {salonGateway === 'moyasar' && (
-                <>
-                  <div>
-                    <p className="mb-2 text-sm font-bold text-foreground">طريقة الدفع المفضّلة</p>
-                    <div className="grid grid-cols-2 gap-2">
-                      {BOOKING_PAY_OPTIONS.map((opt) => (
-                        <button
-                          key={opt.id}
-                          type="button"
-                          onClick={() => setBookingPayMethod(opt.id)}
-                          className={`rounded-2xl border-2 p-3 text-sm font-bold ${
-                            bookingPayMethod === opt.id ? 'border-primary bg-primary/10' : 'border-primary/15 bg-white dark:bg-card'
-                          }`}
-                        >
-                          {opt.label}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                  <PaymentForm
-                    type="booking"
-                    amount={finalTotal}
-                    description={`حجز ${b.name_ar} — ${selectedServices.map((s) => s.name_ar).join('، ')}`}
-                    refId={pendingRefId}
-                    checkoutPaymentMethod={bookingPayMethod}
-                    onSuccess={onPaymentSuccess}
-                    onPending={onPaymentPending}
-                    onError={(msg) => toast.error(msg)}
-                    disabled={loading}
-                  />
-                </>
+                <Button
+                  className="w-full rounded-2xl bg-gradient-to-l from-[#9C27B0] to-[#E91E8C]"
+                  disabled={loading}
+                  onClick={() => void proceedToPaymentStep()}
+                >
+                  {PAYMENT_MODE_FREE ? 'التالي — الدفع التجريبي' : 'متابعة للدفع'}
+                </Button>
               )}
+            </motion.div>
+          )}
+
+          {step === 4 && salonGateway === 'moyasar' && (
+            <motion.div key={4} initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0 }} className="space-y-6">
+              <h2 className="text-lg font-bold">الدفع</h2>
+              <p className="text-sm text-muted-foreground">
+                المبلغ: <span className="font-bold text-foreground">{formatPrice(finalTotal)}</span>
+                {PAYMENT_MODE_FREE ? ' — وضع تجريبي بدون بطاقة' : null}
+              </p>
+              {!PAYMENT_MODE_FREE && (
+                <div>
+                  <p className="mb-2 text-sm font-bold text-foreground">طريقة الدفع المفضّلة</p>
+                  <div className="grid grid-cols-2 gap-2">
+                    {BOOKING_PAY_OPTIONS.map((opt) => (
+                      <button
+                        key={opt.id}
+                        type="button"
+                        onClick={() => setBookingPayMethod(opt.id)}
+                        className={`rounded-2xl border-2 p-3 text-sm font-bold ${
+                          bookingPayMethod === opt.id ? 'border-primary bg-primary/10' : 'border-primary/15 bg-white dark:bg-card'
+                        }`}
+                      >
+                        {opt.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+              <PaymentForm
+                type="booking"
+                amount={finalTotal}
+                description={`حجز ${b.name_ar}`}
+                refId={PAYMENT_MODE_FREE ? null : pendingRefId}
+                checkoutPaymentMethod={bookingPayMethod}
+                onSuccess={onPaymentSuccess}
+                onError={(msg) => {
+                  console.error('[BookingFlow payment]', msg)
+                  toast.error(msg)
+                }}
+                disabled={loading || (!PAYMENT_MODE_FREE && !pendingRefId)}
+              />
             </motion.div>
           )}
         </AnimatePresence>

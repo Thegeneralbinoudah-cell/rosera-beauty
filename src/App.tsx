@@ -38,22 +38,27 @@ import AdminRevenue from '@/pages/admin/AdminRevenue'
 import AdminMonetization from '@/pages/admin/AdminMonetization'
 import AdminTeam from '@/pages/admin/AdminTeam'
 import OwnerLogin from '@/pages/owner/OwnerLogin'
-import OwnerHome from '@/pages/owner/OwnerHome'
-import OwnerBookings from '@/pages/owner/OwnerBookings'
-import OwnerServices from '@/pages/owner/OwnerServices'
-import OwnerSchedule from '@/pages/owner/OwnerSchedule'
-import OwnerReports from '@/pages/owner/OwnerReports'
+import SalonPortalRoute from '@/components/SalonPortalRoute'
+import SalonLayout from '@/pages/salon/SalonLayout'
+import SalonDashboard from '@/pages/salon/SalonDashboard'
+import SalonBookings from '@/pages/salon/SalonBookings'
+import SalonServices from '@/pages/salon/SalonServices'
+import SalonSubscription from '@/pages/salon/SalonSubscription'
+import SalonFeaturedAds from '@/pages/salon/SalonFeaturedAds'
+import SalonAnalytics from '@/pages/salon/SalonAnalytics'
+import SalonProfile from '@/pages/salon/SalonProfile'
+import OwnerLegacyRedirect from '@/pages/salon/OwnerLegacyRedirect'
 import ProtectedRoute from '@/components/ProtectedRoute'
+import { usePreferences } from '@/contexts/PreferencesContext'
 /** استيراد ثابت للصفحات الأساسية — يتجنّب فشل lazy() في التطوير (Failed to fetch dynamically imported module) بسبب HMR/SW */
 import Home from '@/pages/Home'
-import MapPage from '@/pages/MapPage'
 import TopSalons from '@/pages/TopSalons'
 import RecommendedSalons from '@/pages/RecommendedSalons'
 import SalonOnboarding from '@/pages/onboarding/SalonOnboarding'
+import ForSalonsLanding from '@/pages/for-salons/ForSalonsLanding'
 
 const SalonDetail = lazy(() => import('@/pages/SalonDetail'))
 const AdminLayout = lazy(() => import('@/pages/admin/AdminLayout'))
-const OwnerLayout = lazy(() => import('@/pages/owner/OwnerLayout'))
 const Store = lazy(() => import('@/pages/Store'))
 const SkinAnalysis = lazy(() => import('@/pages/SkinAnalysis'))
 const AiChat = lazy(() => import('@/pages/AiChat'))
@@ -63,17 +68,34 @@ const AdminProviders = lazy(() => import('@/pages/admin/AdminProviders'))
 const AdminProducts = lazy(() => import('@/pages/admin/AdminProducts'))
 const AdminShipping = lazy(() => import('@/pages/admin/AdminShipping'))
 const AdminTrustOps = lazy(() => import('@/pages/admin/AdminTrustOps'))
+const MapPage = lazy(() => import('@/pages/MapPage'))
 
-const PageFallback = () => (
-  <div className="flex items-center justify-center h-screen">
-    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-pink-500" />
-  </div>
-)
+function PageFallback() {
+  const { lang } = usePreferences()
+  return (
+    <div className="flex min-h-dvh flex-col items-center justify-center gap-4 bg-background px-6">
+      <div className="flex flex-col items-center gap-3 animate-premium-in">
+        <div
+          className="h-10 w-10 animate-spin rounded-full border-2 border-muted border-t-[#BE185D]"
+          role="status"
+          aria-label={lang === 'ar' ? 'جاري التحميل' : 'Loading'}
+        />
+        <p className="text-body-sm text-muted-foreground">{lang === 'ar' ? 'جاري التحميل…' : 'Loading…'}</p>
+      </div>
+    </div>
+  )
+}
 
 function OwnerDashboardRedirect() {
   const { pathname } = useLocation()
   const sub = pathname === '/dashboard' ? '' : pathname.slice('/dashboard'.length)
-  return <Navigate to={`/owner${sub}`} replace />
+  const map: Record<string, string> = {
+    '': '/salon/dashboard',
+    '/bookings': '/salon/bookings',
+    '/services': '/salon/services',
+    '/ads': '/salon/ads',
+  }
+  return <Navigate to={map[sub] ?? '/salon/dashboard'} replace />
 }
 
 export default function App() {
@@ -90,6 +112,25 @@ export default function App() {
       <Route path="/reset-password" element={<ResetPassword />} />
       <Route path="/payment/callback" element={<PaymentCallback />} />
       <Route path="/onboarding/salon" element={<SalonOnboarding />} />
+      <Route path="/for-salons" element={<ForSalonsLanding />} />
+      <Route path="/for-salons/onboard" element={<SalonOnboarding />} />
+
+      <Route
+        element={
+          <SalonPortalRoute>
+            <SalonLayout />
+          </SalonPortalRoute>
+        }
+      >
+        <Route path="/salon/dashboard" element={<SalonDashboard />} />
+        <Route path="/salon/bookings" element={<SalonBookings />} />
+        <Route path="/salon/services" element={<SalonServices />} />
+        <Route path="/salon/subscription" element={<SalonSubscription />} />
+        <Route path="/salon/ads" element={<SalonFeaturedAds />} />
+        <Route path="/salon/analytics" element={<SalonAnalytics />} />
+        <Route path="/salon/profile" element={<SalonProfile />} />
+      </Route>
+      <Route path="/salon" element={<Navigate to="/salon/dashboard" replace />} />
 
       <Route element={<CustomerLayout />}>
         <Route path="/home" element={<Home />} />
@@ -148,19 +189,13 @@ export default function App() {
 
       <Route path="/owner/login" element={<OwnerLogin />} />
       <Route
-        path="/owner"
+        path="/owner/*"
         element={
-          <ProtectedRoute allowedRoles={['owner']}>
-            <OwnerLayout />
-          </ProtectedRoute>
+          <SalonPortalRoute>
+            <OwnerLegacyRedirect />
+          </SalonPortalRoute>
         }
-      >
-        <Route index element={<OwnerHome />} />
-        <Route path="bookings" element={<OwnerBookings />} />
-        <Route path="services" element={<OwnerServices />} />
-        <Route path="schedule" element={<OwnerSchedule />} />
-        <Route path="reports" element={<OwnerReports />} />
-      </Route>
+      />
       <Route path="/dashboard/*" element={<OwnerDashboardRedirect />} />
 
       <Route path="*" element={<Navigate to="/home" replace />} />

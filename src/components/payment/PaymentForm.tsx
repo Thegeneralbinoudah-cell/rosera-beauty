@@ -1,19 +1,46 @@
 import { useEffect, useId, useRef, useState, useCallback } from 'react'
+import { Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 
 const MOYASAR_PK = (import.meta.env.VITE_MOYASAR_PUBLISHABLE_KEY as string | undefined)?.trim()
 const PAYMENT_MODE_FREE = ((import.meta.env.VITE_PAYMENT_MODE as string) || '').trim().toLowerCase() === 'free'
 const IS_PRODUCTION = import.meta.env.PROD
 
+const MOYASAR_APPLE_PAY_LABEL =
+  (import.meta.env.VITE_MOYASAR_APPLE_PAY_LABEL as string | undefined)?.trim() || 'Beauty Hub Saudi'
+
+function detectApplePayAvailable(): boolean {
+  if (typeof window === 'undefined') return false
+  try {
+    const ApplePaySession = (
+      window as unknown as { ApplePaySession?: { canMakePayments: () => boolean } }
+    ).ApplePaySession
+    if (!ApplePaySession || typeof ApplePaySession.canMakePayments !== 'function') return false
+    return Boolean(ApplePaySession.canMakePayments())
+  } catch {
+    return false
+  }
+}
+
+/** iPhone / iPod / iPad (incl. iPadOS reporting as Mac) — used to prioritize Apple Pay in the methods list. */
+function detectAppleMobileDevice(): boolean {
+  if (typeof navigator === 'undefined') return false
+  const ua = navigator.userAgent || ''
+  if (/iPhone|iPod/i.test(ua)) return true
+  if (/iPad/i.test(ua)) return true
+  if (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1) return true
+  return false
+}
+
 export type PaymentResult = {
   payment_status: 'free' | 'paid'
   payment_id?: string
 }
 
-type CheckoutPaymentMethod = 'mada' | 'visa' | 'apple' | 'tamara' | string
+type CheckoutPaymentMethod = 'mada' | 'visa' | 'apple' | string
 
 export type PaymentFormProps = {
-  type: 'booking' | 'order'
+  type: 'booking' | 'order' | 'subscription' | 'salon_ad'
   amount: number
   description: string
   refId: string | null
@@ -37,6 +64,8 @@ type MoyasarInitOpts = {
   supported_networks?: string[]
   fixed_width?: boolean
   language?: string
+  /** Tokenization for subscription renewals (requires Moyasar tokenization on the account). */
+  credit_card?: { save_card?: boolean }
   apple_pay?: {
     country: string
     label: string
@@ -54,10 +83,21 @@ declare global {
   }
 }
 
-function buildMoyasarMethods(checkoutPaymentMethod?: CheckoutPaymentMethod): string[] {
+function buildMoyasarMethods(
+  checkoutPaymentMethod: CheckoutPaymentMethod | undefined,
+  applePayAvailable: boolean,
+  appleMobile: boolean
+): string[] {
   const m = checkoutPaymentMethod ?? 'mada'
-  if (m === 'apple') return ['applepay', 'creditcard']
-  return ['creditcard', 'applepay']
+  const cardAndStc: string[] = ['creditcard', 'stcpay']
+
+  if (!applePayAvailable) return cardAndStc
+
+  if (m === 'apple' || appleMobile) {
+    return ['applepay', 'creditcard', 'stcpay']
+  }
+
+  return ['creditcard', 'applepay', 'stcpay']
 }
 
 function buildSupportedNetworks(checkoutPaymentMethod?: CheckoutPaymentMethod): string[] {
@@ -83,6 +123,8 @@ export default function PaymentForm({
   const [scriptLoaded, setScriptLoaded] = useState(false)
   const initOnceRef = useRef(false)
   const [localError, setLocalError] = useState<string | null>(null)
+  const [applePayAvailable] = useState(detectApplePayAvailable)
+  const [appleMobile] = useState(detectAppleMobileDevice)
 
   const moyasarKeyOk = Boolean(
     MOYASAR_PK && (!IS_PRODUCTION || MOYASAR_PK.startsWith('pk_live_'))
@@ -136,6 +178,8 @@ export default function PaymentForm({
 
     const amountHalalas = Math.max(0, Math.round(Number(amount) * 100))
 
+    const methods = buildMoyasarMethods(checkoutPaymentMethod, applePayAvailable, appleMobile)
+
     const opts: MoyasarInitOpts = {
       element: `#${hostIdRef.current}`,
       amount: amountHalalas,
@@ -143,16 +187,21 @@ export default function PaymentForm({
       description,
       publishable_api_key: MOYASAR_PK,
       callback_url: callbackUrl,
-      methods: buildMoyasarMethods(checkoutPaymentMethod),
+      methods,
       supported_networks: buildSupportedNetworks(checkoutPaymentMethod),
       fixed_width: false,
       language: 'ar',
-      apple_pay: {
-        country: 'SA',
-        label: 'Rosera',
-        validate_merchant_url: 'https://api.moyasar.com/v1/applepay/initiate',
-        supported_countries: ['SA'],
-      },
+      ...(type === 'subscription' ? { credit_card: { save_card: true } } : {}),
+      ...(applePayAvailable
+        ? {
+            apple_pay: {
+              country: 'SA',
+              label: MOYASAR_APPLE_PAY_LABEL,
+              validate_merchant_url: 'https://api.moyasar.com/v1/applepay/initiate',
+              supported_countries: ['SA'],
+            },
+          }
+        : {}),
       on_completed: async (payment: MoyasarPayment) => {
         if (payment?.status === 'paid' || payment?.status === 'authorized') {
           window.location.assign(
@@ -167,7 +216,6 @@ export default function PaymentForm({
     } catch (e) {
       initOnceRef.current = false
       reportError(e instanceof Error ? e.message : 'فشل تهيئة الدفع')
-      console.error('[PaymentForm] Moyasar.init', e)
     }
   }, [
     type,
@@ -176,6 +224,8 @@ export default function PaymentForm({
     refId,
     scriptLoaded,
     checkoutPaymentMethod,
+    applePayAvailable,
+    appleMobile,
     useMoyasar,
     reportError,
   ])
@@ -237,25 +287,38 @@ export default function PaymentForm({
           {localError}
         </div>
       ) : null}
-      {checkoutPaymentMethod === 'tamara' && (
-        <p className="rounded-xl border border-primary/20 bg-primary/5 px-3 py-2 text-center text-sm text-foreground">
-          تمارا: أكملي الدفع عبر <strong>مدى</strong> أو <strong>بطاقة</strong> أو <strong>Apple Pay</strong> في النموذج أدناه.
-        </p>
-      )}
+      <p className="text-center text-sm font-semibold text-foreground">الدفع الآمن 🔒</p>
       <p className="text-center text-xs text-muted-foreground">
-        البطاقة والاسم والصلاحية والرمز تُعالج عبر Moyasar — لا نخزّن بيانات البطاقة.
+        البطاقة وApple Pay وSTC Pay تُعالج عبر Moyasar — لا نخزّن بيانات الدفع.
       </p>
       <div className="flex flex-wrap items-stretch justify-center gap-2">
-        <div className="flex min-h-[44px] min-w-[7.5rem] flex-1 items-center justify-center rounded-2xl border-2 border-[#00A859]/45 bg-gradient-to-b from-[#e8f8ef] to-white px-3 py-2 text-center shadow-sm dark:from-[#0d2818] dark:to-card">
-          <span className="text-sm font-extrabold tracking-tight text-[#006b3c] dark:text-[#6ee7a8]">مدى Mada</span>
+        <div className="flex min-h-[44px] min-w-[7.5rem] flex-1 items-center justify-center gap-1.5 rounded-2xl border-2 border-primary/20 bg-gradient-to-b from-pink-50/90 to-white px-3 py-2 text-center shadow-sm dark:from-pink-950/40 dark:to-card">
+          <span className="text-base" aria-hidden>
+            💳
+          </span>
+          <span className="text-sm font-bold text-foreground">بطاقة</span>
         </div>
-        <div className="flex min-h-[44px] min-w-[7.5rem] flex-1 items-center justify-center rounded-2xl border-2 border-black/10 bg-black px-3 py-2 text-center shadow-sm dark:border-white/20">
-          <span className="text-sm font-extrabold text-white">Apple Pay</span>
+        {applePayAvailable ? (
+          <div className="flex min-h-[44px] min-w-[7.5rem] flex-1 items-center justify-center gap-1.5 rounded-2xl border-2 border-black/10 bg-black px-3 py-2 text-center shadow-sm dark:border-white/20">
+            <span className="text-base" aria-hidden>
+              🍎
+            </span>
+            <span className="text-sm font-extrabold text-white">Apple Pay</span>
+          </div>
+        ) : null}
+        <div className="flex min-h-[44px] min-w-[7.5rem] flex-1 items-center justify-center gap-1.5 rounded-2xl border-2 border-[#4f008c]/25 bg-gradient-to-b from-violet-50/90 to-white px-3 py-2 text-center shadow-sm dark:from-violet-950/35 dark:to-card">
+          <span className="text-base" aria-hidden>
+            📱
+          </span>
+          <span className="text-sm font-bold text-[#4f008c] dark:text-violet-200">STC Pay</span>
         </div>
       </div>
-      {!scriptLoaded && (
-        <p className="text-center text-sm text-muted-foreground">جاري تحميل نموذج الدفع...</p>
-      )}
+      {!scriptLoaded ? (
+        <div className="flex flex-col items-center justify-center gap-2 py-6">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" aria-hidden />
+          <p className="text-center text-sm text-muted-foreground">جاري تحميل نموذج الدفع…</p>
+        </div>
+      ) : null}
       <div
         id={hostIdRef.current}
         ref={containerRef}

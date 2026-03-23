@@ -1,6 +1,7 @@
 import { useEffect, useState, useMemo } from 'react'
 import { supabase } from '@/lib/supabase'
 import { Input } from '@/components/ui/input'
+import { formatPrice } from '@/lib/utils'
 import {
   Select,
   SelectContent,
@@ -14,6 +15,9 @@ type Row = {
   booking_date: string
   status: string
   business_id: string
+  total_price: number | null
+  commission_amount: number | null
+  platform_fee_percentage: number | null
   businesses: { name_ar: string } | null
 }
 
@@ -28,7 +32,9 @@ export default function AdminBookings() {
   useEffect(() => {
     void supabase
       .from('bookings')
-      .select('id, booking_date, status, business_id, businesses(name_ar)')
+      .select(
+        'id, booking_date, status, business_id, total_price, commission_amount, platform_fee_percentage, businesses(name_ar)'
+      )
       .order('booking_date', { ascending: false })
       .limit(500)
       .then(({ data }) => {
@@ -37,6 +43,9 @@ export default function AdminBookings() {
           booking_date: string
           status: string
           business_id: string
+          total_price: number | null
+          commission_amount: number | null
+          platform_fee_percentage: number | null
           businesses: { name_ar: string } | { name_ar: string }[] | null
         }[]
         setRows(
@@ -92,10 +101,21 @@ export default function AdminBookings() {
       </div>
       <div className="mt-6 space-y-2">
         {filtered.map((r) => (
-          <div key={r.id} className="flex flex-wrap justify-between gap-2 rounded-xl border bg-white p-4 dark:bg-card">
-            <span className="font-medium">{r.businesses?.name_ar}</span>
-            <span dir="ltr">{r.booking_date}</span>
-            <span className="text-primary">{r.status}</span>
+          <div key={r.id} className="flex flex-wrap items-center justify-between gap-2 rounded-xl border bg-white p-4 dark:bg-card">
+            <div className="min-w-0 flex-1">
+              <span className="font-medium">{r.businesses?.name_ar}</span>
+              <p className="mt-1 text-xs text-muted-foreground" dir="ltr">
+                {r.booking_date} · {r.id.slice(0, 8)}
+              </p>
+            </div>
+            <div className="text-end text-sm">
+              <p className="font-semibold">{r.total_price != null ? formatPrice(Number(r.total_price)) : '—'}</p>
+              <p className="text-xs text-muted-foreground">
+                عمولة: {r.commission_amount != null ? formatPrice(Number(r.commission_amount)) : '—'}
+                {r.platform_fee_percentage != null ? ` · ${Number(r.platform_fee_percentage)}٪` : ''}
+              </p>
+            </div>
+            <span className="rounded-full bg-primary/10 px-2 py-0.5 text-xs font-bold text-primary">{r.status}</span>
           </div>
         ))}
       </div>

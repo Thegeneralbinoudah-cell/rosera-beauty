@@ -3,7 +3,7 @@ import { useParams, Link } from 'react-router-dom'
 import { Star, Minus, Plus } from 'lucide-react'
 import { supabase, type Product } from '@/lib/supabase'
 import { useAuth } from '@/contexts/AuthContext'
-import { trackUserEvent } from '@/lib/userEvents'
+import { trackEvent } from '@/lib/analytics'
 import { useCartStore } from '@/stores/cartStore'
 import { Button } from '@/components/ui/button'
 import { toast } from 'sonner'
@@ -26,30 +26,38 @@ export default function ProductDetail() {
     setProductBoost(null)
     let c = true
     async function load() {
-      const { data: p, error } = await supabase.from('products').select('*').eq('id', productId).single()
-      if (!c) return
-      if (error || !p) {
-        setNotFound(true)
-        return
+      try {
+        const { data: p, error } = await supabase.from('products').select('*').eq('id', productId).single()
+        if (!c) return
+        if (error || !p) {
+          setNotFound(true)
+          return
+        }
+        const row = p as Product
+        if (row.is_demo) {
+          setNotFound(true)
+          return
+        }
+        setProduct(row)
+        const pm = await fetchActiveProductBoostMeta([row.id])
+        if (c) setProductBoost(pm.get(row.id) ?? null)
+        const cat = (p as Product).category
+        const { data: sim, error: simErr } = await supabase
+          .from('products')
+          .select('*')
+          .eq('category', cat)
+          .eq('is_active', true)
+          .eq('is_demo', false)
+          .neq('id', productId)
+          .limit(4)
+        if (simErr) {
+          console.error(simErr)
+        }
+        if (c) setSimilar((sim ?? []) as Product[])
+      } catch (e) {
+        console.error(e)
+        if (c) setNotFound(true)
       }
-      const row = p as Product
-      if (row.is_demo) {
-        setNotFound(true)
-        return
-      }
-      setProduct(row)
-      const pm = await fetchActiveProductBoostMeta([row.id])
-      if (c) setProductBoost(pm.get(row.id) ?? null)
-      const cat = (p as Product).category
-      const { data: sim } = await supabase
-        .from('products')
-        .select('*')
-        .eq('category', cat)
-        .eq('is_active', true)
-        .eq('is_demo', false)
-        .neq('id', productId)
-        .limit(4)
-      if (c) setSimilar((sim ?? []) as Product[])
     }
     void load()
     return () => { c = false }
@@ -57,12 +65,7 @@ export default function ProductDetail() {
 
   useEffect(() => {
     if (!product?.id || !user?.id) return
-    trackUserEvent({
-      userId: user.id,
-      event_type: 'view',
-      entity_type: 'product',
-      entity_id: product.id,
-    })
+    trackEvent({ user_id: user.id, event_type: 'view', entity_type: 'product', entity_id: product.id })
   }, [product?.id, user?.id])
 
   const addToCart = () => {
@@ -99,12 +102,12 @@ export default function ProductDetail() {
       </div>
       <div className="mx-auto max-w-lg px-4 py-6">
         <div className="flex flex-wrap items-center gap-2">
-          <h1 className="text-2xl font-extrabold">{product.name_ar}</h1>
+          <h1 className="text-2xl font-extrabold">{product.name_ar ?? ''}</h1>
           {productBoost?.boost_type === 'featured' && (
             <span className="rounded-full bg-amber-400/90 px-2 py-0.5 text-[9px] font-extrabold text-amber-950">Featured</span>
           )}
         </div>
-        <p className="text-rosera-gray">{product.brand_ar}</p>
+        <p className="text-rosera-gray">{product.brand_ar ?? ''}</p>
         <div className="mt-2 flex items-center gap-2">
           <Star className="h-5 w-5 fill-[#9B2257] text-[#9B2257]" />
           <span className="font-bold">{Number(product.rating || 0).toFixed(1)}</span>
@@ -143,7 +146,7 @@ export default function ProductDetail() {
                     <img src={p.image_url || ''} alt="" className="h-full w-full object-cover" />
                   </div>
                   <div className="p-2">
-                    <p className="line-clamp-2 text-sm font-bold">{p.name_ar}</p>
+                    <p className="line-clamp-2 text-sm font-bold">{p.name_ar ?? ''}</p>
                     <p className="text-primary font-bold">{Number(p.price).toLocaleString('ar-SA')} ر.س</p>
                   </div>
                 </Link>

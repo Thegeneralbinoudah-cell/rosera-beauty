@@ -3,7 +3,9 @@ import { useNavigate } from 'react-router-dom'
 import { useAuth } from '@/contexts/AuthContext'
 import { supabase } from '@/lib/supabase'
 import { Card } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
+import { Package } from 'lucide-react'
+import { EmptyState } from '@/components/ui/empty-state'
+import { buildMapExploreUrl } from '@/lib/mapExploreUrl'
 import { toast } from 'sonner'
 import { useI18n } from '@/hooks/useI18n'
 import { usePreferences } from '@/contexts/PreferencesContext'
@@ -97,12 +99,15 @@ export default function Orders() {
     <div className="min-h-dvh bg-rosera-light px-4 py-6 dark:bg-rosera-dark">
       <h1 className="text-2xl font-bold">{t('orders.title')}</h1>
       {rows.length === 0 ? (
-        <div className="mt-10 text-center">
-          <p className="font-bold">{t('orders.emptyTitle')}</p>
-          <p className="mt-1 text-sm text-rosera-gray">{t('orders.emptySub')}</p>
-          <Button className="mt-4" onClick={() => nav('/store')}>
-            {t('orders.goStore')}
-          </Button>
+        <div className="mt-10">
+          <EmptyState
+            icon={Package}
+            title={t('orders.emptyTitle')}
+            subtitle={t('orders.emptySub')}
+            ctaLabel={t('orders.goStore')}
+            onClick={() => nav(buildMapExploreUrl())}
+            analyticsSource="orders"
+          />
         </div>
       ) : (
         <div className="mt-6 space-y-4">

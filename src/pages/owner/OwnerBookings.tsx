@@ -20,11 +20,18 @@ type Row = {
 }
 
 const tabs: { key: Status; label: string }[] = [
-  { key: 'pending', label: 'الجديدة' },
-  { key: 'confirmed', label: 'المؤكدة' },
-  { key: 'completed', label: 'المكتملة' },
-  { key: 'cancelled', label: 'الملغاة' },
+  { key: 'pending', label: 'في الانتظار' },
+  { key: 'confirmed', label: 'مؤكد' },
+  { key: 'completed', label: 'مكتمل' },
+  { key: 'cancelled', label: 'ملغى' },
 ]
+
+const statusLabel: Record<string, string> = {
+  pending: 'في الانتظار',
+  confirmed: 'مؤكد',
+  completed: 'مكتمل',
+  cancelled: 'ملغى',
+}
 
 async function notifyUser(userId: string, title: string, body: string, type: string) {
   await supabase.functions.invoke('send-notification', {
@@ -57,7 +64,11 @@ export default function OwnerBookings() {
     const uids = [...new Set(list.map((r) => r.user_id))]
     const sids = [...new Set(list.map((r) => r.service_id).filter(Boolean) as string[])]
     if (uids.length) {
-      const { data: p } = await supabase.from('profiles').select('id, full_name').in('id', uids)
+      const { data: p, error: pubErr } = await supabase.from('public_profiles').select('id, full_name').in('id', uids)
+      if (pubErr) {
+        console.error(pubErr)
+        toast.error('تعذر تحميل أسماء العميلات')
+      }
       const nm: Record<string, string> = {}
       ;(p ?? []).forEach((x: { id: string; full_name: string | null }) => {
         nm[x.id] = x.full_name?.trim() || 'عميلة'
@@ -100,9 +111,10 @@ export default function OwnerBookings() {
   const filtered = useMemo(() => rows.filter((r) => r.status === tab), [rows, tab])
 
   return (
-    <div>
-      <h1 className="text-2xl font-bold">الحجوزات</h1>
-      <Tabs value={tab} onValueChange={(v) => setTab(v as Status)} className="mt-6">
+    <div className="space-y-2">
+      <h1 className="text-2xl font-extrabold text-[#880e4f] dark:text-[#f48fb1]">الحجوزات</h1>
+      <p className="text-sm text-muted-foreground">قبول، تأكيد، إكمال، أو إلغاء الحجوزات</p>
+      <Tabs value={tab} onValueChange={(v) => setTab(v as Status)} className="mt-4">
         <TabsList className="flex h-auto w-full flex-wrap gap-1 bg-muted/50 p-1">
           {tabs.map((t) => (
             <TabsTrigger key={t.key} value={t.key} className="flex-1 text-xs sm:text-sm">
@@ -150,7 +162,7 @@ function BookingCard({
   onComplete: () => void
 }) {
   return (
-    <Card className="p-4">
+    <Card className="border-pink-100/70 p-4 shadow-sm dark:border-border">
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div>
           <p className="font-bold">{clientName}</p>
@@ -162,7 +174,9 @@ function BookingCard({
             <p className="text-sm font-semibold text-primary">{Number(b.total_price).toLocaleString('ar-SA')} ر.س</p>
           )}
         </div>
-        <span className="rounded-full bg-muted px-2 py-0.5 text-xs font-bold">{b.status}</span>
+        <span className="rounded-full bg-muted px-2 py-0.5 text-xs font-bold">
+          {statusLabel[b.status] ?? b.status}
+        </span>
       </div>
       {b.status === 'pending' && (
         <div className="mt-3 flex flex-wrap gap-2">
@@ -170,7 +184,7 @@ function BookingCard({
             قبول
           </Button>
           <Button size="sm" variant="destructive" className="rounded-xl" onClick={onReject}>
-            رفض
+            إلغاء
           </Button>
         </div>
       )}

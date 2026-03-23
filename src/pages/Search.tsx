@@ -1,6 +1,6 @@
 import { useEffect, useState, useMemo } from 'react'
-import { useSearchParams, Link } from 'react-router-dom'
-import { Search as SearchIcon, SlidersHorizontal } from 'lucide-react'
+import { useSearchParams, Link, useNavigate } from 'react-router-dom'
+import { Search as SearchIcon, SlidersHorizontal, MapPin } from 'lucide-react'
 import { supabase, type Business } from '@/lib/supabase'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
@@ -20,11 +20,16 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { SortPills } from '@/components/ui/sort-pills'
+import { EmptyState } from '@/components/ui/empty-state'
 import { haversineKm } from '@/lib/utils'
 import { toast } from 'sonner'
 import { useI18n } from '@/hooks/useI18n'
 import { usePreferences } from '@/contexts/PreferencesContext'
 import { filterFemaleBeautyBusinesses } from '@/lib/roseraBusinessFilters'
+import { buildMapExploreUrl } from '@/lib/mapExploreUrl'
+import { markGeolocationKnown } from '@/lib/geoSession'
+import { fetchActiveSalonFeaturedAdSalonIds } from '@/lib/salonAds'
 
 type BizRow = Business & {
   sa_cities?: { name_ar: string; sa_regions?: { name_ar: string } | null } | null
@@ -46,6 +51,7 @@ const CATEGORY_OPTIONS: { value: string; key: string }[] = [
 export default function SearchPage() {
   const { t } = useI18n()
   const { lang } = usePreferences()
+  const nav = useNavigate()
   const [params, setParams] = useSearchParams()
   const [q, setQ] = useState(params.get('q') || '')
   const [list, setList] = useState<BizRow[]>([])
@@ -62,6 +68,7 @@ export default function SearchPage() {
     return fromLs === 'booked' || fromLs === 'nearest' ? fromLs : 'rating'
   })
   const [userPos, setUserPos] = useState<{ lat: number; lng: number } | null>(null)
+  const [featuredAdIds, setFeaturedAdIds] = useState<Set<string>>(new Set())
 
   const resetSearchFilters = () => {
     setQ('')
@@ -80,14 +87,41 @@ export default function SearchPage() {
 
   useEffect(() => {
     navigator.geolocation?.getCurrentPosition(
-      (p) => setUserPos({ lat: p.coords.latitude, lng: p.coords.longitude }),
+      (p) => {
+        markGeolocationKnown()
+        setUserPos({ lat: p.coords.latitude, lng: p.coords.longitude })
+      },
       () => {}
     )
   }, [])
 
   useEffect(() => {
+    if (sortBy !== 'nearest') return
+    if (userPos) return
+    navigator.geolocation?.getCurrentPosition(
+      (p) => {
+        markGeolocationKnown()
+        setUserPos({ lat: p.coords.latitude, lng: p.coords.longitude })
+      },
+      () => {},
+      { enableHighAccuracy: true, timeout: 15000, maximumAge: 60_000 }
+    )
+  }, [sortBy, userPos])
+
+  useEffect(() => {
     localStorage.setItem(SEARCH_SORT_PREFS_KEY, sortBy)
   }, [sortBy])
+
+  useEffect(() => {
+    setParams(
+      (prev) => {
+        const p = new URLSearchParams(prev)
+        p.set('sort', sortBy)
+        return p
+      },
+      { replace: true }
+    )
+  }, [sortBy, setParams])
 
   useEffect(() => {
     let c = true
@@ -157,12 +191,23 @@ export default function SearchPage() {
           Number(b.total_bookings ?? 0) - Number(a.total_bookings ?? 0) ||
           Number(b.average_rating ?? 0) - Number(a.average_rating ?? 0)
       )
-    } else if (sortBy === 'nearest' && userPos) {
-      r = [...r].sort((a, b) => {
-        if (!a.latitude || !a.longitude) return 1
-        if (!b.latitude || !b.longitude) return -1
-        return haversineKm(userPos.lat, userPos.lng, a.latitude, a.longitude) - haversineKm(userPos.lat, userPos.lng, b.latitude, b.longitude)
-      })
+    } else if (sortBy === 'nearest') {
+      if (userPos) {
+        r = [...r].sort((a, b) => {
+          if (!a.latitude || !a.longitude) return 1
+          if (!b.latitude || !b.longitude) return -1
+          return (
+            haversineKm(userPos.lat, userPos.lng, a.latitude, a.longitude) -
+            haversineKm(userPos.lat, userPos.lng, b.latitude, b.longitude)
+          )
+        })
+      } else {
+        r = [...r].sort(
+          (a, b) =>
+            Number(b.average_rating ?? 0) - Number(a.average_rating ?? 0) ||
+            Number(b.total_reviews ?? 0) - Number(a.total_reviews ?? 0)
+        )
+      }
     }
     return r
   }, [list, q, cityF, catLabelLocal, minRating, sortBy, userPos])
@@ -177,6 +222,26 @@ export default function SearchPage() {
           : undefined,
     }))
   }, [filtered, userPos])
+
+  useEffect(() => {
+    if (!filtered.length) {
+      setFeaturedAdIds(new Set())
+      return
+    }
+    let c = true
+    void fetchActiveSalonFeaturedAdSalonIds(filtered.map((b) => b.id)).then((s) => {
+      if (c) setFeaturedAdIds(s)
+    })
+    return () => {
+      c = false
+    }
+  }, [filtered])
+
+  const withDistOrdered = useMemo(() => {
+    const ad = withDist.filter(({ b }) => featuredAdIds.has(b.id))
+    const rest = withDist.filter(({ b }) => !featuredAdIds.has(b.id))
+    return [...ad, ...rest]
+  }, [withDist, featuredAdIds])
 
   const activeFiltersCount = useMemo(() => {
     let n = 0
@@ -197,43 +262,47 @@ export default function SearchPage() {
   }
 
   return (
-    <div className="min-h-dvh bg-rosera-light pb-28 dark:bg-rosera-dark">
-      <div className="sticky top-0 z-20 border-b border-primary/10 bg-gradient-to-b from-white to-[#fff5fb] px-4 py-3 dark:from-card dark:to-rosera-dark">
+    <div className="min-h-dvh bg-white pb-28 dark:bg-rosera-dark">
+      <div className="sticky top-0 z-20 border-b border-[#F9A8C9]/25 bg-white px-4 py-3 shadow-sm dark:border-border dark:bg-card">
         <div className="relative mx-auto max-w-lg">
-          <SearchIcon className="absolute start-3 top-1/2 h-5 w-5 -translate-y-1/2 text-[#9C27B0]" />
+          <SearchIcon className="absolute start-3 top-1/2 h-5 w-5 -translate-y-1/2 text-[#BE185D]" />
           <Input
-            className="h-12 rounded-2xl border-primary/15 ps-10 shadow-sm"
+            className="h-12 rounded-2xl border-[#E5E7EB] bg-white ps-10 text-[#374151] shadow-sm focus-visible:ring-[#F9A8C9] dark:border-border dark:bg-card"
             placeholder={t('search.placeholder')}
             value={q}
             onChange={(e) => setQ(e.target.value)}
           />
         </div>
-        <div className="mx-auto mt-3 flex max-w-lg items-center justify-between gap-2">
-          <Button variant="outline" size="sm" className="gap-1 rounded-full border-primary/20" onClick={() => setFilterOpen(true)}>
-            <SlidersHorizontal className="h-4 w-4" />
-            {t('search.filter')}
-          </Button>
-          <Select value={sortBy} onValueChange={(v: 'rating' | 'booked' | 'nearest') => setSortBy(v)}>
-            <SelectTrigger className="h-9 w-[150px] rounded-full bg-white text-xs dark:bg-card">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="rating">{t('city.sort.rating')}</SelectItem>
-              <SelectItem value="booked">{t('city.sort.booked')}</SelectItem>
-              <SelectItem value="nearest">{t('search.sortNearest')}</SelectItem>
-            </SelectContent>
-          </Select>
-          <Button variant="ghost" size="sm" className="rounded-full gap-1" onClick={resetSearchFilters}>
-            {t('common.reset')}
-            {activeFiltersCount > 0 && (
-              <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-extrabold text-white">
-                {activeFiltersCount}
-              </span>
-            )}
-          </Button>
-          <Link to="/" className="text-sm font-bold text-primary">
-            {t('search.regionsLink')}
-          </Link>
+        <div className="mx-auto mt-3 max-w-lg space-y-3">
+          <SortPills
+            value={sortBy}
+            onChange={(v) => setSortBy(v)}
+            options={[
+              { value: 'rating', label: t('city.sort.rating') },
+              { value: 'booked', label: t('city.sort.booked') },
+              { value: 'nearest', label: t('search.sortNearest') },
+            ]}
+          />
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <Button variant="secondary" size="sm" className="gap-1" onClick={() => setFilterOpen(true)}>
+              <SlidersHorizontal className="h-4 w-4" />
+              {t('search.filter')}
+            </Button>
+            <Button variant="ghost" size="sm" className="gap-1" onClick={resetSearchFilters}>
+              {t('common.reset')}
+              {activeFiltersCount > 0 && (
+                <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-[#F9A8C9] px-1 text-[10px] font-extrabold text-[#374151]">
+                  {activeFiltersCount}
+                </span>
+              )}
+            </Button>
+            <Link
+              to="/"
+              className="text-sm font-semibold text-[#BE185D] transition-colors hover:text-[#9D174D] dark:text-primary"
+            >
+              {t('search.regionsLink')}
+            </Link>
+          </div>
         </div>
       </div>
 
@@ -250,11 +319,34 @@ export default function SearchPage() {
             ))}
           </div>
         ) : filtered.length === 0 ? (
-          <p className="py-16 text-center text-lg text-rosera-gray">{t('search.noResults')}</p>
+          <div className="py-10">
+            <EmptyState
+              icon={MapPin}
+              title={t('search.emptyStateTitle')}
+              subtitle={t('search.emptyStateSub')}
+              ctaLabel={t('search.emptyStateCtaNearest')}
+              onClick={() =>
+                nav(
+                  buildMapExploreUrl({
+                    sortNearest: true,
+                    searchQuery: q,
+                    city: cityF.trim() || null,
+                  })
+                )
+              }
+              analyticsSource="search"
+            />
+          </div>
         ) : (
           <div className="grid gap-4 sm:grid-cols-2">
-            {withDist.map(({ b, km }) => (
-              <BusinessCard key={b.id} b={b} distanceKm={km} showFavorite />
+            {withDistOrdered.map(({ b, km }) => (
+              <BusinessCard
+                key={b.id}
+                b={b}
+                distanceKm={km}
+                showFavorite
+                isFeaturedAd={featuredAdIds.has(b.id)}
+              />
             ))}
           </div>
         )}
@@ -299,7 +391,7 @@ export default function SearchPage() {
                 </SelectContent>
               </Select>
             </div>
-            <Button className="w-full rounded-2xl bg-gradient-to-l from-[#9C27B0] to-[#E91E8C]" onClick={applyCategoryFromHome}>
+            <Button className="w-full" variant="default" onClick={applyCategoryFromHome}>
               {t('common.apply')}
             </Button>
           </div>

@@ -21,6 +21,7 @@ export function BusinessCard({
   showFavorite,
   isSponsored,
   sponsorLabel,
+  isFeaturedAd,
 }: {
   b: Business
   className?: string
@@ -29,6 +30,8 @@ export function BusinessCard({
   /** Active paid boost (salon-wide). */
   isSponsored?: boolean
   sponsorLabel?: 'featured' | 'priority'
+  /** Paid featured ad campaign (salon_ads). */
+  isFeaturedAd?: boolean
 }) {
   const { t } = useI18n()
   const { lang } = usePreferences()
@@ -90,6 +93,7 @@ export function BusinessCard({
       }}
       className={cn(
         'cursor-pointer overflow-hidden transition-shadow hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary',
+        isFeaturedAd && 'ring-2 ring-fuchsia-500/55 ring-offset-2 ring-offset-background',
         className
       )}
     >
@@ -98,9 +102,19 @@ export function BusinessCard({
         <Badge className="absolute top-2 start-2 max-w-[85%] truncate text-[10px] font-semibold shadow-md">
           {label}
         </Badge>
+        {isFeaturedAd && (
+          <span className="absolute top-10 start-2 z-[5] rounded-full bg-gradient-to-l from-fuchsia-600 to-pink-500 px-2 py-0.5 text-[9px] font-extrabold text-white shadow-md">
+            إعلان ⭐
+          </span>
+        )}
+        {b.is_featured && (
+          <span className="absolute bottom-2 start-2 rounded-full bg-amber-400/95 px-2 py-0.5 text-[9px] font-extrabold text-amber-950 shadow-md">
+            ⭐ صالون مميز
+          </span>
+        )}
         {isSponsored && (
           <span
-            className={`absolute bottom-2 start-2 rounded-full px-2 py-0.5 text-[9px] font-extrabold shadow-md ${
+            className={`absolute ${b.is_featured ? 'bottom-9' : 'bottom-2'} start-2 rounded-full px-2 py-0.5 text-[9px] font-extrabold shadow-md ${
               sponsorLabel === 'featured'
                 ? 'bg-amber-400/95 text-amber-950'
                 : 'bg-white/90 text-[#9B2257] dark:bg-black/70 dark:text-primary'

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useParams, Link, useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import {
@@ -24,6 +24,9 @@ import { openNativeMapsDirections } from '@/lib/openNativeMapsDirections'
 import { getGoogleMapsApiKey } from '@/lib/googleMapsEnv'
 import { useI18n } from '@/hooks/useI18n'
 import { fetchActiveBusinessBoostMeta, type BoostMeta } from '@/lib/boosts'
+import { trackEvent } from '@/lib/analytics'
+import { preferenceMetaFromBusiness } from '@/lib/roseyUserPreference'
+import { fetchActiveSalonFeaturedAdSalonIds, salonHasActiveFeaturedAd } from '@/lib/salonAds'
 
 const catAr: Record<string, string> = {
   salon: 'صالون نسائي 💇‍♀️',
@@ -39,13 +42,18 @@ export default function SalonDetail() {
   const { user } = useAuth()
   const [b, setB] = useState<Business | null>(null)
   const [services, setServices] = useState<Service[]>([])
-  const [reviews, setReviews] = useState<{ rating: number; comment: string; profiles?: { full_name?: string }; created_at: string }[]>([])
+  const [reviews, setReviews] = useState<
+    { rating: number; comment: string; profiles?: { full_name?: string }; created_at: string }[]
+  >([])
   const [similar, setSimilar] = useState<Business[]>([])
   const [imgI, setImgI] = useState(0)
   const [hoursOpen, setHoursOpen] = useState(false)
   const [fav, setFav] = useState(false)
   const [loading, setLoading] = useState(true)
   const [salonBoost, setSalonBoost] = useState<BoostMeta | null>(null)
+  const [featuredAdActive, setFeaturedAdActive] = useState(false)
+  const [similarFeaturedIds, setSimilarFeaturedIds] = useState<Set<string>>(new Set())
+  const adClickLogged = useRef(false)
 
   useEffect(() => {
     if (!id) return
@@ -53,6 +61,7 @@ export default function SalonDetail() {
     async function load() {
       try {
         setSalonBoost(null)
+        setFeaturedAdActive(false)
         const { data: biz, error: e1 } = await supabase.from('businesses').select('*').eq('id', id).single()
         if (e1) throw e1
         if (!c) return
@@ -66,6 +75,9 @@ export default function SalonDetail() {
         const bm = await fetchActiveBusinessBoostMeta([row.id])
         if (c) setSalonBoost(bm.get(row.id) ?? null)
 
+        const hasMainAd = await salonHasActiveFeaturedAd(row.id)
+        if (c) setFeaturedAdActive(hasMainAd)
+
         const { data: svc } = await supabase
           .from('services')
           .select('*')
@@ -74,13 +86,36 @@ export default function SalonDetail() {
           .eq('is_demo', false)
         if (c) setServices((svc ?? []) as Service[])
 
-        const { data: rev } = await supabase
+        const { data: rev, error: revErr } = await supabase
           .from('reviews')
-          .select('rating, comment, created_at, profiles(full_name)')
+          .select('rating, comment, created_at, user_id')
           .eq('business_id', id)
           .order('created_at', { ascending: false })
           .limit(20)
-        if (c) setReviews((rev ?? []) as typeof reviews)
+        if (revErr) throw revErr
+        const revRows = (rev ?? []) as { rating: number; comment: string | null; created_at: string; user_id: string }[]
+        const uids = [...new Set(revRows.map((r) => r.user_id))]
+        const nameByUser = new Map<string, string>()
+        if (uids.length) {
+          const { data: pub, error: pubErr } = await supabase
+            .from('public_profiles')
+            .select('id, full_name')
+            .in('id', uids)
+          if (pubErr) {
+            console.error(pubErr)
+          } else {
+            ;(pub ?? []).forEach((row: { id: string; full_name: string | null }) => {
+              nameByUser.set(row.id, row.full_name?.trim() || '')
+            })
+          }
+        }
+        const merged = revRows.map((r) => ({
+          rating: r.rating,
+          comment: r.comment ?? '',
+          created_at: r.created_at,
+          profiles: { full_name: nameByUser.get(r.user_id) || undefined },
+        }))
+        if (c) setReviews(merged)
 
         let simQ = supabase
           .from('businesses')
@@ -110,6 +145,46 @@ export default function SalonDetail() {
     }
   }, [id, user])
 
+  useEffect(() => {
+    adClickLogged.current = false
+  }, [id])
+
+  useEffect(() => {
+    if (!id || !featuredAdActive || adClickLogged.current) return
+    adClickLogged.current = true
+    void supabase.rpc('increment_salon_ad_click', { p_salon_id: id })
+  }, [id, featuredAdActive])
+
+  useEffect(() => {
+    if (!similar.length) {
+      setSimilarFeaturedIds(new Set())
+      return
+    }
+    let c = true
+    void fetchActiveSalonFeaturedAdSalonIds(similar.map((x) => x.id)).then((s) => {
+      if (c) setSimilarFeaturedIds(s)
+    })
+    return () => {
+      c = false
+    }
+  }, [similar])
+
+  useEffect(() => {
+    if (!b || !user?.id) return
+    const m = preferenceMetaFromBusiness(b, 'salon_page_view')
+    trackEvent('user_preference', { user_id: user.id, ...m })
+  }, [b?.id, user?.id])
+
+  useEffect(() => {
+    if (!b?.id || !user?.id) return
+    trackEvent({
+      event_type: 'salon_clicks',
+      entity_type: 'business',
+      entity_id: b.id,
+      user_id: user.id,
+    })
+  }, [b?.id, user?.id])
+
   const toggleFav = async () => {
     if (!user || !id) {
       toast.error('سجّلي دخولكِ لإضافة المفضلة')
@@ -124,6 +199,9 @@ export default function SalonDetail() {
       } else {
         await supabase.from('favorites').insert({ business_id: id, user_id: user.id })
         setFav(true)
+        if (b) {
+          trackEvent('user_preference', { user_id: user.id, ...preferenceMetaFromBusiness(b, 'favorite') })
+        }
         toast.success('أُضيفت للمفضلة')
       }
     } catch {
@@ -191,7 +269,17 @@ export default function SalonDetail() {
 
       <div className="mx-auto max-w-lg px-4 -mt-6 relative z-10">
         <div className="rounded-2xl border bg-white p-5 shadow-card dark:bg-card">
-          <h1 className="text-2xl font-extrabold">{b.name_ar}</h1>
+          <div className="flex flex-wrap items-start justify-between gap-2">
+            <h1 className="text-2xl font-extrabold">{b.name_ar}</h1>
+            {featuredAdActive ? (
+              <Badge className="shrink-0 bg-gradient-to-l from-fuchsia-600 to-pink-500 text-[11px] font-extrabold text-white">
+                إعلان ⭐
+              </Badge>
+            ) : null}
+            {b.is_featured ? (
+              <Badge className="shrink-0 bg-amber-400/95 text-[11px] font-extrabold text-amber-950">⭐ صالون مميز</Badge>
+            ) : null}
+          </div>
           <div className="mt-2 flex flex-wrap items-center gap-3">
             <span className="flex items-center gap-1 text-[#9B2257]">
               <Star className="h-5 w-5 fill-[#9B2257] text-[#9B2257]" />
@@ -449,7 +537,7 @@ export default function SalonDetail() {
             <div className="mt-4 flex gap-4 overflow-x-auto pb-2 scrollbar-hide">
               {similar.map((x) => (
                 <div key={x.id} className="w-[180px] shrink-0">
-                  <BusinessCard b={x} />
+                  <BusinessCard b={x} isFeaturedAd={similarFeaturedIds.has(x.id)} />
                 </div>
               ))}
             </div>

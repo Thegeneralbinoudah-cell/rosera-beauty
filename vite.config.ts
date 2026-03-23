@@ -97,6 +97,8 @@ export default defineConfig(({ mode }) => {
     },
     build: {
       chunkSizeWarningLimit: 650,
+      /** إزالة console/debugger من حزمة الإنتاج — أداء أقل ضوضاء وأمان */
+      esbuild: mode === 'production' ? { drop: ['console', 'debugger'] as const } : undefined,
       rollupOptions: {
         output: {
           manualChunks: {

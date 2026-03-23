@@ -4,7 +4,7 @@ import { useAuth } from '@/contexts/AuthContext'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Card } from '@/components/ui/card'
 import { SalonPremiumCard } from '@/components/salon/SalonPremiumCard'
-import { getRecommendedSalons, type RecommendedSalon } from '@/lib/aiRanking'
+import { getRecommendedSalons, type SalonWithRecommendMeta } from '@/lib/aiRanking'
 
 function CardSkeleton() {
   return (
@@ -23,7 +23,7 @@ function CardSkeleton() {
 export default function RecommendedSalons() {
   const { lang } = usePreferences()
   const { user } = useAuth()
-  const [rows, setRows] = useState<RecommendedSalon[]>([])
+  const [rows, setRows] = useState<SalonWithRecommendMeta[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -104,8 +104,8 @@ export default function RecommendedSalons() {
                 badgeRec={ui.badgeRec}
                 bookLabel={ui.book}
                 showCity
-                scoreCaption={`${ui.score} ${row.score.toFixed(2)}`}
-                isRecommended={row.isRecommended}
+                scoreCaption={`${ui.score} ${(row.score ?? 0).toFixed(2)}`}
+                isRecommended={row.isRecommended ?? false}
               />
             ))}
           </div>

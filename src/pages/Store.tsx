@@ -1,27 +1,49 @@
-import { useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
-import { Search, ShoppingCart, Star } from 'lucide-react'
+import { useEffect, useMemo, useState } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
+import {
+  Search,
+  ShoppingCart,
+  LayoutGrid,
+  Bath,
+  Sparkles,
+  Cpu,
+  Droplets,
+  Palette,
+  Wind,
+  Flower2,
+  Sparkle,
+} from 'lucide-react'
+import type { LucideIcon } from 'lucide-react'
 import { supabase, type Product } from '@/lib/supabase'
 import { fetchSponsoredProductIds } from '@/lib/boosts'
 import { useCartStore } from '@/stores/cartStore'
+import { StoreProductCard } from '@/components/store/StoreProductCard'
+import { EmptyState } from '@/components/ui/empty-state'
 import { Input } from '@/components/ui/input'
-import { Button } from '@/components/ui/button'
+import { Skeleton } from '@/components/ui/skeleton'
 import { toast } from 'sonner'
 import { useI18n } from '@/hooks/useI18n'
-import { usePreferences } from '@/contexts/PreferencesContext'
+import { cn } from '@/lib/utils'
+import { buildMapExploreUrl } from '@/lib/mapExploreUrl'
 
-const CATEGORY_DEFS: { key: string; tKey: string }[] = [
-  { key: '', tKey: 'store.catAll' },
-  { key: 'عناية بالبشرة', tKey: 'store.catSkincare' },
-  { key: 'مكياج', tKey: 'store.catMakeup' },
-  { key: 'عناية بالشعر', tKey: 'store.catHair' },
-  { key: 'عطور', tKey: 'store.catPerfume' },
-  { key: 'أظافر', tKey: 'store.catNails' },
+type CatDef = { key: string; tKey: string; Icon: LucideIcon }
+
+/** Values must match `products.category` in the database (Arabic). */
+const CATEGORY_DEFS: CatDef[] = [
+  { key: '', tKey: 'store.catAll', Icon: LayoutGrid },
+  { key: 'عناية بالجسم', tKey: 'store.catBody', Icon: Bath },
+  { key: 'سبا', tKey: 'store.catSpa', Icon: Sparkles },
+  { key: 'أجهزة تجميل', tKey: 'store.catDevices', Icon: Cpu },
+  { key: 'عناية بالبشرة', tKey: 'store.catSkincare', Icon: Droplets },
+  { key: 'مكياج', tKey: 'store.catMakeup', Icon: Palette },
+  { key: 'عناية بالشعر', tKey: 'store.catHair', Icon: Wind },
+  { key: 'عطور', tKey: 'store.catPerfume', Icon: Flower2 },
+  { key: 'أظافر', tKey: 'store.catNails', Icon: Sparkle },
 ]
 
 export default function Store() {
+  const nav = useNavigate()
   const { t } = useI18n()
-  const { lang } = usePreferences()
   const [products, setProducts] = useState<Product[]>([])
   const [sponsoredProductIds, setSponsoredProductIds] = useState<Set<string>>(new Set())
   const [q, setQ] = useState('')
@@ -32,10 +54,11 @@ export default function Store() {
   useEffect(() => {
     let c = true
     async function load() {
+      setLoading(true)
       try {
         let query = supabase.from('products').select('*').eq('is_active', true).eq('is_demo', false)
         if (cat) query = query.eq('category', cat)
-        const { data, error } = await query
+        const { data, error } = await query.order('created_at', { ascending: false })
         if (error) throw error
         const list = (data ?? []) as Product[]
         if (c) setProducts(list)
@@ -50,12 +73,18 @@ export default function Store() {
       }
     }
     void load()
-    return () => { c = false }
+    return () => {
+      c = false
+    }
   }, [cat])
 
-  const filtered = q.trim()
-    ? products.filter((p) => p.name_ar.includes(q) || (p.brand_ar && p.brand_ar.includes(q)))
-    : products
+  const filtered = useMemo(() => {
+    const qq = q.trim()
+    if (!qq) return products
+    return products.filter(
+      (p) => (p.name_ar ?? '').includes(qq) || (p.brand_ar ?? '').includes(qq)
+    )
+  }, [products, q])
 
   const addToCart = (p: Product) => {
     add({
@@ -69,90 +98,131 @@ export default function Store() {
     toast.success(t('store.addedToast'))
   }
 
+  const emptyNoDb = !loading && products.length === 0
+  const emptyFilter = !loading && products.length > 0 && filtered.length === 0
+
   return (
-    <div className="min-h-dvh bg-rosera-light pb-28 dark:bg-rosera-dark">
-      <header className="sticky top-0 z-20 border-b border-primary/10 bg-white px-4 py-4 dark:bg-card">
-        <div className="flex items-center justify-between gap-3">
-          <h1 className="text-xl font-extrabold">{t('store.title')}</h1>
-          <Link to="/cart" className="relative flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 text-primary">
-            <ShoppingCart className="h-6 w-6" />
-            {count() > 0 && (
-              <span className="absolute -top-0.5 -end-0.5 flex h-5 w-5 items-center justify-center rounded-full bg-[#E91E8C] text-[10px] font-bold text-white">
-                {count()}
-              </span>
-            )}
-          </Link>
-        </div>
-        <div className="relative mt-3">
-          <Search className="absolute start-3 top-1/2 h-5 w-5 -translate-y-1/2 text-rosera-gray" />
-          <Input
-            className="rounded-2xl ps-10"
-            placeholder={t('store.searchPlaceholder')}
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-          />
-        </div>
-        <div className="mt-3 flex gap-2 overflow-x-auto scrollbar-hide pb-1">
-          {CATEGORY_DEFS.map(({ key, tKey }) => (
-            <button
-              key={key || 'all'}
-              type="button"
-              onClick={() => setCat(key)}
-              className={`shrink-0 rounded-full px-4 py-2 text-sm font-bold ${
-                cat === key ? 'bg-gradient-to-l from-[#9C27B0] to-[#E91E8C] text-white' : 'border bg-white dark:bg-card'
-              }`}
+    <div className="min-h-dvh bg-[#FFFBFC] pb-28 dark:bg-rosera-dark">
+      {/* Hero */}
+      <div className="relative overflow-hidden border-b border-[#F9A8C9]/20 bg-gradient-to-b from-[#FDF2F8] via-white to-[#FFFBFC] px-4 pb-6 pt-4 dark:from-card dark:via-rosera-dark dark:to-rosera-dark dark:border-border">
+        <div
+          className="pointer-events-none absolute -end-16 -top-20 h-48 w-48 rounded-full bg-[#F9A8C9]/25 blur-3xl"
+          aria-hidden
+        />
+        <div
+          className="pointer-events-none absolute -start-10 top-10 h-36 w-36 rounded-full bg-[#FBCFE8]/40 blur-2xl"
+          aria-hidden
+        />
+
+        <div className="relative mx-auto max-w-lg">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0 pt-1">
+              <p className="font-cairo text-xs font-semibold tracking-wide text-[#BE185D]/90 dark:text-primary/90">
+                Rosera Beauty
+              </p>
+              <h1 className="font-cairo mt-1 text-2xl font-extrabold tracking-tight text-[#374151] dark:text-foreground">
+                {t('store.title')}
+              </h1>
+              <p className="font-cairo mt-1.5 max-w-[260px] text-sm leading-relaxed text-[#6B7280] dark:text-muted-foreground">
+                {t('store.subtitle')}
+              </p>
+            </div>
+            <Link
+              to="/cart"
+              className="relative flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-[#F9A8C9]/35 bg-white/90 text-[#BE185D] shadow-sm backdrop-blur-sm transition-all hover:border-[#F9A8C9]/60 hover:shadow-md active:scale-95 dark:border-border dark:bg-card dark:text-primary"
+              aria-label={t('store.cart')}
             >
-              {t(tKey)}
-            </button>
-          ))}
+              <ShoppingCart className="h-5 w-5" strokeWidth={2.25} />
+              {count() > 0 && (
+                <span className="absolute -top-1 -end-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-gradient-to-br from-[#F9A8C9] to-[#EC4899] px-1 text-[10px] font-extrabold text-[#374151] shadow-sm">
+                  {count()}
+                </span>
+              )}
+            </Link>
+          </div>
+
+          <div className="relative mt-5">
+            <Search
+              className="pointer-events-none absolute start-3.5 top-1/2 h-[18px] w-[18px] -translate-y-1/2 text-[#BE185D]/50"
+              aria-hidden
+            />
+            <Input
+              className="h-12 rounded-2xl border-[#F9A8C9]/25 bg-white/90 pe-4 ps-11 text-[15px] shadow-sm backdrop-blur-sm placeholder:text-[#9CA3AF] focus-visible:border-[#F9A8C9]/50 focus-visible:ring-[#F9A8C9]/30 dark:bg-card"
+              placeholder={t('store.searchPlaceholder')}
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+            />
+          </div>
         </div>
-      </header>
+      </div>
+
+      {/* Categories */}
+      <div className="sticky top-0 z-10 border-b border-[#F9A8C9]/15 bg-[#FFFBFC]/95 py-3 backdrop-blur-md dark:border-border dark:bg-rosera-dark/95">
+        <div className="scrollbar-hide flex gap-2 overflow-x-auto px-4 pb-0.5">
+          {CATEGORY_DEFS.map(({ key, tKey, Icon }) => {
+            const active = cat === key
+            return (
+              <button
+                key={key || 'all'}
+                type="button"
+                onClick={() => setCat(key)}
+                className={cn(
+                  'flex shrink-0 items-center gap-2 rounded-2xl border px-3.5 py-2.5 font-cairo text-sm font-bold transition-all duration-200 active:scale-[0.98]',
+                  active
+                    ? 'border-transparent bg-gradient-to-l from-[#F9A8C9] to-[#FBCFE8] text-[#374151] shadow-soft dark:from-primary dark:to-[#F472B6]/40 dark:text-[#1f2937]'
+                    : 'border-[#E5E7EB] bg-white/90 text-[#6B7280] hover:border-[#F9A8C9]/40 hover:bg-[#FDF2F8]/80 dark:border-border dark:bg-card dark:text-muted-foreground dark:hover:bg-muted/50'
+                )}
+              >
+                <Icon className={cn('h-4 w-4 shrink-0', active ? 'text-[#BE185D]' : 'opacity-70')} strokeWidth={2.25} />
+                {t(tKey)}
+              </button>
+            )
+          })}
+        </div>
+      </div>
 
       <div className="mx-auto max-w-lg px-4 py-6">
         {loading ? (
-          <div className="grid grid-cols-2 gap-4">
-            {[1, 2, 3, 4].map((i) => (
-              <div key={i} className="aspect-square rounded-2xl bg-muted animate-pulse" />
-            ))}
-          </div>
-        ) : filtered.length === 0 ? (
-          <div className="py-16 text-center">
-            <p className="font-bold text-foreground">{t('store.emptyTitle')}</p>
-            <p className="mt-2 text-sm text-rosera-gray">{t('store.emptySub')}</p>
-          </div>
-        ) : (
-          <div className="grid grid-cols-2 gap-4">
-            {filtered.map((p) => (
-              <div key={p.id} className="overflow-hidden rounded-2xl border border-primary/10 bg-white shadow-sm dark:bg-card">
-                <Link to={`/product/${p.id}`} className="relative block aspect-square overflow-hidden">
-                  <img src={p.image_url || ''} alt="" className="h-full w-full object-cover" />
-                  {sponsoredProductIds.has(p.id) && (
-                    <span className="absolute bottom-2 start-2 rounded-full bg-white/90 px-2 py-0.5 text-[9px] font-extrabold text-[#9B2257] shadow dark:bg-black/70 dark:text-primary">
-                      مُموَّل
-                    </span>
-                  )}
-                </Link>
-                <div className="p-3">
-                  <Link to={`/product/${p.id}`}>
-                    <h3 className="line-clamp-2 font-bold text-sm">{p.name_ar}</h3>
-                    <p className="text-xs text-rosera-gray">{p.brand_ar}</p>
-                  </Link>
-                  <div className="mt-1 flex items-center gap-1">
-                    <Star className="h-4 w-4 fill-[#9B2257] text-[#9B2257]" />
-                    <span className="text-xs font-bold">{Number(p.rating || 0).toFixed(1)}</span>
-                  </div>
-                  <p className="mt-1 text-lg font-bold text-primary">
-                    {Number(p.price).toLocaleString(lang === 'en' ? 'en-US' : 'ar-SA')} {t('common.sar')}
-                  </p>
-                  <Button
-                    size="sm"
-                    className="mt-2 w-full rounded-xl bg-gradient-to-l from-[#9C27B0] to-[#E91E8C] text-xs"
-                    onClick={() => addToCart(p)}
-                  >
-                    {t('store.addCart')}
-                  </Button>
+          <div className="grid grid-cols-2 gap-3 sm:gap-4">
+            {[1, 2, 3, 4, 5, 6].map((i) => (
+              <div key={i} className="overflow-hidden rounded-3xl border border-[#F9A8C9]/15 bg-white dark:border-border dark:bg-card">
+                <Skeleton className="aspect-[4/5] w-full rounded-none" />
+                <div className="space-y-2 p-3.5">
+                  <Skeleton className="h-3 w-16" />
+                  <Skeleton className="h-4 w-full" />
+                  <Skeleton className="h-4 w-[80%]" />
+                  <Skeleton className="mt-3 h-9 w-full rounded-2xl" />
                 </div>
               </div>
+            ))}
+          </div>
+        ) : emptyNoDb ? (
+          <EmptyState
+            icon={Flower2}
+            title={t('store.emptyTitle')}
+            subtitle={t('store.emptySub')}
+            ctaLabel={t('store.emptyCta')}
+            onClick={() => nav(buildMapExploreUrl())}
+            analyticsSource="store"
+          />
+        ) : emptyFilter ? (
+          <EmptyState
+            icon={Search}
+            title={t('store.emptyFilterTitle')}
+            subtitle={t('store.emptyFilterSub')}
+            ctaLabel={t('store.emptyFilterCta')}
+            onClick={() => nav(buildMapExploreUrl())}
+            analyticsSource="store_filter"
+          />
+        ) : (
+          <div className="grid grid-cols-2 gap-3 sm:gap-4">
+            {filtered.map((p) => (
+              <StoreProductCard
+                key={p.id}
+                product={p}
+                sponsored={sponsoredProductIds.has(p.id)}
+                onAddToCart={addToCart}
+              />
             ))}
           </div>
         )}

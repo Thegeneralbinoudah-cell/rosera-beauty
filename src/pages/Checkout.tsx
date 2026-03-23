@@ -16,7 +16,6 @@ const PAYMENT_OPTIONS: { id: string; labelKey: string; icon: string }[] = [
   { id: 'mada', labelKey: 'checkout.payMada', icon: '💳' },
   { id: 'visa', labelKey: 'checkout.payVisa', icon: '💳' },
   { id: 'apple', labelKey: 'checkout.payApple', icon: '🍎' },
-  { id: 'tamara', labelKey: 'checkout.payTamara', icon: '🔄' },
 ]
 
 export default function Checkout() {

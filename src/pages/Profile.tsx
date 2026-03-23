@@ -59,7 +59,7 @@ export default function Profile() {
         <p className="mt-2 text-rosera-gray">{t('profile.guestSubtitle')}</p>
         <button
           type="button"
-          className="mt-6 rounded-xl gradient-rosera px-8 py-3 font-bold text-white"
+          className="mt-6 rounded-2xl gradient-rosera px-8 py-3 font-bold text-[#374151] transition-transform duration-200 active:scale-95"
           onClick={() => nav('/auth')}
         >
           {t('profile.login')}
@@ -102,7 +102,7 @@ export default function Profile() {
         ))}
         {isBusinessOwner && (
           <Link
-            to="/owner"
+            to="/salon/dashboard"
             className="flex items-center justify-between rounded-xl border bg-white px-4 py-4 dark:bg-card"
           >
             <span className="flex items-center gap-3 font-semibold">

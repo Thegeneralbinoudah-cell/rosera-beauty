@@ -6,6 +6,7 @@ import { getEdgeFunctionErrorMessage } from '@/lib/edgeInvoke'
 import { Button } from '@/components/ui/button'
 import { toast } from 'sonner'
 import { useI18n } from '@/hooks/useI18n'
+import { consumePostAuthPath } from '@/lib/salonAcquisition'
 import PreferencesToggle from '@/components/PreferencesToggle'
 
 const DIGITS = 6
@@ -68,7 +69,7 @@ export default function VerifyOtp() {
           supabase.from('businesses').select('id').eq('owner_id', uid).limit(1).maybeSingle(),
         ])
         if (so || biz) {
-          nav('/owner', { replace: true })
+          nav('/salon/dashboard', { replace: true })
         } else {
           toast.error('حسابك غير مرتبط بصالون')
           nav('/home', { replace: true })
@@ -86,6 +87,12 @@ export default function VerifyOtp() {
           toast.error('ليس لديك صلاحية مسؤول')
           nav('/home', { replace: true })
         }
+        return
+      }
+
+      const postAuth = consumePostAuthPath()
+      if (postAuth) {
+        nav(postAuth, { replace: true })
         return
       }
 

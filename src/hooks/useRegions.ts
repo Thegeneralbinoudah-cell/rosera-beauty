@@ -73,7 +73,6 @@ export function useRegions(lang: Lang) {
       setLoading(true)
 
       if (!isSupabaseConfigured) {
-        console.warn('[useRegions] VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY missing — check .env / vite merge')
         if (!cancelled) {
           setRegions([])
           toast.error(tr(lang, 'home.regionsLoadError'))
@@ -108,7 +107,6 @@ export function useRegions(lang: Lang) {
         let rows: SaRegionRow[] = []
 
         if (nested.error) {
-          console.warn('[useRegions] nested query failed, falling back without businesses:', nested.error)
           const simple = await withTimeout(
             supabase
               .from('sa_regions')
@@ -134,8 +132,7 @@ export function useRegions(lang: Lang) {
 
         rows = (nested.data ?? []) as SaRegionRow[]
         if (!cancelled) setRegions(mapRowsToStats(rows, true))
-      } catch (e) {
-        console.error('[useRegions] load regions', e)
+      } catch {
         if (!cancelled) {
           setRegions([])
           toast.error(tr(lang, 'home.regionsLoadError'))

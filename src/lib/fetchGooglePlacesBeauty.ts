@@ -137,8 +137,7 @@ async function postSearchText(
     }),
   })
   if (!res.ok) {
-    const errText = await res.text()
-    console.warn('[Places] searchText failed', res.status, errText)
+    await res.text().catch(() => '')
     return []
   }
   const data = (await res.json()) as { places?: PlaceRow[] }

@@ -9,7 +9,7 @@ export default function OwnerLogin() {
 
   useEffect(() => {
     if (loading) return
-    if (user && (isSalonPortal || isAdmin)) nav('/owner', { replace: true })
+    if (user && (isSalonPortal || isAdmin)) nav('/salon/dashboard', { replace: true })
   }, [loading, user, isSalonPortal, isAdmin, nav])
 
   const start = () => {

@@ -1,7 +1,8 @@
 import { useNavigate } from 'react-router-dom'
 import { ArrowLeft } from 'lucide-react'
 
-const FAB_BOTTOM = 'calc(5.75rem + env(safe-area-inset-bottom, 0px) + 4px)'
+/** Above bottom nav (~6rem) + sticky booking CTA (~2.75rem) + safe area */
+const FAB_BOTTOM = 'calc(8.85rem + env(safe-area-inset-bottom, 0px) + 4px)'
 const FAB_LEFT = 'max(0.75rem, env(safe-area-inset-left, 0px))'
 
 /** زر عائم للرجوع — يسار الشاشة ثابتاً، فوق شريط التنقل */
