@@ -2,22 +2,28 @@ import { useEffect, useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { Star, Minus, Plus } from 'lucide-react'
 import { supabase, type Product } from '@/lib/supabase'
+import { useAuth } from '@/contexts/AuthContext'
+import { trackUserEvent } from '@/lib/userEvents'
 import { useCartStore } from '@/stores/cartStore'
 import { Button } from '@/components/ui/button'
 import { toast } from 'sonner'
+import { fetchActiveProductBoostMeta } from '@/lib/boosts'
 
 export default function ProductDetail() {
+  const { user } = useAuth()
   const { productId } = useParams()
   const [product, setProduct] = useState<Product | null>(null)
   const [similar, setSimilar] = useState<Product[]>([])
   const [notFound, setNotFound] = useState(false)
   const [qty, setQty] = useState(1)
+  const [productBoost, setProductBoost] = useState<{ boost_type: 'featured' | 'priority' } | null>(null)
   const { add } = useCartStore()
 
   useEffect(() => {
     if (!productId) return
     setNotFound(false)
     setProduct(null)
+    setProductBoost(null)
     let c = true
     async function load() {
       const { data: p, error } = await supabase.from('products').select('*').eq('id', productId).single()
@@ -32,6 +38,8 @@ export default function ProductDetail() {
         return
       }
       setProduct(row)
+      const pm = await fetchActiveProductBoostMeta([row.id])
+      if (c) setProductBoost(pm.get(row.id) ?? null)
       const cat = (p as Product).category
       const { data: sim } = await supabase
         .from('products')
@@ -46,6 +54,16 @@ export default function ProductDetail() {
     void load()
     return () => { c = false }
   }, [productId])
+
+  useEffect(() => {
+    if (!product?.id || !user?.id) return
+    trackUserEvent({
+      userId: user.id,
+      event_type: 'view',
+      entity_type: 'product',
+      entity_id: product.id,
+    })
+  }, [product?.id, user?.id])
 
   const addToCart = () => {
     if (!product) return
@@ -71,11 +89,21 @@ export default function ProductDetail() {
 
   return (
     <div className="min-h-dvh bg-rosera-light pb-28 dark:bg-rosera-dark">
-      <div className="aspect-square w-full overflow-hidden bg-white dark:bg-card">
+      <div className="relative aspect-square w-full overflow-hidden bg-white dark:bg-card">
         <img src={product.image_url || ''} alt="" className="h-full w-full object-cover" />
+        {productBoost && (
+          <span className="absolute bottom-3 start-3 rounded-full bg-white/90 px-2.5 py-1 text-[10px] font-extrabold text-[#9B2257] shadow dark:bg-black/70 dark:text-primary">
+            {productBoost.boost_type === 'featured' ? 'Featured' : 'مُموَّل'}
+          </span>
+        )}
       </div>
       <div className="mx-auto max-w-lg px-4 py-6">
-        <h1 className="text-2xl font-extrabold">{product.name_ar}</h1>
+        <div className="flex flex-wrap items-center gap-2">
+          <h1 className="text-2xl font-extrabold">{product.name_ar}</h1>
+          {productBoost?.boost_type === 'featured' && (
+            <span className="rounded-full bg-amber-400/90 px-2 py-0.5 text-[9px] font-extrabold text-amber-950">Featured</span>
+          )}
+        </div>
         <p className="text-rosera-gray">{product.brand_ar}</p>
         <div className="mt-2 flex items-center gap-2">
           <Star className="h-5 w-5 fill-[#9B2257] text-[#9B2257]" />

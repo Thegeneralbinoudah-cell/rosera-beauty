@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { Loader2 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
+import { getEdgeFunctionErrorMessage } from '@/lib/edgeInvoke'
 import { Button } from '@/components/ui/button'
 import { toast } from 'sonner'
 import { useI18n } from '@/hooks/useI18n'
@@ -40,7 +41,7 @@ export default function VerifyOtp() {
       const { data, error } = await supabase.functions.invoke('verify-otp', {
         body: { phone, code },
       })
-      if (error) throw error
+      if (error) throw new Error(getEdgeFunctionErrorMessage(error, data))
       const d = data as {
         success?: boolean
         error?: string
@@ -98,8 +99,8 @@ export default function VerifyOtp() {
       } else {
         nav('/complete-profile', { replace: true })
       }
-    } catch {
-      toast.error('رمز التحقق غير صحيح')
+    } catch (e: unknown) {
+      toast.error(e instanceof Error ? e.message : 'رمز التحقق غير صحيح')
     } finally {
       setLoading(false)
     }
@@ -109,7 +110,7 @@ export default function VerifyOtp() {
     if (sec > 0) return
     try {
       const { data, error } = await supabase.functions.invoke('send-otp', { body: { phone } })
-      if (error) throw error
+      if (error) throw new Error(getEdgeFunctionErrorMessage(error, data))
       if ((data as { error?: string })?.error) throw new Error((data as { error: string }).error)
       setSec(60)
       toast.success('أُعيد إرسال الرمز')

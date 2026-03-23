@@ -1,12 +1,11 @@
-import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { Bell, Search } from 'lucide-react'
-import { supabase, type SaRegionRow } from '@/lib/supabase'
 import { useAuth } from '@/contexts/AuthContext'
 import { Skeleton } from '@/components/ui/skeleton'
-import { toast } from 'sonner'
 import { usePreferences } from '@/contexts/PreferencesContext'
+import { useI18n } from '@/hooks/useI18n'
+import { useRegions } from '@/hooks/useRegions'
 import PreferencesToggle from '@/components/PreferencesToggle'
 import { ROSERA_LOGO_SRC } from '@/lib/branding'
 
@@ -20,15 +19,6 @@ const CATEGORY_CHIPS: { label: string; q: string }[] = [
   { label: 'عيادة ليزر', q: 'عيادة ليزر' },
   { label: 'حقن وفيلر', q: 'عيادة حقن' },
 ]
-
-type RegionStats = {
-  id: string
-  name_ar: string
-  image_url: string
-  totalCities: number
-  citiesWithSalons: number
-  salonCount: number
-}
 
 const REGION_CIRCLE_GRADIENTS = [
   'from-[#fce4ec] via-[#f8bbd9] to-[#ec407a]',
@@ -49,67 +39,13 @@ const REGION_CIRCLE_GRADIENTS = [
 export default function Home() {
   const { profile, user } = useAuth()
   const { lang } = usePreferences()
+  const { t } = useI18n()
   const nav = useNavigate()
-  const [regions, setRegions] = useState<RegionStats[]>([])
-  const [loading, setLoading] = useState(true)
-
-  useEffect(() => {
-    let cancelled = false
-    async function load() {
-      setLoading(true)
-      try {
-        const { data, error } = await supabase
-          .from('sa_regions')
-          .select(
-            `
-            id,
-            name_ar,
-            capital_ar,
-            image_url,
-            sort_order,
-            sa_cities (
-              id,
-              name_ar,
-              businesses ( id, is_demo )
-            )
-          `
-          )
-          .order('sort_order', { ascending: true })
-
-        if (error) throw error
-        const rows = (data ?? []) as SaRegionRow[]
-        const stats: RegionStats[] = rows.map((r) => {
-          const cities = r.sa_cities ?? []
-          const realBiz = (b: { is_demo?: boolean }) => !b.is_demo
-          const withSalon = cities.filter((c) => (c.businesses ?? []).filter(realBiz).length > 0)
-          const salonCount = withSalon.reduce(
-            (acc, c) => acc + (c.businesses ?? []).filter(realBiz).length,
-            0
-          )
-          return {
-            id: r.id,
-            name_ar: r.name_ar,
-            image_url: r.image_url,
-            totalCities: cities.length,
-            citiesWithSalons: withSalon.length,
-            salonCount,
-          }
-        })
-        if (!cancelled) setRegions(stats)
-      } catch {
-        if (!cancelled) toast.error('تعذر تحميل المناطق — تأكدي من تشغيل migrations والبذرة')
-      } finally {
-        if (!cancelled) setLoading(false)
-      }
-    }
-    void load()
-    return () => {
-      cancelled = true
-    }
-  }, [])
+  const { regions, loading } = useRegions(lang)
 
   const name = profile?.full_name?.split(' ')[0] || (user ? 'جميلتي' : 'ضيفتنا')
-  const t = {
+  /** نصوص الواجهة المحلية — لا تُسمّى `t` لتعارضها مع مترجم useI18n (`tr`) */
+  const ui = {
     hello: lang === 'ar' ? 'أهلاً' : 'Hello',
     title: lang === 'ar' ? `${name}` : `${name}`,
     heroSub: lang === 'ar' ? 'روزيرا — جمالكِ يبدأ هنا' : 'Rosera - Beauty starts here',
@@ -121,6 +57,12 @@ export default function Home() {
     regions: lang === 'ar' ? 'المناطق' : 'Regions',
     citiesCount: lang === 'ar' ? 'مدينة' : 'cities',
     citiesCountMany: lang === 'ar' ? 'مدن' : 'cities',
+    topSalons: lang === 'ar' ? '🔥 أفضل الصالونات' : '🔥 Top salons',
+    topSalonsHint:
+      lang === 'ar' ? 'تقييم عالٍ وتقييمات حقيقية' : 'Top rated with real reviews',
+    recommended: lang === 'ar' ? '✨ مقترحات ذكية' : '✨ Smart picks',
+    recommendedHint:
+      lang === 'ar' ? 'ترتيب مخصص حسب ذوقكِ' : 'Personalized ranking for you',
   }
 
   return (
@@ -130,8 +72,8 @@ export default function Home() {
           <div className="flex min-w-0 items-center gap-3">
             <img src={ROSERA_LOGO_SRC} alt="" className="w-18 h-18 shrink-0 rounded-2xl object-contain" />
             <div className="min-w-0">
-              <p className="text-sm font-medium text-[#374151] dark:text-[#D1D5DB]">{t.hello}</p>
-              <h1 className="truncate text-xl font-extrabold text-[#1F1F1F] dark:text-foreground">{t.title}</h1>
+              <p className="text-sm font-medium text-[#374151] dark:text-[#D1D5DB]">{ui.hello}</p>
+              <h1 className="truncate text-xl font-extrabold text-[#1F1F1F] dark:text-foreground">{ui.title}</h1>
             </div>
           </div>
           <div className="flex items-center gap-2">
@@ -150,21 +92,21 @@ export default function Home() {
       <section className="mx-auto max-w-lg px-4 pt-4">
         <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-[#9C27B0] via-[#E91E8C] to-[#f48fb1] px-6 py-8 text-center text-white shadow-[0_16px_48px_-12px_rgba(233,30,140,0.45)]">
           <div className="absolute inset-0 bg-[url('data:image/svg+xml,%3Csvg width=\'60\' height=\'60\' viewBox=\'0 0 60 60\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cg fill=\'none\' fill-rule=\'evenodd\'%3E%3Cg fill=\'%23ffffff\' fill-opacity=\'0.06\'%3E%3Cpath d=\'M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z\'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E')] opacity-50" />
-          <p className="relative text-sm font-medium text-white/95">{t.heroSub}</p>
-          <h2 className="relative mt-2 text-2xl font-extrabold leading-tight">{t.heroTitle}</h2>
+          <p className="relative text-sm font-medium text-white/95">{ui.heroSub}</p>
+          <h2 className="relative mt-2 text-2xl font-extrabold leading-tight">{ui.heroTitle}</h2>
           <button
             type="button"
             onClick={() => nav('/search')}
             className="relative mt-6 flex w-full items-center gap-3 rounded-2xl bg-white/95 px-4 py-4 text-start shadow-lg"
           >
             <Search className="h-6 w-6 shrink-0 text-[#E91E8C]" />
-            <span className="text-rosera-gray">{t.searchPlaceholder}</span>
+            <span className="text-rosera-gray">{ui.searchPlaceholder}</span>
           </button>
         </div>
       </section>
 
       <div className="mx-auto max-w-lg px-4 py-6">
-        <h2 className="mb-4 text-lg font-extrabold text-foreground">{t.categories}</h2>
+        <h2 className="mb-4 text-lg font-extrabold text-foreground">{ui.categories}</h2>
         <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide">
           {CATEGORY_CHIPS.map(({ label, q }) => (
             <motion.button
@@ -179,29 +121,64 @@ export default function Home() {
           ))}
         </div>
 
+        <section className="mt-8 grid gap-3">
+          <button
+            type="button"
+            onClick={() => nav('/top-salons')}
+            className="flex w-full items-center justify-between gap-3 rounded-2xl border border-amber-200/80 bg-gradient-to-l from-amber-50 via-white to-[#fff8f0] p-4 text-start shadow-sm dark:border-amber-900/40 dark:from-card dark:via-card dark:to-card"
+          >
+            <div className="min-w-0">
+              <span className="block text-lg font-extrabold text-[#1F1F1F] dark:text-foreground">
+                {ui.topSalons}
+              </span>
+              <span className="mt-0.5 block text-xs font-medium text-rosera-gray">{ui.topSalonsHint}</span>
+            </div>
+            <span className="shrink-0 text-2xl" aria-hidden>
+              →
+            </span>
+          </button>
+          <button
+            type="button"
+            onClick={() => nav('/recommended-salons')}
+            className="flex w-full items-center justify-between gap-3 rounded-2xl border border-primary/20 bg-gradient-to-l from-[#f3e5f5] via-white to-[#fce4ec]/80 p-4 text-start shadow-sm dark:from-card dark:via-card dark:to-card"
+          >
+            <div className="min-w-0">
+              <span className="block text-lg font-extrabold text-[#1F1F1F] dark:text-foreground">
+                {ui.recommended}
+              </span>
+              <span className="mt-0.5 block text-xs font-medium text-rosera-gray">{ui.recommendedHint}</span>
+            </div>
+            <span className="shrink-0 text-2xl" aria-hidden>
+              →
+            </span>
+          </button>
+        </section>
+
         <section className="mt-10">
           <Link
             to="/store"
             className="flex items-center justify-between rounded-2xl border border-primary/15 bg-gradient-to-l from-white to-[#fce4ec]/50 p-4 shadow-sm dark:from-card dark:to-card"
           >
-            <span className="text-lg font-extrabold">{t.store}</span>
-            <span className="text-primary font-bold">{t.shopNow}</span>
+            <span className="text-lg font-extrabold">{ui.store}</span>
+            <span className="text-primary font-bold">{ui.shopNow}</span>
           </Link>
         </section>
 
-        <h2 className="mb-6 mt-10 text-lg font-extrabold">{t.regions}</h2>
+        <h2 className="mb-6 mt-10 text-lg font-extrabold">{ui.regions}</h2>
         {loading ? (
           <div className="flex flex-wrap justify-center gap-5">
             {[1, 2, 3, 4, 5, 6].map((i) => (
               <Skeleton key={i} className="h-36 w-36 shrink-0 rounded-full" />
             ))}
           </div>
+        ) : regions.length === 0 ? (
+          <p className="py-10 text-center text-sm text-rosera-gray">{t('home.regionsEmpty')}</p>
         ) : (
           <div className="flex flex-wrap justify-center gap-x-5 gap-y-8 px-1">
             {regions.map((reg, i) => {
               const grad = REGION_CIRCLE_GRADIENTS[i % REGION_CIRCLE_GRADIENTS.length]
               const cityLabel =
-                reg.totalCities === 1 ? t.citiesCount : t.citiesCountMany
+                reg.totalCities === 1 ? ui.citiesCount : ui.citiesCountMany
               return (
                 <motion.div
                   key={reg.id}

@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
-import { Loader2 } from 'lucide-react'
+import { Loader2, Eye, EyeOff } from 'lucide-react'
 import { ROSERA_LOGO_SRC } from '@/lib/branding'
 import { supabase } from '@/lib/supabase'
 import { Button } from '@/components/ui/button'
@@ -40,6 +40,8 @@ export default function AuthEmail() {
   const [confirmPassword, setConfirmPassword] = useState('')
   const [loading, setLoading] = useState(false)
   const [signupSent, setSignupSent] = useState(false)
+  const [showPassword, setShowPassword] = useState(false)
+  const [showConfirm, setShowConfirm] = useState(false)
 
   const onLogin = async () => {
     if (!email.trim()) {
@@ -137,10 +139,21 @@ export default function AuthEmail() {
             </div>
           ) : (
             <>
-              <div className="mt-10 space-y-4">
+              <form
+                className="mt-10 space-y-4"
+                autoComplete="on"
+                onSubmit={(e) => {
+                  e.preventDefault()
+                  void submit()
+                }}
+              >
                 <div>
-                  <Label className="text-foreground">{t('authEmail.email')}</Label>
+                  <Label className="text-foreground" htmlFor="auth-email-field">
+                    {t('authEmail.email')}
+                  </Label>
                   <Input
+                    id="auth-email-field"
+                    name="email"
                     type="email"
                     dir="ltr"
                     className="mt-2 h-12 rounded-2xl border-primary/20"
@@ -151,27 +164,55 @@ export default function AuthEmail() {
                   />
                 </div>
                 <div>
-                  <Label className="text-foreground">{t('authEmail.password')}</Label>
-                  <Input
-                    type="password"
-                    className="mt-2 h-12 rounded-2xl border-primary/20"
-                    placeholder="••••••••"
-                    autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                  />
+                  <Label className="text-foreground" htmlFor="auth-password-field">
+                    {t('authEmail.password')}
+                  </Label>
+                  <div className="relative mt-2">
+                    <Input
+                      id="auth-password-field"
+                      name="password"
+                      type={showPassword ? 'text' : 'password'}
+                      className="h-12 rounded-2xl border-primary/20 pe-11"
+                      placeholder="••••••••"
+                      autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                    />
+                    <button
+                      type="button"
+                      className="absolute end-2 top-1/2 -translate-y-1/2 rounded-lg p-1.5 text-rosera-gray hover:bg-primary/10"
+                      onClick={() => setShowPassword((s) => !s)}
+                      aria-label={showPassword ? 'Hide password' : 'Show password'}
+                    >
+                      {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                    </button>
+                  </div>
                 </div>
                 {mode === 'signup' && (
                   <div>
-                    <Label className="text-foreground">{t('authEmail.confirmPassword')}</Label>
-                    <Input
-                      type="password"
-                      className="mt-2 h-12 rounded-2xl border-primary/20"
-                      placeholder="••••••••"
-                      autoComplete="new-password"
-                      value={confirmPassword}
-                      onChange={(e) => setConfirmPassword(e.target.value)}
-                    />
+                    <Label className="text-foreground" htmlFor="auth-confirm-field">
+                      {t('authEmail.confirmPassword')}
+                    </Label>
+                    <div className="relative mt-2">
+                      <Input
+                        id="auth-confirm-field"
+                        name="confirm-password"
+                        type={showConfirm ? 'text' : 'password'}
+                        className="h-12 rounded-2xl border-primary/20 pe-11"
+                        placeholder="••••••••"
+                        autoComplete="new-password"
+                        value={confirmPassword}
+                        onChange={(e) => setConfirmPassword(e.target.value)}
+                      />
+                      <button
+                        type="button"
+                        className="absolute end-2 top-1/2 -translate-y-1/2 rounded-lg p-1.5 text-rosera-gray hover:bg-primary/10"
+                        onClick={() => setShowConfirm((s) => !s)}
+                        aria-label={showConfirm ? 'Hide confirm password' : 'Show confirm password'}
+                      >
+                        {showConfirm ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                      </button>
+                    </div>
                   </div>
                 )}
                 {mode === 'login' && (
@@ -182,8 +223,8 @@ export default function AuthEmail() {
                   </div>
                 )}
                 <Button
+                  type="submit"
                   className="h-12 w-full rounded-2xl bg-gradient-to-l from-[#9C27B0] to-[#E91E8C] text-base font-bold shadow-lg shadow-primary/25"
-                  onClick={submit}
                   disabled={loading}
                 >
                   {loading ? (
@@ -197,7 +238,7 @@ export default function AuthEmail() {
                     t('authEmail.signup')
                   )}
                 </Button>
-              </div>
+              </form>
 
               <div className="mt-6 space-y-3">
                 <button

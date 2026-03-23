@@ -1,71 +1,21 @@
-import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
-import { supabase, type SaRegionRow } from '@/lib/supabase'
 import { Skeleton } from '@/components/ui/skeleton'
-import { toast } from 'sonner'
 import { useI18n } from '@/hooks/useI18n'
+import { usePreferences } from '@/contexts/PreferencesContext'
+import { useCities } from '@/hooks/useCities'
 
 export default function RegionCities() {
   const { t } = useI18n()
+  const { lang } = usePreferences()
   const { regionId } = useParams()
-  const [name, setName] = useState('')
-  const [image, setImage] = useState('')
-  const [cities, setCities] = useState<{ id: string; name_ar: string; salonCount: number }[]>([])
-  const [loading, setLoading] = useState(true)
-
-  useEffect(() => {
-    if (!regionId) return
-    let c = true
-    async function load() {
-      setLoading(true)
-      try {
-        const { data, error } = await supabase
-          .from('sa_regions')
-          .select(
-            `
-            name_ar,
-            image_url,
-            sa_cities (
-              id,
-              name_ar,
-              businesses ( id )
-            )
-          `
-          )
-          .eq('id', regionId)
-          .single()
-
-        if (error) throw error
-        const r = data as SaRegionRow
-        if (!c) return
-        setName(r.name_ar)
-        setImage(r.image_url)
-        const list = (r.sa_cities ?? [])
-          .map((city) => ({
-            id: city.id,
-            name_ar: city.name_ar,
-            salonCount: city.businesses?.length ?? 0,
-          }))
-          .sort((a, b) => a.name_ar.localeCompare(b.name_ar, 'ar'))
-        setCities(list)
-      } catch {
-        if (c) toast.error('تعذر تحميل المدن')
-      } finally {
-        if (c) setLoading(false)
-      }
-    }
-    void load()
-    return () => {
-      c = false
-    }
-  }, [regionId])
+  const { regionName, regionImage, cities, loading } = useCities(regionId, lang)
 
   return (
     <div className="min-h-dvh bg-rosera-light pb-28 dark:bg-rosera-dark">
       <div className="relative h-44 overflow-hidden">
-        {image && <img src={image} alt="" className="h-full w-full object-cover" />}
+        {regionImage && <img src={regionImage} alt="" className="h-full w-full object-cover" />}
         <div className="absolute inset-0 bg-gradient-to-t from-rosera-light dark:from-rosera-dark to-transparent" />
         <div className="absolute bottom-4 start-4 end-4">
           <Link
@@ -75,7 +25,7 @@ export default function RegionCities() {
             <ChevronLeft className="h-4 w-4" aria-hidden />
             {t('region.home')}
           </Link>
-          <h1 className="text-2xl font-extrabold text-white drop-shadow-md">{name || '...'}</h1>
+          <h1 className="text-2xl font-extrabold text-white drop-shadow-md">{regionName || '...'}</h1>
           <p className="mt-1 text-sm text-white/90">{t('region.chooseCity')}</p>
         </div>
       </div>

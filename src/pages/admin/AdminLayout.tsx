@@ -17,6 +17,8 @@ import {
   LogOut,
   Wallet,
   Smartphone,
+  TrendingUp,
+  Gift,
   type LucideIcon,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -42,7 +44,9 @@ const linkDefs: AdminNavLink[] = [
   { to: '/admin/shipping', navKey: 'shipping', icon: Truck },
   { to: '/admin/trust-ops', navKey: 'trust', icon: ShieldCheck },
   { to: '/admin/revenue', navKey: 'revenue', icon: Wallet },
+  { to: '/admin/monetization', navKey: 'monetization', icon: TrendingUp },
   { to: '/admin/analytics', navKey: 'analytics', icon: BarChart3 },
+  { to: '/admin/offers', navKey: 'offers', icon: Gift },
 ]
 
 const ROLE_KEYS = ['owner', 'admin', 'supervisor', 'user'] as const

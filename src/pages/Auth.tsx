@@ -1,8 +1,9 @@
 import { useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
-import { Loader2, Mail } from 'lucide-react'
+import { Loader2, Mail, Eye, EyeOff } from 'lucide-react'
 import { ROSERA_LOGO_SRC } from '@/lib/branding'
 import { supabase } from '@/lib/supabase'
+import { getEdgeFunctionErrorMessage } from '@/lib/edgeInvoke'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -34,6 +35,7 @@ export default function Auth() {
   const [phoneOtpSent, setPhoneOtpSent] = useState(false)
   const [otpCode, setOtpCode] = useState('')
   const [loadingVerify, setLoadingVerify] = useState(false)
+  const [showPassword, setShowPassword] = useState(false)
 
   const fullPhone = normalizeSaudiPhone(phone)
   const t = {
@@ -112,7 +114,7 @@ export default function Auth() {
       const { data, error } = await supabase.functions.invoke('send-otp', {
         body: { phone: fullPhone },
       })
-      if (error) throw error
+      if (error) throw new Error(getEdgeFunctionErrorMessage(error, data))
       const errMsg = (data as { error?: string })?.error
       if (errMsg) throw new Error(errMsg)
       toast.success('تم إرسال رمز التحقق')
@@ -140,7 +142,7 @@ export default function Auth() {
       const { data, error } = await supabase.functions.invoke('verify-otp', {
         body: { phone: fullPhone, code },
       })
-      if (error) throw error
+      if (error) throw new Error(getEdgeFunctionErrorMessage(error, data))
       const d = data as {
         success?: boolean
         error?: string
@@ -289,30 +291,53 @@ export default function Auth() {
               </>
             )}
 
-            <div className="rounded-2xl border border-gray-200 bg-gray-50 p-4 dark:border-gray-700 dark:bg-gray-800">
+            <form
+              className="rounded-2xl border border-gray-200 bg-gray-50 p-4 dark:border-gray-700 dark:bg-gray-800"
+              autoComplete="on"
+              onSubmit={(e) => {
+                e.preventDefault()
+                void onEmailLogin()
+              }}
+            >
               <p className="mb-3 text-sm font-bold text-gray-900 dark:text-white">{t.emailLogin}</p>
               <div className="space-y-2">
                 <Input
+                  id="auth-email"
+                  name="email"
                   type="email"
                   dir="ltr"
+                  autoComplete="email"
                   className="h-11 rounded-xl border-gray-200 bg-gray-50 text-gray-900 placeholder:text-gray-400 dark:border-gray-700 dark:bg-gray-900 dark:text-white"
                   placeholder="you@example.com"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                 />
-                <Input
-                  type="password"
-                  dir="ltr"
-                  className="h-11 rounded-xl border-gray-200 bg-gray-50 text-gray-900 placeholder:text-gray-400 dark:border-gray-700 dark:bg-gray-900 dark:text-white"
-                  placeholder="••••••••"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                />
+                <div className="relative">
+                  <Input
+                    id="auth-password"
+                    name="password"
+                    type={showPassword ? 'text' : 'password'}
+                    dir="ltr"
+                    autoComplete="current-password"
+                    className="h-11 rounded-xl border-gray-200 bg-gray-50 pe-11 text-gray-900 placeholder:text-gray-400 dark:border-gray-700 dark:bg-gray-900 dark:text-white"
+                    placeholder="••••••••"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                  />
+                  <button
+                    type="button"
+                    className="absolute end-2 top-1/2 -translate-y-1/2 rounded-lg p-1.5 text-gray-500 hover:bg-gray-200/80 dark:hover:bg-gray-700"
+                    onClick={() => setShowPassword((s) => !s)}
+                    aria-label={showPassword ? 'إخفاء كلمة المرور' : 'إظهار كلمة المرور'}
+                  >
+                    {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                  </button>
+                </div>
               </div>
               <Button
+                type="submit"
                 variant="outline"
                 className="mt-3 h-11 w-full rounded-xl border-primary/25"
-                onClick={onEmailLogin}
                 disabled={loadingEmail}
               >
                 {loadingEmail ? (
@@ -330,7 +355,7 @@ export default function Auth() {
               <Link to="/auth/email" className="mt-2 block text-center text-xs font-semibold text-primary hover:underline">
                 إنشاء حساب جديد / خيارات متقدمة
               </Link>
-            </div>
+            </form>
             <button
               type="button"
               onClick={guest}

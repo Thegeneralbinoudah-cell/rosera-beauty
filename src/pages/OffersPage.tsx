@@ -7,6 +7,7 @@ import { toast } from 'sonner'
 
 type Offer = {
   id: string
+  title?: string | null
   title_ar: string
   discount_percentage: number
   original_price: number
@@ -83,7 +84,7 @@ export default function OffersPage() {
                 />
                 <div className="flex flex-1 flex-col justify-center py-3 pe-3">
                   <p className="text-xs text-rosera-gray">{o.businesses?.name_ar}</p>
-                  <h3 className="font-bold">{o.title_ar || 'عرض خاص'}</h3>
+                  <h3 className="font-bold">{o.title?.trim() || o.title_ar || 'عرض خاص'}</h3>
                   <span className="mt-1 w-fit rounded-full bg-accent/15 px-2 py-0.5 text-xs font-bold text-accent">
                     {o.discount_percentage}% خصم
                   </span>

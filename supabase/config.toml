@@ -1,0 +1,15 @@
+# Gateway JWT check can reject valid browser tokens; rozi-chat verifies via auth.getUser(jwt).
+[functions.rozi-chat]
+verify_jwt = false
+
+[functions.skin-analysis]
+verify_jwt = false
+
+[functions.growth-pipeline]
+verify_jwt = false
+
+[functions.generate-notification]
+verify_jwt = false
+
+[functions.activate-boost]
+verify_jwt = false

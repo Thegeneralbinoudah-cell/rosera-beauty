@@ -16,7 +16,6 @@ import Bookings from '@/pages/Bookings'
 import Favorites from '@/pages/Favorites'
 import Profile from '@/pages/Profile'
 import EditProfile from '@/pages/EditProfile'
-import AiAssistant from '@/pages/AiAssistant'
 import OffersPage from '@/pages/OffersPage'
 import Notifications from '@/pages/Notifications'
 import CompleteProfile from '@/pages/CompleteProfile'
@@ -34,7 +33,9 @@ import AdminUsers from '@/pages/admin/AdminUsers'
 import AdminBookings from '@/pages/admin/AdminBookings'
 import AdminReviews from '@/pages/admin/AdminReviews'
 import AdminAnalytics from '@/pages/admin/AdminAnalytics'
+import AdminOffers from '@/pages/admin/AdminOffers'
 import AdminRevenue from '@/pages/admin/AdminRevenue'
+import AdminMonetization from '@/pages/admin/AdminMonetization'
 import AdminTeam from '@/pages/admin/AdminTeam'
 import OwnerLogin from '@/pages/owner/OwnerLogin'
 import OwnerHome from '@/pages/owner/OwnerHome'
@@ -43,9 +44,12 @@ import OwnerServices from '@/pages/owner/OwnerServices'
 import OwnerSchedule from '@/pages/owner/OwnerSchedule'
 import OwnerReports from '@/pages/owner/OwnerReports'
 import ProtectedRoute from '@/components/ProtectedRoute'
+/** استيراد ثابت للصفحات الأساسية — يتجنّب فشل lazy() في التطوير (Failed to fetch dynamically imported module) بسبب HMR/SW */
+import Home from '@/pages/Home'
+import MapPage from '@/pages/MapPage'
+import TopSalons from '@/pages/TopSalons'
+import RecommendedSalons from '@/pages/RecommendedSalons'
 
-const Home = lazy(() => import('@/pages/Home'))
-const MapPage = lazy(() => import('@/pages/MapPage'))
 const SalonDetail = lazy(() => import('@/pages/SalonDetail'))
 const AdminLayout = lazy(() => import('@/pages/admin/AdminLayout'))
 const OwnerLayout = lazy(() => import('@/pages/owner/OwnerLayout'))
@@ -91,6 +95,8 @@ export default function App() {
         <Route path="/city/:cityId" element={<CitySalons />} />
         <Route path="/search" element={<SearchPage />} />
         <Route path="/map" element={<MapPage />} />
+        <Route path="/top-salons" element={<TopSalons />} />
+        <Route path="/recommended-salons" element={<RecommendedSalons />} />
         <Route path="/salon/:id" element={<SalonDetail />} />
         <Route path="/booking/:salonId" element={<BookingFlow />} />
         <Route path="/bookings" element={<Bookings />} />
@@ -98,7 +104,6 @@ export default function App() {
         <Route path="/favorites" element={<Favorites />} />
         <Route path="/profile" element={<Profile />} />
         <Route path="/profile/edit" element={<EditProfile />} />
-        <Route path="/ai-assistant" element={<AiAssistant />} />
         <Route path="/skin-analysis" element={<SkinAnalysis />} />
         <Route path="/offers" element={<OffersPage />} />
         <Route path="/chat" element={<AiChat />} />
@@ -134,7 +139,9 @@ export default function App() {
         <Route path="reviews" element={<AdminReviews />} />
         <Route path="providers" element={<AdminProviders />} />
         <Route path="revenue" element={<AdminRevenue />} />
+        <Route path="monetization" element={<AdminMonetization />} />
         <Route path="analytics" element={<AdminAnalytics />} />
+        <Route path="offers" element={<AdminOffers />} />
       </Route>
 
       <Route path="/owner/login" element={<OwnerLogin />} />

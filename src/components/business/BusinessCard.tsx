@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Star, MapPin, Heart } from 'lucide-react'
+import { Star, MapPin, Heart, Navigation } from 'lucide-react'
 import { Card } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import type { Business } from '@/lib/supabase'
@@ -8,21 +8,33 @@ import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/contexts/AuthContext'
 import { toast } from 'sonner'
 import { useNavigate } from 'react-router-dom'
+import { resolveBusinessCoverImage } from '@/lib/businessImages'
+import { openNativeMapsDirections } from '@/lib/openNativeMapsDirections'
+import { useI18n } from '@/hooks/useI18n'
+import { usePreferences } from '@/contexts/PreferencesContext'
+import { Button } from '@/components/ui/button'
 
 export function BusinessCard({
   b,
   className,
   distanceKm,
   showFavorite,
+  isSponsored,
+  sponsorLabel,
 }: {
   b: Business
   className?: string
   distanceKm?: number
   showFavorite?: boolean
+  /** Active paid boost (salon-wide). */
+  isSponsored?: boolean
+  sponsorLabel?: 'featured' | 'priority'
 }) {
+  const { t } = useI18n()
+  const { lang } = usePreferences()
   const { user } = useAuth()
   const nav = useNavigate()
-  const img = b.cover_image || b.images?.[0] || ''
+  const img = resolveBusinessCoverImage(b)
   const label = b.category_label || b.category
   const [fav, setFav] = useState(false)
 
@@ -86,6 +98,17 @@ export function BusinessCard({
         <Badge className="absolute top-2 start-2 max-w-[85%] truncate text-[10px] font-semibold shadow-md">
           {label}
         </Badge>
+        {isSponsored && (
+          <span
+            className={`absolute bottom-2 start-2 rounded-full px-2 py-0.5 text-[9px] font-extrabold shadow-md ${
+              sponsorLabel === 'featured'
+                ? 'bg-amber-400/95 text-amber-950'
+                : 'bg-white/90 text-[#9B2257] dark:bg-black/70 dark:text-primary'
+            }`}
+          >
+            {sponsorLabel === 'featured' ? 'Featured' : 'مُموَّل'}
+          </span>
+        )}
         {showFavorite && (
           <button
             type="button"
@@ -100,18 +123,62 @@ export function BusinessCard({
         )}
       </div>
       <div className="p-3">
-        <h3 className="line-clamp-2 text-base font-semibold text-[#1F1F1F] dark:text-foreground">{b.name_ar}</h3>
+        <h3
+          dir="auto"
+          className="line-clamp-2 text-start text-base font-semibold text-[#1F1F1F] dark:text-foreground"
+        >
+          {b.name_ar}
+        </h3>
         <div className="mt-1 flex flex-wrap items-center gap-2 text-sm font-medium text-[#374151] dark:text-rosera-gray">
-          <span className="flex items-center gap-0.5 text-[#9B2257]">
-            <Star className="h-4 w-4 fill-[#9B2257] text-[#9B2257]" />
-            {Number(b.average_rating ?? 0).toFixed(1)}
+          <span
+            dir="ltr"
+            className="flex items-center gap-0.5 tabular-nums text-[#9B2257]"
+            style={{ unicodeBidi: 'isolate' }}
+          >
+            <Star className="h-4 w-4 shrink-0 fill-[#9B2257] text-[#9B2257]" aria-hidden />
+            {new Intl.NumberFormat(lang === 'ar' ? 'ar-SA' : 'en-US', {
+              minimumFractionDigits: 1,
+              maximumFractionDigits: 1,
+            }).format(Number(b.average_rating ?? 0))}
           </span>
-          <span>({b.total_reviews ?? 0})</span>
+          <span dir="ltr" className="tabular-nums">
+            ({b.total_reviews ?? 0})
+          </span>
           <span className="flex items-center gap-1">
             <MapPin className="h-3.5 w-3.5" />
             {b.city}
           </span>
           {distanceKm != null && <span>{distanceKm.toFixed(1)} كم</span>}
+        </div>
+        <div className="mt-2 grid gap-2" onClick={(e) => e.stopPropagation()}>
+          <Button
+            type="button"
+            size="sm"
+            className="w-full gap-1.5 rounded-xl bg-gradient-to-r from-[#E91E8C] to-[#9C27B0] text-xs font-extrabold text-white shadow-sm hover:opacity-95"
+            onClick={(e) => {
+              e.stopPropagation()
+              e.preventDefault()
+              nav(`/booking/${b.id}`)
+            }}
+          >
+            {lang === 'ar' ? 'احجزي الآن' : 'Book now'}
+          </Button>
+          {b.latitude != null && b.longitude != null && (
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              className="w-full gap-1.5 rounded-xl text-xs font-semibold"
+              onClick={(e) => {
+                e.stopPropagation()
+                e.preventDefault()
+                openNativeMapsDirections(b.latitude, b.longitude, b.name_ar ?? undefined)
+              }}
+            >
+              <Navigation className="h-3.5 w-3.5 shrink-0" aria-hidden />
+              {t('map.directions')}
+            </Button>
+          )}
         </div>
       </div>
     </Card>
@@ -120,7 +187,8 @@ export function BusinessCard({
 
 export function BusinessRow({ b }: { b: Business }) {
   const nav = useNavigate()
-  const img = b.cover_image || b.images?.[0] || ''
+  const { lang } = usePreferences()
+  const img = resolveBusinessCoverImage(b)
   return (
     <button
       type="button"
@@ -129,11 +197,20 @@ export function BusinessRow({ b }: { b: Business }) {
     >
       <img src={img} alt="" className="h-20 w-20 shrink-0 rounded-xl object-cover" />
       <div className="min-w-0 flex-1">
-        <h3 className="line-clamp-2 font-semibold text-[#1F1F1F] dark:text-foreground">{b.name_ar}</h3>
+        <h3 dir="auto" className="line-clamp-2 text-start font-semibold text-[#1F1F1F] dark:text-foreground">
+          {b.name_ar}
+        </h3>
         <p className="text-sm font-medium text-[#374151] dark:text-rosera-gray">{b.city}</p>
-        <div className="mt-1 flex items-center gap-1 text-sm font-medium text-[#9B2257]">
-          <Star className="h-4 w-4 fill-[#9B2257] text-[#9B2257]" />
-          {Number(b.average_rating ?? 0).toFixed(1)}
+        <div
+          dir="ltr"
+          style={{ unicodeBidi: 'isolate' }}
+          className="mt-1 flex items-center gap-1 text-sm font-medium tabular-nums text-[#9B2257]"
+        >
+          <Star className="h-4 w-4 shrink-0 fill-[#9B2257] text-[#9B2257]" aria-hidden />
+          {new Intl.NumberFormat(lang === 'ar' ? 'ar-SA' : 'en-US', {
+            minimumFractionDigits: 1,
+            maximumFractionDigits: 1,
+          }).format(Number(b.average_rating ?? 0))}
         </div>
       </div>
     </button>

@@ -14,7 +14,32 @@
     <title>روزيرا — ROSERA</title>
   </head>
   <body class="font-cairo antialiased">
-    <div id="root"></div>
+    <div id="root">
+      <!-- يظهر إذا تعطّل JavaScript أو قبل تشغيل React -->
+      <div
+        style="
+          min-height: 100dvh;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          padding: 1.5rem;
+          text-align: center;
+          font-family: system-ui, sans-serif;
+          background: linear-gradient(135deg, #e91e8c 0%, #9c27b0 100%);
+          color: #fff;
+        "
+      >
+        <div>
+          <p style="font-weight: 700; font-size: 1.125rem">جاري تحميل روزيرا…</p>
+          <p style="margin-top: 0.5rem; font-size: 0.875rem; opacity: 0.95">
+            إذا بقيتِ هذه الشاشة، افتحي أدوات المطوّر (F12) → تبويب Console وأرسلي الخطأ.
+          </p>
+        </div>
+      </div>
+    </div>
     <script type="module" src="/src/main.tsx"></script>
+    <noscript>
+      <p style="padding: 2rem">يجب تفعيل JavaScript لتشغيل التطبيق.</p>
+    </noscript>
   </body>
 </html>

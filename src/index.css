@@ -61,9 +61,63 @@
   color: #9ca3af;
 }
 
-.leaflet-container {
-  font-family: Tajawal, Cairo, sans-serif;
+/* Google Maps: حاوية ثابتة — 100% بدون قفزات ارتفاع/عرض أو وميض «no imagery» */
+.rosera-map-page .rosera-map-shell {
+  min-height: 0;
+  flex: 1 1 0%;
+  display: flex;
+  flex-direction: column;
+}
+
+.rosera-google-map-root {
+  box-sizing: border-box;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  min-width: 0;
+  flex: 1 1 auto;
+  position: relative;
+  overflow: hidden;
+  contain: layout style;
+  isolation: isolate;
+}
+
+.rosera-map-page .rosera-google-map-root {
+  flex: 1 1 auto;
+  height: 100%;
+  width: 100%;
+  max-height: 100%;
+  max-width: 100%;
+}
+
+/* حاوية الخريطة LTR داخل صفحة قد تكون RTL — إحداثيات وجغرافيا ثابتة */
+.rosera-map-page .rosera-map-shell[dir='ltr'] {
   direction: ltr;
+}
+
+.rosera-map-page .rosera-map-shell[dir='ltr'] .rosera-google-map-root {
+  direction: ltr;
+}
+
+/* شارة Google وروابط الائتمان تبقى مقروءة (LTR) تحت أي dir للصفحة */
+.rosera-google-map-root .gm-style-cc,
+.rosera-google-map-root .gm-style-cc span,
+.rosera-google-map-root .gm-style a[href*='google'] {
+  direction: ltr !important;
+  unicode-bidi: embed;
+}
+
+/* تقييم على دبوس الخريطة — أرقام ثابتة الاتجاه داخل واجهة RTL */
+.rosera-google-map-root .rosera-map-pin-rating-label {
+  direction: ltr !important;
+  unicode-bidi: isolate !important;
+}
+
+/* طبقة Google الداخلية تمتد مع الحاوية */
+.rosera-google-map-root .gm-style,
+.rosera-google-map-root .gm-style > div:first-child {
+  width: 100% !important;
+  height: 100% !important;
 }
 .gradient-rosera {
   background: linear-gradient(135deg, #9c27b0 0%, #e91e8c 100%);

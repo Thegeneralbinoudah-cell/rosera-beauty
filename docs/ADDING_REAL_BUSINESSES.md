@@ -59,9 +59,15 @@ INSERT INTO public.businesses (
 
 Do **not** put `[RoseraSeed:v1]` or `[RoseraClinic:v1]` in `description_ar` (those mark automated seed rows for deletion).
 
+Also avoid re-running **`manual_batch_21_eastern_low_coverage.sql`** without deleting old rows first — it tags rows with **`[RoseraBatch21]`**. Migration **`029_cleanup_rosera_seed_duplicates.sql`** deletes those rows and adds a **partial unique index** so the same `(city_id, name_ar)` cannot be inserted twice for Batch-21-style rows.
+
 ## 3. Re-running migrations locally
 
 `supabase db reset` will replay older migrations that **insert** mass seed (023/024), then **027** removes it again. End state: **no demo businesses**.
+
+Apply **`029_cleanup_rosera_seed_duplicates.sql`** on production (`supabase db push`) after pulling latest migrations to remove duplicate «روزيرا / Rosera» QA rows and enforce Batch-21 uniqueness.
+
+Apply **`030_businesses_real_unsplash_covers.sql`** to replace `placehold.co` / deprecated `source.unsplash.com` covers with stable **`images.unsplash.com`** URLs (same pool as `manual_batch_21`).
 
 ## 4. Products (beauty store)
 

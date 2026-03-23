@@ -1,7 +1,6 @@
-import { useEffect, useState, useRef, type ChangeEvent } from 'react'
+import { useEffect, useState, useRef, useCallback, type ChangeEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Send, Sparkles, Camera, ImageIcon } from 'lucide-react'
-import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/contexts/AuthContext'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -9,23 +8,13 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { Label } from '@/components/ui/label'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { toast } from 'sonner'
-
-/** Shown before capture, after results, and appended to stored assistant text for image analysis. */
-const FACE_SCAN_MEDICAL_DISCLAIMER =
-  '⚠️ تنبيه مهم: هذه التوصيات للمساعدة فقط ولا تغني عن\nاستشارة الطبيب المختص. يُرجى مراجعة طبيب متخصص قبل\nاتخاذ أي قرار علاجي.'
-
-const FACE_SCAN_CONSENT_LABEL =
-  'أوافق على أن هذه التوصيات للمساعدة فقط وليست تشخيصاً طبياً'
-
-function appendMedicalDisclaimerToReply(reply: string): string {
-  const t = reply.trim()
-  if (!t) return FACE_SCAN_MEDICAL_DISCLAIMER
-  if (t.includes(FACE_SCAN_MEDICAL_DISCLAIMER)) return t
-  return `${t}\n\n${FACE_SCAN_MEDICAL_DISCLAIMER}`
-}
-
-type ChatRow = { id: string; message: string; is_user: boolean; created_at: string }
-type ApiMsg = { role: 'user' | 'assistant'; content: string }
+import {
+  useChat,
+  FACE_SCAN_MEDICAL_DISCLAIMER,
+  FACE_SCAN_CONSENT_LABEL,
+  type ChatRow,
+  type RoziBookingAction,
+} from '@/hooks/useChat'
 
 async function fileToBase64(file: File): Promise<{ base64: string; mime: string }> {
   const buf = await file.arrayBuffer()
@@ -36,24 +25,26 @@ async function fileToBase64(file: File): Promise<{ base64: string; mime: string 
   return { base64, mime: file.type || 'image/jpeg' }
 }
 
-function buildContextBlock(
-  salons: { id: string; name_ar: string; city: string; category_label?: string | null; average_rating?: number }[],
-  products: { id: string; name_ar: string; price: number }[]
-) {
-  const s =
-    salons?.map((b) => `- ${b.name_ar} (${b.city}) [id=${b.id}] تقييم ${Number(b.average_rating ?? 0).toFixed(1)} — ${b.category_label ?? ''}`).join('\n') || ''
-  const p =
-    products?.map((x) => `- ${x.name_ar} [id=${x.id}] — ${Number(x.price).toFixed(0)} ر.س`).join('\n') || ''
-  return `صالونات (للتوصية والحجز عبر /salon/{id} ثم زر الحجز):\n${s}\n\nمنتجات المتجر (/store، /product/{id}):\n${p}`
-}
-
 export default function AiChat() {
   const { user } = useAuth()
   const nav = useNavigate()
-  const [messages, setMessages] = useState<ChatRow[]>([])
+  const onBookingAction = useCallback(
+    (a: RoziBookingAction) => {
+      toast.success('نفتحي صفحة الحجز لإكمال الموعد')
+      nav(`/booking/${a.salon_id}`, {
+        state: {
+          preselect: a.service_id || undefined,
+          suggestedDate: a.booking_date || undefined,
+          suggestedSlots: a.suggested_slots,
+        },
+      })
+    },
+    [nav]
+  )
+  const { messages, loading, historyError, sending, sendMessage, reloadHistory } = useChat(user?.id, {
+    onBookingAction,
+  })
   const [input, setInput] = useState('')
-  const [typing, setTyping] = useState(false)
-  const [loading, setLoading] = useState(true)
   const scrollRef = useRef<HTMLDivElement>(null)
   const galRef = useRef<HTMLInputElement>(null)
   const camFallbackRef = useRef<HTMLInputElement>(null)
@@ -72,7 +63,7 @@ export default function AiChat() {
 
   useEffect(() => {
     scrollRef.current?.scrollTo(0, scrollRef.current.scrollHeight)
-  }, [messages, typing])
+  }, [messages, sending])
 
   useEffect(() => {
     if (!liveCameraOpen) {
@@ -107,152 +98,14 @@ export default function AiChat() {
   useEffect(() => {
     if (!user) {
       nav('/auth')
-      return
-    }
-    let c = true
-    async function load() {
-      const { data, error } = await supabase
-        .from('chat_messages')
-        .select('id, message, is_user, created_at')
-        .eq('user_id', user!.id)
-        .order('created_at', { ascending: true })
-      if (error || !c) return
-      const rows = (data ?? []).map(
-        (r: { id: string; message?: string; response?: string; is_user?: boolean; created_at: string }) => ({
-          id: r.id,
-          message: r.is_user ? (r.message || '') : (r.response || r.message || ''),
-          is_user: r.is_user ?? true,
-          created_at: r.created_at,
-        })
-      ) as ChatRow[]
-      setMessages(rows)
-      if (rows.length === 0) {
-        setMessages([
-          {
-            id: 'welcome',
-            message:
-              'مرحباً! أنا روزي — مساعدتكِ في روزيرا. أقدر أرشدكِ لصالون أو عيادة تجميل، منتجات المتجر، الحجز، أو تحليل صورة للبشرة (بدون حفظ للصورة). كيف أخدمكِ؟',
-            is_user: false,
-            created_at: new Date().toISOString(),
-          },
-        ])
-      }
-      setLoading(false)
-    }
-    void load()
-    return () => {
-      c = false
     }
   }, [user, nav])
 
-  const sendWithOptionalImage = async (text: string, image?: { base64: string; mime: string } | null) => {
-    const msg = text.trim()
-    if (!msg && !image) return
-    if (!user) return
-    const displayText = image ? (msg || 'صورة للتحليل (لا تُحفظ)') : msg
-    setInput('')
-    const userRow: ChatRow = {
-      id: crypto.randomUUID(),
-      message: displayText,
-      is_user: true,
-      created_at: new Date().toISOString(),
-    }
-    setMessages((m) => [...m, userRow])
-    await supabase.from('chat_messages').insert({
-      user_id: user.id,
-      message: displayText,
-      is_user: true,
-    })
-
-    setTyping(true)
-    try {
-      const [{ data: salonData }, { data: productData }] = await Promise.all([
-        supabase
-          .from('businesses')
-          .select('id,name_ar,city,category_label,average_rating')
-          .eq('is_active', true)
-          .eq('is_demo', false)
-          .order('average_rating', { ascending: false })
-          .limit(28),
-        supabase
-          .from('products')
-          .select('id,name_ar,price')
-          .eq('is_active', true)
-          .eq('is_demo', false)
-          .limit(18),
-      ])
-
-      const contextBlock = buildContextBlock(
-        (salonData ?? []) as Parameters<typeof buildContextBlock>[0],
-        (productData ?? []) as Parameters<typeof buildContextBlock>[1]
-      )
-
-      const priorRows = [...messages.filter((m) => m.id !== 'welcome'), userRow]
-      const apiHistory: ApiMsg[] = priorRows.map((m) => ({
-        role: m.is_user ? 'user' : 'assistant',
-        content: m.message,
-      }))
-      if (image && !msg) {
-        apiHistory[apiHistory.length - 1] = {
-          role: 'user',
-          content: 'تحليل صورة الوجه للبشرة والعلاجات المقترحة (بدون حفظ الصورة)',
-        }
-      }
-
-      const { data: sessionData } = await supabase.auth.getSession()
-      const token = sessionData.session?.access_token
-      const { data, error } = await supabase.functions.invoke('rozi-chat', {
-        body: {
-          messages: apiHistory,
-          contextBlock,
-          imageBase64: image?.base64,
-          imageMimeType: image?.mime,
-        },
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
-      })
-
-      let botText: string
-      if (error) {
-        botText =
-          'تعذر الاتصال بروزي الآن. تأكدي من نشر دالة rozi-chat وضبط OPENAI_API_KEY أو GEMINI_API_KEY في أسرار المشروع. يمكنكِ تصفح الخريطة أو المتجر يدوياً.'
-      } else if (data && typeof (data as { reply?: string }).reply === 'string') {
-        botText = (data as { reply: string }).reply
-      } else if (data && typeof (data as { error?: string }).error === 'string') {
-        botText = `عذراً: ${(data as { error: string }).error}`
-      } else {
-        botText = 'لم أستلم رداً واضحاً — جرّبي صياغة أخرى أو لاحقاً.'
-      }
-
-      const messageToStore = image ? appendMedicalDisclaimerToReply(botText) : botText
-
-      const botRow: ChatRow = {
-        id: crypto.randomUUID(),
-        message: messageToStore,
-        is_user: false,
-        created_at: new Date().toISOString(),
-      }
-      setMessages((m) => [...m, botRow])
-      await supabase.from('chat_messages').insert({
-        user_id: user.id,
-        message: messageToStore,
-        response: messageToStore,
-        is_user: false,
-      })
-    } catch {
-      const botRow: ChatRow = {
-        id: crypto.randomUUID(),
-        message: 'حدث خطأ — حاولي مرة أخرى.',
-        is_user: false,
-        created_at: new Date().toISOString(),
-      }
-      setMessages((m) => [...m, botRow])
-    } finally {
-      setTyping(false)
-    }
-  }
-
   const send = async (text: string) => {
-    await sendWithOptionalImage(text, null)
+    const t = text.trim()
+    if (!t) return
+    setInput('')
+    await sendMessage(t, null)
   }
 
   const onPickImage = async (e: ChangeEvent<HTMLInputElement>) => {
@@ -261,7 +114,9 @@ export default function AiChat() {
     if (!f || !f.type.startsWith('image/')) return
     try {
       const { base64, mime } = await fileToBase64(f)
-      await sendWithOptionalImage(input.trim() || '', { base64, mime })
+      const text = input.trim()
+      setInput('')
+      await sendMessage(text || '', { base64, mime })
     } catch {
       /* ignore */
     }
@@ -301,10 +156,30 @@ export default function AiChat() {
     const file = new File([blob], 'face-capture.jpg', { type: 'image/jpeg' })
     const { base64, mime } = await fileToBase64(file)
     setLiveCameraOpen(false)
-    await sendWithOptionalImage(input.trim() || '', { base64, mime })
+    await sendMessage(input.trim() || '', { base64, mime })
   }
 
   if (!user) return null
+
+  const renderBubble = (row: ChatRow) => {
+    if (row.is_user) {
+      return <p className="whitespace-pre-wrap text-sm font-medium">{row.message}</p>
+    }
+    const sep = `\n\n${FACE_SCAN_MEDICAL_DISCLAIMER}`
+    const idx = row.message.lastIndexOf(sep)
+    if (idx === -1) {
+      return <p className="whitespace-pre-wrap text-sm text-[#1F1F1F] dark:text-foreground">{row.message}</p>
+    }
+    const main = row.message.slice(0, idx)
+    return (
+      <div className="text-sm">
+        <p className="whitespace-pre-wrap text-[#1F1F1F] dark:text-foreground">{main}</p>
+        <div className="mt-3 border-t border-rose-200/80 pt-3 dark:border-rose-900/50">
+          <p className="whitespace-pre-wrap text-rose-800 dark:text-rose-100">{FACE_SCAN_MEDICAL_DISCLAIMER}</p>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="flex min-h-dvh flex-col bg-rosera-light pb-28 dark:bg-rosera-dark">
@@ -315,7 +190,9 @@ export default function AiChat() {
           </div>
           <div>
             <h1 className="text-lg font-extrabold text-[#1F1F1F] dark:text-foreground">روزي</h1>
-            <p className="text-xs font-medium text-[#374151] dark:text-rosera-gray">مساعدتكِ الشخصية — عربي • جمال • حجوزات • متجر</p>
+            <p className="text-xs font-medium text-[#374151] dark:text-rosera-gray">
+              مساعدتكِ الشخصية — OpenAI • عربي • جمال • حجوزات • متجر
+            </p>
           </div>
         </div>
       </header>
@@ -323,6 +200,13 @@ export default function AiChat() {
       <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-6">
         {loading ? (
           <p className="text-center font-medium text-[#374151] dark:text-rosera-gray">جاري التحميل...</p>
+        ) : historyError ? (
+          <div className="mx-auto max-w-md rounded-2xl border border-dashed border-destructive/30 bg-destructive/5 p-6 text-center">
+            <p className="text-sm font-semibold text-destructive">{historyError}</p>
+            <Button type="button" variant="outline" className="mt-4" onClick={() => void reloadHistory()}>
+              إعادة المحاولة
+            </Button>
+          </div>
         ) : (
           <>
             {messages.map((row) => (
@@ -339,29 +223,11 @@ export default function AiChat() {
                       : 'border border-primary/10 bg-white dark:bg-card'
                   }`}
                 >
-                  {(() => {
-                    if (row.is_user) {
-                      return <p className="whitespace-pre-wrap text-sm font-medium">{row.message}</p>
-                    }
-                    const sep = `\n\n${FACE_SCAN_MEDICAL_DISCLAIMER}`
-                    const idx = row.message.lastIndexOf(sep)
-                    if (idx === -1) {
-                      return <p className="whitespace-pre-wrap text-sm text-[#1F1F1F] dark:text-foreground">{row.message}</p>
-                    }
-                    const main = row.message.slice(0, idx)
-                    return (
-                      <div className="text-sm">
-                        <p className="whitespace-pre-wrap text-[#1F1F1F] dark:text-foreground">{main}</p>
-                        <div className="mt-3 border-t border-rose-200/80 pt-3 dark:border-rose-900/50">
-                          <p className="whitespace-pre-wrap text-rose-800 dark:text-rose-100">{FACE_SCAN_MEDICAL_DISCLAIMER}</p>
-                        </div>
-                      </div>
-                    )
-                  })()}
+                  {renderBubble(row)}
                 </div>
               </div>
             ))}
-            {typing && (
+            {sending && (
               <div className="flex justify-start gap-1">
                 <div className="rounded-2xl border border-primary/10 bg-white px-4 py-3 dark:bg-card">
                   <span className="flex gap-1">
@@ -474,6 +340,7 @@ export default function AiChat() {
             variant="outline"
             className="shrink-0 rounded-2xl"
             aria-label="تحليل وجه — كاميرا أو رفع"
+            disabled={!!historyError || loading}
             onClick={openFaceScanFlow}
           >
             <Sparkles className="h-5 w-5 text-[#9B2257]" />
@@ -482,12 +349,14 @@ export default function AiChat() {
             className="flex-1 rounded-2xl"
             placeholder="اكتبي لروزي..."
             value={input}
+            disabled={!!historyError || loading}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && void send(input)}
           />
           <Button
             size="icon"
             className="shrink-0 rounded-2xl bg-gradient-to-l from-[#9C27B0] to-[#E91E8C]"
+            disabled={!!historyError || loading || sending}
             onClick={() => void send(input)}
           >
             <Send className="h-5 w-5" />

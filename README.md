@@ -4,7 +4,7 @@
 
 ## الحزم (مطابقة للمواصفات)
 
-`@supabase/supabase-js`، `react-router-dom`، `leaflet` / `react-leaflet`، `framer-motion`، `lucide-react`، Radix (dialog, tabs, dropdown, …)، `date-fns`، `react-day-picker` (تقويم shadcn)، Tailwind + RTL، مكوّنات UI: button, input, card, dialog, tabs, **toast (Sonner)**, avatar, badge, **calendar**, dropdown-menu, **sheet**, skeleton, separator.
+`@supabase/supabase-js`، `react-router-dom`، `@googlemaps/js-api-loader` (خرائط Google)، `framer-motion`، `lucide-react`، Radix (dialog, tabs, dropdown, …)، `date-fns`، `react-day-picker` (تقويم shadcn)، Tailwind + RTL، مكوّنات UI: button, input, card, dialog, tabs, **toast (Sonner)**, avatar, badge, **calendar**, dropdown-menu, **sheet**, skeleton, separator.
 
 ## التشغيل
 

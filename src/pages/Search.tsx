@@ -24,6 +24,7 @@ import { haversineKm } from '@/lib/utils'
 import { toast } from 'sonner'
 import { useI18n } from '@/hooks/useI18n'
 import { usePreferences } from '@/contexts/PreferencesContext'
+import { filterFemaleBeautyBusinesses } from '@/lib/roseraBusinessFilters'
 
 type BizRow = Business & {
   sa_cities?: { name_ar: string; sa_regions?: { name_ar: string } | null } | null
@@ -105,7 +106,7 @@ export default function SearchPage() {
           .eq('is_demo', false)
         if (error) throw error
         if (!c) return
-        setList((data ?? []) as BizRow[])
+        setList(filterFemaleBeautyBusinesses((data ?? []) as Business[]) as BizRow[])
       } catch {
         if (c) toast.error(t('search.error'))
       } finally {

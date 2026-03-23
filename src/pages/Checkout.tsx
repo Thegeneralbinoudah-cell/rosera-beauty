@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { formatPrice } from '@/lib/utils'
 import { toast } from 'sonner'
-import PaymentForm, { type PaymentResult } from '@/components/PaymentForm'
+import PaymentForm, { type PaymentResult } from '@/components/payment/PaymentForm'
 import { useI18n } from '@/hooks/useI18n'
 
 const SHIPPING = 30
@@ -130,7 +130,7 @@ export default function Checkout() {
       <header className="sticky top-0 z-10 border-b border-primary/10 bg-white px-4 py-4 dark:bg-card">
         <h1 className="text-xl font-extrabold">{t('checkout.title')}</h1>
       </header>
-      <div className="mx-auto max-w-lg px-4 py-6 space-y-6">
+      <div className="mx-auto max-w-lg space-y-6 px-4 py-6">
         <div>
           <Label>{t('checkout.address')}</Label>
           <Input
@@ -174,8 +174,10 @@ export default function Checkout() {
           amount={totalWithShipping}
           description={t('checkout.orderDesc', { count: items.length })}
           refId={pendingRefId}
+          checkoutPaymentMethod={payment}
           onSuccess={onPaymentSuccess}
           onPending={onPaymentPending}
+          onError={(msg) => toast.error(msg)}
           disabled={loading}
         />
       </div>

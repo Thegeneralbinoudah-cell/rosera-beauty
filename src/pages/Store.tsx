@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Search, ShoppingCart, Star } from 'lucide-react'
 import { supabase, type Product } from '@/lib/supabase'
+import { fetchSponsoredProductIds } from '@/lib/boosts'
 import { useCartStore } from '@/stores/cartStore'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
@@ -22,6 +23,7 @@ export default function Store() {
   const { t } = useI18n()
   const { lang } = usePreferences()
   const [products, setProducts] = useState<Product[]>([])
+  const [sponsoredProductIds, setSponsoredProductIds] = useState<Set<string>>(new Set())
   const [q, setQ] = useState('')
   const [cat, setCat] = useState('')
   const [loading, setLoading] = useState(true)
@@ -35,7 +37,12 @@ export default function Store() {
         if (cat) query = query.eq('category', cat)
         const { data, error } = await query
         if (error) throw error
-        if (c) setProducts((data ?? []) as Product[])
+        const list = (data ?? []) as Product[]
+        if (c) setProducts(list)
+        if (c && list.length) {
+          const sp = await fetchSponsoredProductIds(list.map((p) => p.id))
+          if (c) setSponsoredProductIds(sp)
+        } else if (c) setSponsoredProductIds(new Set())
       } catch {
         if (c) setProducts([])
       } finally {
@@ -117,8 +124,13 @@ export default function Store() {
           <div className="grid grid-cols-2 gap-4">
             {filtered.map((p) => (
               <div key={p.id} className="overflow-hidden rounded-2xl border border-primary/10 bg-white shadow-sm dark:bg-card">
-                <Link to={`/product/${p.id}`} className="block aspect-square overflow-hidden">
+                <Link to={`/product/${p.id}`} className="relative block aspect-square overflow-hidden">
                   <img src={p.image_url || ''} alt="" className="h-full w-full object-cover" />
+                  {sponsoredProductIds.has(p.id) && (
+                    <span className="absolute bottom-2 start-2 rounded-full bg-white/90 px-2 py-0.5 text-[9px] font-extrabold text-[#9B2257] shadow dark:bg-black/70 dark:text-primary">
+                      مُموَّل
+                    </span>
+                  )}
                 </Link>
                 <div className="p-3">
                   <Link to={`/product/${p.id}`}>

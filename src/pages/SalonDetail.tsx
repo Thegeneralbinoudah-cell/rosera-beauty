@@ -19,6 +19,11 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { BusinessCard } from '@/components/business/BusinessCard'
 import { toast } from 'sonner'
 import { formatPrice } from '@/lib/utils'
+import { resolveBusinessCoverImage } from '@/lib/businessImages'
+import { openNativeMapsDirections } from '@/lib/openNativeMapsDirections'
+import { getGoogleMapsApiKey } from '@/lib/googleMapsEnv'
+import { useI18n } from '@/hooks/useI18n'
+import { fetchActiveBusinessBoostMeta, type BoostMeta } from '@/lib/boosts'
 
 const catAr: Record<string, string> = {
   salon: 'صالون نسائي 💇‍♀️',
@@ -30,6 +35,7 @@ const catAr: Record<string, string> = {
 export default function SalonDetail() {
   const { id } = useParams()
   const nav = useNavigate()
+  const { t } = useI18n()
   const { user } = useAuth()
   const [b, setB] = useState<Business | null>(null)
   const [services, setServices] = useState<Service[]>([])
@@ -39,12 +45,14 @@ export default function SalonDetail() {
   const [hoursOpen, setHoursOpen] = useState(false)
   const [fav, setFav] = useState(false)
   const [loading, setLoading] = useState(true)
+  const [salonBoost, setSalonBoost] = useState<BoostMeta | null>(null)
 
   useEffect(() => {
     if (!id) return
     let c = true
     async function load() {
       try {
+        setSalonBoost(null)
         const { data: biz, error: e1 } = await supabase.from('businesses').select('*').eq('id', id).single()
         if (e1) throw e1
         if (!c) return
@@ -55,6 +63,8 @@ export default function SalonDetail() {
           return
         }
         setB(row)
+        const bm = await fetchActiveBusinessBoostMeta([row.id])
+        if (c) setSalonBoost(bm.get(row.id) ?? null)
 
         const { data: svc } = await supabase
           .from('services')
@@ -138,7 +148,9 @@ export default function SalonDetail() {
     )
   }
 
-  const imgs = b.images?.length ? b.images : [b.cover_image || 'https://images.unsplash.com/photo-1560066984-138dadb4c035?w=800']
+  const primaryCover = resolveBusinessCoverImage(b)
+  const imgsRaw = (b.images ?? []).filter((x): x is string => typeof x === 'string' && x.trim().length > 0)
+  const imgs = imgsRaw.length > 0 ? imgsRaw : [primaryCover]
   const hours = b.opening_hours as Record<string, { open: string; close: string }> | undefined
   const ratingBreakdown = [5, 4, 3, 2, 1].map((star) => {
     const count = reviews.filter((r) => r.rating === star).length
@@ -191,6 +203,17 @@ export default function SalonDetail() {
             <Badge className="bg-gradient-to-l from-[#9C27B0]/15 to-[#E91E8C]/15 text-foreground">
               {b.category_label || catAr[b.category] || b.category}
             </Badge>
+            {salonBoost && (
+              <Badge
+                className={
+                  salonBoost.boost_type === 'featured'
+                    ? 'border-amber-400/60 bg-amber-400/20 text-amber-950'
+                    : 'border-primary/30 bg-primary/10 text-primary'
+                }
+              >
+                {salonBoost.boost_type === 'featured' ? 'Featured' : 'مُموَّل'}
+              </Badge>
+            )}
           </div>
           <div className="mt-4 flex items-start gap-2 text-rosera-gray">
             <MapPin className="mt-0.5 h-5 w-5 shrink-0 text-primary" />
@@ -268,24 +291,50 @@ export default function SalonDetail() {
           <section className="mt-8">
             <h2 className="text-lg font-bold">الموقع على الخريطة</h2>
             <div className="mt-3 h-52 overflow-hidden rounded-2xl border border-primary/15 shadow-lg ring-1 ring-black/5">
-              <iframe
-                title="خريطة الصالون"
-                width="100%"
-                height="100%"
-                className="min-h-[208px]"
-                style={{ border: 0 }}
-                loading="lazy"
-                src={`https://www.openstreetmap.org/export/embed.html?bbox=${b.longitude - 0.03}%2C${b.latitude - 0.03}%2C${b.longitude + 0.03}%2C${b.latitude + 0.03}&layer=mapnik&marker=${b.latitude}%2C${b.longitude}`}
-              />
+              {(() => {
+                const gKey = getGoogleMapsApiKey()
+                const lat = b.latitude!
+                const lng = b.longitude!
+                const q = encodeURIComponent(`${lat},${lng}`)
+                if (gKey) {
+                  return (
+                    <iframe
+                      title="خريطة الصالون"
+                      width="100%"
+                      height="100%"
+                      className="min-h-[208px]"
+                      style={{ border: 0 }}
+                      loading="lazy"
+                      allowFullScreen
+                      referrerPolicy="no-referrer-when-downgrade"
+                      src={`https://www.google.com/maps/embed/v1/place?key=${encodeURIComponent(gKey)}&q=${q}&zoom=15&maptype=roadmap`}
+                    />
+                  )
+                }
+                return (
+                  <div className="flex h-full min-h-[208px] flex-col items-center justify-center gap-3 bg-muted/40 px-4">
+                    <p className="text-center text-sm text-muted-foreground">معاينة الخريطة عبر Google</p>
+                    <Button asChild className="rounded-xl">
+                      <a
+                        href={`https://www.google.com/maps/search/?api=1&query=${q}`}
+                        target="_blank"
+                        rel="noreferrer"
+                      >
+                        فتح في خرائط Google
+                      </a>
+                    </Button>
+                  </div>
+                )
+              })()}
             </div>
-            <a
-              href={`https://www.google.com/maps/dir/?api=1&destination=${b.latitude},${b.longitude}`}
-              target="_blank"
-              rel="noreferrer"
-              className="mt-2 inline-block text-sm font-bold text-primary"
+            <Button
+              type="button"
+              variant="link"
+              className="mt-2 h-auto p-0 text-sm font-bold text-primary"
+              onClick={() => openNativeMapsDirections(b.latitude, b.longitude, b.name_ar ?? undefined)}
             >
-              اتجاهات ↗
-            </a>
+              {t('map.directions')} ↗
+            </Button>
           </section>
         )}
 

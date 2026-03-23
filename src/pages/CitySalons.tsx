@@ -1,27 +1,28 @@
 import { useEffect, useState } from 'react'
 import { Link, useParams, useSearchParams } from 'react-router-dom'
 import { ChevronLeft } from 'lucide-react'
-import { supabase, type Business } from '@/lib/supabase'
 import { BusinessCard } from '@/components/business/BusinessCard'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { toast } from 'sonner'
 import { useI18n } from '@/hooks/useI18n'
+import { usePreferences } from '@/contexts/PreferencesContext'
+import { useCitySalons } from '@/hooks/useCitySalons'
+import { fetchActiveBusinessBoostMeta, type BoostMeta } from '@/lib/boosts'
 
 const CITY_SORT_PREFS_KEY = 'rosera:city:sort'
 
 export default function CitySalons() {
   const { t } = useI18n()
+  const { lang } = usePreferences()
   const { cityId } = useParams()
   const [params, setParams] = useSearchParams()
   const storedSort = (() => {
     const x = localStorage.getItem(CITY_SORT_PREFS_KEY)
     return x === 'booked' ? 'booked' : 'rating'
   })()
-  const [cityName, setCityName] = useState('')
-  const [regionId, setRegionId] = useState<string | null>(null)
-  const [salons, setSalons] = useState<Business[]>([])
-  const [loading, setLoading] = useState(true)
+  const { cityName, regionId, salons, loading } = useCitySalons(cityId, lang)
+  const [salonBoostMeta, setSalonBoostMeta] = useState<Map<string, BoostMeta>>(new Map())
   const [sortBy, setSortBy] = useState<'rating' | 'booked'>(() =>
     params.get('sort') === 'booked' ? 'booked' : storedSort
   )
@@ -31,45 +32,8 @@ export default function CitySalons() {
     setSortBy('rating')
     localStorage.removeItem(CITY_SORT_PREFS_KEY)
     setParams(new URLSearchParams(), { replace: true })
-    toast.success('تمت إعادة الضبط')
+    toast.success(t('city.resetToast'))
   }
-
-  useEffect(() => {
-    if (!cityId) return
-    let c = true
-    async function load() {
-      setLoading(true)
-      try {
-        const { data: cityRow, error: e0 } = await supabase
-          .from('sa_cities')
-          .select('name_ar, region_id')
-          .eq('id', cityId)
-          .single()
-        if (e0) throw e0
-        if (!c) return
-        setCityName((cityRow as { name_ar: string; region_id: string }).name_ar)
-        setRegionId((cityRow as { region_id: string }).region_id)
-
-        const { data, error } = await supabase
-          .from('businesses')
-          .select('*')
-          .eq('city_id', cityId)
-          .eq('is_active', true)
-          .eq('is_demo', false)
-        if (error) throw error
-        if (!c) return
-        setSalons((data ?? []) as Business[])
-      } catch {
-        if (c) toast.error('تعذر تحميل الصالونات')
-      } finally {
-        if (c) setLoading(false)
-      }
-    }
-    void load()
-    return () => {
-      c = false
-    }
-  }, [cityId])
 
   useEffect(() => {
     const p = new URLSearchParams()
@@ -77,6 +41,20 @@ export default function CitySalons() {
     setParams(p, { replace: true })
     localStorage.setItem(CITY_SORT_PREFS_KEY, sortBy)
   }, [sortBy, setParams])
+
+  useEffect(() => {
+    if (!salons.length) {
+      setSalonBoostMeta(new Map())
+      return
+    }
+    let c = true
+    void fetchActiveBusinessBoostMeta(salons.map((s) => s.id)).then((m) => {
+      if (c) setSalonBoostMeta(m)
+    })
+    return () => {
+      c = false
+    }
+  }, [salons])
 
   return (
     <div className="min-h-dvh bg-rosera-light pb-28 dark:bg-rosera-dark">
@@ -147,9 +125,18 @@ export default function CitySalons() {
                   Number(b.total_reviews ?? 0) - Number(a.total_reviews ?? 0)
                 )
               })
-              .map((b) => (
-              <BusinessCard key={b.id} b={b} showFavorite />
-            ))}
+              .map((b) => {
+                const meta = salonBoostMeta.get(b.id)
+                return (
+              <BusinessCard
+                key={b.id}
+                b={b}
+                showFavorite
+                isSponsored={!!meta}
+                sponsorLabel={meta?.boost_type}
+              />
+                )
+              })}
           </div>
         )}
       </div>
