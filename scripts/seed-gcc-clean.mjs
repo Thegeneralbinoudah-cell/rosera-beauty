@@ -1,22 +1,15 @@
 #!/usr/bin/env node
 /**
- * Eastern Province (SA) — Google Places Text Search (Legacy API), women-oriented beauty / clinics.
- *
- * Primary pipeline: strict (photo + rating > 0). If a city yields < MIN_PER_CITY, runs fallback:
- *   (1) relaxed filter: rating >= 3.5, optional photo → placeholder cover
- *   (2) extra queries + doubled radius (min 20km)
- *
- * data_quality: high = photo + rating > 4; medium = fallback-only or strict with rating ≤ 4
+ * Saudi Arabia — Google Places Text Search + Nearby Search, women-oriented beauty / clinics.
+ * Geo-strict: text queries include city + region + country; address must mention KSA or the Arabic city.
+ * Coverage: text search (paginated) + nearby search on a 5-point grid per city (beauty_salon, spa, hair_care).
  *
  * Env: VITE_SUPABASE_URL | SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY,
  *      VITE_GOOGLE_MAPS_API_KEY | GOOGLE_MAPS_API_KEY
  *
- * DB: apply migration 050_businesses_data_quality.sql (column data_quality)
+ * DB: migration 050_businesses_data_quality.sql (data_quality)
  *
- * npm run seed:eastern-places
- *
- * Network: `safeFetch` retries (EHOSTUNREACH, 5xx, 429), exponential backoff with 2s floor,
- * 300ms spacing after each HTTP completion; failed pages log and yield partial results (no process exit).
+ * npm run seed:gcc-clean
  */
 
 import { createClient } from '@supabase/supabase-js'
@@ -28,43 +21,38 @@ import crypto from 'crypto'
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const root = join(__dirname, '..')
 
-const REGION_AR = 'المنطقة الشرقية'
-
-const MIN_PER_CITY = 20
-const MAX_PER_CITY = 40
+/** Target minimum strict rows before skipping relaxed merge; upsert cap. */
+const MIN_PER_CITY = 40
+const MAX_PER_CITY = 80
 
 const FALLBACK_MIN_RATING = 3.5
 const HIGH_MIN_RATING = 4
 
-/** Expanded radius: at least 20km, double base, cap 50km (Places text search limit). */
+const LOCATION_RADIUS_M = 20000
+
 const RADIUS_EXPAND_MIN_M = 20000
 const RADIUS_EXPAND_MAX_M = 50000
 const RADIUS_EXPAND_FACTOR = 2
 
-const PAGES_PER_QUERY = 3
-const SLEEP_PAGE_MS = 2300
+/** Google requires a short delay before pagetoken is valid; spec: 2s between pages. */
+const NEXT_PAGE_TOKEN_DELAY_MS = 2000
+const MAX_PAGES_PER_QUERY = 3
+
 const SLEEP_QUERY_MS = 280
 
-/** Google HTTP: at most this many attempts per URL (initial try + retries). */
 const FETCH_MAX_ATTEMPTS = 3
-/** Minimum wait before retry; combined with exponential component below. */
 const FETCH_MIN_RETRY_DELAY_MS = 2000
-/** Applied after every completed fetch (success or terminal failure). */
 const GLOBAL_API_DELAY_MS = 300
 
-/**
- * @param {number} failedAttemptNumber 1-based index of the attempt that just failed
- */
+/** Grid offset from city center (degrees). */
+const GRID_LAT_LNG_DELTA = 0.05
+
+const NEARBY_PLACE_TYPES = ['beauty_salon', 'spa', 'hair_care']
+
 function retryWaitMs(failedAttemptNumber) {
   return Math.max(FETCH_MIN_RETRY_DELAY_MS, 1000 * failedAttemptNumber)
 }
 
-/**
- * Resilient fetch: retries on network errors, 5xx, and 429. Does not throw on exhaustion.
- * @param {string} url
- * @param {RequestInit} [init]
- * @returns {Promise<Response | null>}
- */
 async function safeFetch(url, init) {
   let lastError = null
 
@@ -120,7 +108,6 @@ async function safeFetch(url, init) {
   return null
 }
 
-/** When no Google photo (relaxed pipeline). */
 const PLACEHOLDER_COVER =
   'https://images.unsplash.com/photo-1560066984-138dadb4c035?auto=format&fit=crop&w=1200&q=80'
 
@@ -136,152 +123,113 @@ const CATEGORY_LABEL_AR = {
   clinics: 'عيادة / عناية طبية',
 }
 
-const EASTERN_CITIES = [
-  {
-    displayCity: 'الدمام',
-    searchQueries: ['الدمام'],
-    centers: [
-      { lat: 26.4207, lng: 50.0888, radius: 10000 },
-      { lat: 26.392, lng: 50.064, radius: 9000 },
-      { lat: 26.448, lng: 50.132, radius: 8500 },
-      { lat: 26.36, lng: 50.15, radius: 11000 },
-    ],
-  },
-  {
-    displayCity: 'الخبر',
-    searchQueries: ['الخبر'],
-    centers: [
-      { lat: 26.2794, lng: 50.208, radius: 9500 },
-      { lat: 26.298, lng: 50.218, radius: 8000 },
-      { lat: 26.255, lng: 50.192, radius: 10000 },
-      { lat: 26.31, lng: 50.165, radius: 9000 },
-    ],
-  },
-  {
-    displayCity: 'الظهران',
-    searchQueries: ['الظهران'],
-    centers: [
-      { lat: 26.2928, lng: 50.1136, radius: 8000 },
-      { lat: 26.276, lng: 50.096, radius: 7000 },
-      { lat: 26.308, lng: 50.128, radius: 9000 },
-    ],
-  },
-  {
-    displayCity: 'الأحساء',
-    searchQueries: ['الأحساء', 'الهفوف', 'المبرز'],
-    centers: [
-      { lat: 25.3647, lng: 49.5653, radius: 12000 },
-      { lat: 25.421, lng: 49.59, radius: 10000 },
-      { lat: 25.33, lng: 49.52, radius: 11000 },
-      { lat: 25.45, lng: 49.62, radius: 9000 },
-    ],
-  },
-  {
-    displayCity: 'الجبيل',
-    searchQueries: ['الجبيل'],
-    centers: [
-      { lat: 27.0193, lng: 49.6378, radius: 11000 },
-      { lat: 26.99, lng: 49.66, radius: 9000 },
-      { lat: 27.05, lng: 49.58, radius: 10000 },
-    ],
-  },
-  {
-    displayCity: 'القطيف',
-    searchQueries: ['القطيف'],
-    centers: [
-      { lat: 26.5196, lng: 50.0115, radius: 10000 },
-      { lat: 26.54, lng: 49.98, radius: 8500 },
-      { lat: 26.5, lng: 50.04, radius: 9000 },
-    ],
-  },
-  {
-    displayCity: 'سيهات',
-    searchQueries: ['سيهات'],
-    centers: [
-      { lat: 26.6867, lng: 49.9967, radius: 11000 },
-      { lat: 26.66, lng: 49.97, radius: 9500 },
-      { lat: 26.71, lng: 50.02, radius: 10000 },
-    ],
-  },
-  {
-    displayCity: 'حفر الباطن',
-    searchQueries: ['حفر الباطن'],
-    centers: [
-      { lat: 28.4335, lng: 45.9601, radius: 12000 },
-      { lat: 28.4, lng: 45.92, radius: 10000 },
-      { lat: 28.47, lng: 46.02, radius: 10000 },
-    ],
-  },
-  {
-    displayCity: 'الخفجي',
-    searchQueries: ['الخفجي'],
-    centers: [
-      { lat: 28.4392, lng: 48.4913, radius: 11000 },
-      { lat: 28.41, lng: 48.52, radius: 9000 },
-      { lat: 28.47, lng: 48.45, radius: 10000 },
-    ],
-  },
-  {
-    displayCity: 'رأس تنورة',
-    searchQueries: ['رأس تنورة'],
-    centers: [
-      { lat: 26.7062, lng: 50.0614, radius: 10000 },
-      { lat: 26.68, lng: 50.09, radius: 9000 },
-      { lat: 26.73, lng: 50.02, radius: 11000 },
-    ],
-  },
-  {
-    displayCity: 'بقيق',
-    searchQueries: ['بقيق'],
-    centers: [
-      { lat: 25.9334, lng: 49.6686, radius: 12000 },
-      { lat: 25.9, lng: 49.64, radius: 10000 },
-      { lat: 25.97, lng: 49.71, radius: 10000 },
-    ],
-  },
-  {
-    displayCity: 'النعيرية',
-    searchQueries: ['النعيرية'],
-    centers: [
-      { lat: 27.4695, lng: 48.4884, radius: 12000 },
-      { lat: 27.44, lng: 48.45, radius: 10000 },
-      { lat: 27.5, lng: 48.52, radius: 10000 },
-    ],
-  },
-  {
-    displayCity: 'قرية العليا',
-    searchQueries: ['قرية العليا'],
-    centers: [
-      { lat: 27.5114, lng: 48.5234, radius: 12000 },
-      { lat: 27.48, lng: 48.5, radius: 10000 },
-      { lat: 27.54, lng: 48.56, radius: 10000 },
-    ],
-  },
+const REGION_AR_MAP = {
+  'Eastern Province': 'المنطقة الشرقية',
+  Riyadh: 'منطقة الرياض',
+  Makkah: 'منطقة مكة المكرمة',
+  Madinah: 'منطقة المدينة المنورة',
+  Tabuk: 'منطقة تبوك',
+  Qassim: 'منطقة القصيم',
+  Asir: 'منطقة عسير',
+  Hail: 'منطقة حائل',
+  Najran: 'منطقة نجران',
+}
+
+function regionArFor(city) {
+  return REGION_AR_MAP[city.region] ?? city.region
+}
+
+/**
+ * @typedef {{ name: string, country: string, region: string, lat: number, lng: number }} CityRow
+ */
+
+/** @type {CityRow[]} */
+const cities = [
+  { name: 'الدمام', country: 'Saudi Arabia', region: 'Eastern Province', lat: 26.4207, lng: 50.0888 },
+  { name: 'الخبر', country: 'Saudi Arabia', region: 'Eastern Province', lat: 26.2794, lng: 50.208 },
+  { name: 'الظهران', country: 'Saudi Arabia', region: 'Eastern Province', lat: 26.2928, lng: 50.1136 },
+  { name: 'الهفوف', country: 'Saudi Arabia', region: 'Eastern Province', lat: 25.3833, lng: 49.5877 },
+  { name: 'المبرز', country: 'Saudi Arabia', region: 'Eastern Province', lat: 25.4075, lng: 49.5903 },
+  { name: 'الجبيل', country: 'Saudi Arabia', region: 'Eastern Province', lat: 27.0193, lng: 49.6378 },
+  { name: 'القطيف', country: 'Saudi Arabia', region: 'Eastern Province', lat: 26.5196, lng: 50.0115 },
+  { name: 'سيهات', country: 'Saudi Arabia', region: 'Eastern Province', lat: 26.6867, lng: 49.9967 },
+  { name: 'تاروت', country: 'Saudi Arabia', region: 'Eastern Province', lat: 26.5739, lng: 50.0045 },
+  { name: 'صفوى', country: 'Saudi Arabia', region: 'Eastern Province', lat: 25.8072, lng: 49.6653 },
+  { name: 'عنك', country: 'Saudi Arabia', region: 'Eastern Province', lat: 26.0917, lng: 49.985 },
+  { name: 'حفر الباطن', country: 'Saudi Arabia', region: 'Eastern Province', lat: 28.4335, lng: 45.9601 },
+  { name: 'الخفجي', country: 'Saudi Arabia', region: 'Eastern Province', lat: 28.4392, lng: 48.4913 },
+  { name: 'بقيق', country: 'Saudi Arabia', region: 'Eastern Province', lat: 25.9334, lng: 49.6686 },
+  { name: 'رأس تنورة', country: 'Saudi Arabia', region: 'Eastern Province', lat: 26.7062, lng: 50.0614 },
+  { name: 'النعيرية', country: 'Saudi Arabia', region: 'Eastern Province', lat: 27.4695, lng: 48.4884 },
+  { name: 'قرية العليا', country: 'Saudi Arabia', region: 'Eastern Province', lat: 27.5114, lng: 48.5234 },
+  { name: 'سلوى', country: 'Saudi Arabia', region: 'Eastern Province', lat: 24.727, lng: 50.8055 },
+  { name: 'القيصومة', country: 'Saudi Arabia', region: 'Eastern Province', lat: 28.3092, lng: 46.1269 },
+
+  { name: 'الرياض', country: 'Saudi Arabia', region: 'Riyadh', lat: 24.7136, lng: 46.6753 },
+  { name: 'جدة', country: 'Saudi Arabia', region: 'Makkah', lat: 21.4858, lng: 39.1925 },
+  { name: 'مكة', country: 'Saudi Arabia', region: 'Makkah', lat: 21.3891, lng: 39.8579 },
+  { name: 'المدينة', country: 'Saudi Arabia', region: 'Madinah', lat: 24.5247, lng: 39.5692 },
+  { name: 'الطائف', country: 'Saudi Arabia', region: 'Makkah', lat: 21.2703, lng: 40.4158 },
+  { name: 'تبوك', country: 'Saudi Arabia', region: 'Tabuk', lat: 28.3838, lng: 36.555 },
+  { name: 'بريدة', country: 'Saudi Arabia', region: 'Qassim', lat: 26.326, lng: 43.9749 },
+  { name: 'خميس مشيط', country: 'Saudi Arabia', region: 'Asir', lat: 18.3, lng: 42.7333 },
+  { name: 'حائل', country: 'Saudi Arabia', region: 'Hail', lat: 27.5114, lng: 41.7208 },
+  { name: 'نجران', country: 'Saudi Arabia', region: 'Najran', lat: 17.565, lng: 44.2289 },
+  { name: 'أبها', country: 'Saudi Arabia', region: 'Asir', lat: 18.2164, lng: 42.5053 },
+  { name: 'ينبع', country: 'Saudi Arabia', region: 'Madinah', lat: 24.0892, lng: 38.0618 },
 ]
 
-const QUERY_TEMPLATES = (cityToken) => [
-  `صالون نسائي ${cityToken}`,
-  `سبا نسائي ${cityToken}`,
-  `مشغل نسائي ${cityToken}`,
-  `مركز تجميل نسائي ${cityToken}`,
-  `عيادة ليزر ${cityToken}`,
-  `عيادة جلدية ${cityToken}`,
-  `مركز تجميل ${cityToken}`,
+const SEARCH_TERM_BASES = [
+  'صالون نسائي',
+  'سبا نسائي',
+  'مشغل نسائي',
+  'مركز تجميل نسائي',
+  'عيادة ليزر',
+  'عيادة جلدية',
+  'مركز تجميل',
 ]
 
-const FALLBACK_QUERY_TEMPLATES = (cityToken) => [
-  `مركز عناية بالبشرة ${cityToken}`,
-  `عيادة نسائية ${cityToken}`,
-  `spa ${cityToken}`,
-  `beauty salon ${cityToken}`,
+const FALLBACK_SEARCH_BASES = [
+  'مركز عناية بالبشرة',
+  'عيادة نسائية',
+  'spa',
+  'beauty salon',
 ]
 
-function expandCentersRadius(centers) {
-  return centers.map((c) => ({
-    lat: c.lat,
-    lng: c.lng,
-    radius: Math.min(RADIUS_EXPAND_MAX_M, Math.max(RADIUS_EXPAND_MIN_M, c.radius * RADIUS_EXPAND_FACTOR)),
-  }))
+function buildGeoStrictQuery(searchTerm, city) {
+  return `${searchTerm} ${city.name} ${city.region} ${city.country}`
+}
+
+function primaryQueriesForCity(city) {
+  return SEARCH_TERM_BASES.map((t) => buildGeoStrictQuery(t, city))
+}
+
+function fallbackQueriesForCity(city) {
+  return FALLBACK_SEARCH_BASES.map((t) => buildGeoStrictQuery(t, city))
+}
+
+function radiusForCity(expanded) {
+  return expanded
+    ? Math.min(RADIUS_EXPAND_MAX_M, Math.max(RADIUS_EXPAND_MIN_M, LOCATION_RADIUS_M * RADIUS_EXPAND_FACTOR))
+    : LOCATION_RADIUS_M
+}
+
+function centersForCity(city, expanded) {
+  const radius = radiusForCity(expanded)
+  return [{ lat: city.lat, lng: city.lng, radius }]
+}
+
+/** Five geo points: center, north, south, east, west. */
+function geoGridPoints(city) {
+  const { lat, lng } = city
+  const d = GRID_LAT_LNG_DELTA
+  return [
+    { lat, lng },
+    { lat: lat + d, lng },
+    { lat: lat - d, lng },
+    { lat, lng: lng + d },
+    { lat, lng: lng - d },
+  ]
 }
 
 function loadDotEnv() {
@@ -312,6 +260,30 @@ function loadDotEnv() {
 loadDotEnv()
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
+
+function passesGeoStrictAddress(formattedAddress, cityNameAr) {
+  const addr = (formattedAddress || '').trim()
+  if (!addr) return false
+
+  const low = addr.toLowerCase()
+  const hasSaudi =
+    /السعودية|المملكة\s*العربية\s*السعودية|kingdom\s+of\s+saudi|saudi\s+arabia|\bksa\b/i.test(addr)
+  const hasCity = addr.includes(cityNameAr)
+
+  if (!hasSaudi && !hasCity) return false
+
+  const foreignHint =
+    /\b(uae|dubai|abu\s*dhabi|sharjah|ajman|qatar|doha|kuwait|bahrain|manama|oman|muscat)\b/i.test(low)
+  const saudiHint = /السعودية|saudi|ksa|kingdom\s+of\s+saudi/i.test(low)
+  if (foreignHint && !saudiHint && !hasCity) return false
+
+  return true
+}
+
+function inSaudiArabiaBounds(lat, lng) {
+  if (typeof lat !== 'number' || typeof lng !== 'number') return false
+  return lat >= 16 && lat <= 33 && lng >= 34 && lng <= 56
+}
 
 function strictReject(name, address) {
   const ar = `${name || ''} ${address || ''}`
@@ -359,14 +331,12 @@ function ratingNum(r) {
   return typeof r.rating === 'number' && Number.isFinite(r.rating) ? r.rating : null
 }
 
-/** Strict tier: photo + any positive rating (primary pipeline). */
 function passesStrictPipeline(r) {
   const rt = ratingNum(r)
   if (rt === null || rt <= 0) return false
   return hasPhotoRef(r)
 }
 
-/** Relaxed tier (fallback): rating >= 3.5, photo optional. */
 function passesRelaxedPipeline(r) {
   const rt = ratingNum(r)
   return rt !== null && rt >= FALLBACK_MIN_RATING
@@ -430,17 +400,6 @@ function photoUrl(apiKey, photoReference) {
   return `https://maps.googleapis.com/maps/api/place/photo?maxwidth=800&photoreference=${ref}&key=${encodeURIComponent(apiKey)}`
 }
 
-function inEasternProvince(lat, lng) {
-  if (typeof lat !== 'number' || typeof lng !== 'number') return false
-  return lat >= 21 && lat <= 32 && lng >= 43 && lng <= 56
-}
-
-function looksSaudiAddress(addr) {
-  if (!addr) return true
-  const a = addr.toLowerCase()
-  return /السعودية|saudi|ksa|eastern\s*province|الشرقية/i.test(a) || !/uae|dubai|kuwait|bahrain|qatar|oman/i.test(a)
-}
-
 async function textSearchPages(apiKey, query, center, maxPages) {
   const out = []
   let nextPageToken = null
@@ -464,7 +423,7 @@ async function textSearchPages(apiKey, query, center, maxPages) {
     const url = `https://maps.googleapis.com/maps/api/place/textsearch/json?${params.toString()}`
     const res = await safeFetch(url)
     if (!res) {
-      console.warn('[textsearch] no response after retries', query.slice(0, 48))
+      console.warn('[textsearch] no response after retries', query.slice(0, 64))
       break
     }
 
@@ -472,50 +431,120 @@ async function textSearchPages(apiKey, query, center, maxPages) {
     try {
       data = await res.json()
     } catch (err) {
-      console.warn('[textsearch] JSON parse failed', query.slice(0, 48), err instanceof Error ? err.message : err)
+      console.warn('[textsearch] JSON parse failed', query.slice(0, 64), err instanceof Error ? err.message : err)
       break
     }
 
     if (data.status === 'INVALID_REQUEST' && nextPageToken) {
-      await sleep(SLEEP_PAGE_MS)
+      await sleep(NEXT_PAGE_TOKEN_DELAY_MS)
       continue
     }
 
     if (data.status !== 'OK' && data.status !== 'ZERO_RESULTS') {
-      console.warn('[textsearch]', query.slice(0, 48), data.status, data.error_message || '')
+      console.warn('[textsearch]', query.slice(0, 64), data.status, data.error_message || '')
       break
     }
 
     out.push(...(data.results || []))
     nextPageToken = data.next_page_token
     if (!nextPageToken) break
-    await sleep(SLEEP_PAGE_MS)
+    await sleep(NEXT_PAGE_TOKEN_DELAY_MS)
   }
 
   return out
 }
 
 /**
- * @param {{ expanded: boolean, includeFallbackQueries: boolean }} opts
+ * Nearby Search (legacy): same pagination rules as text search (2s before pagetoken).
  */
-async function fetchCityRaw(apiKey, cityCfg, opts) {
-  const { searchQueries, centers } = cityCfg
-  const centersUse = opts.expanded ? expandCentersRadius(centers) : centers
-  const raw = []
+async function nearbySearchPages(apiKey, lat, lng, radiusM, placeType, maxPages) {
+  const out = []
+  let nextPageToken = null
 
-  const queriesForToken = (token) => {
-    const list = [...QUERY_TEMPLATES(token)]
-    if (opts.includeFallbackQueries) list.push(...FALLBACK_QUERY_TEMPLATES(token))
-    return list
+  for (let page = 0; page < maxPages; page++) {
+    const params = new URLSearchParams()
+    params.set('key', apiKey)
+
+    if (nextPageToken) {
+      params.set('pagetoken', nextPageToken)
+    } else {
+      params.set('location', `${lat},${lng}`)
+      params.set('radius', String(radiusM))
+      params.set('type', placeType)
+      params.set('language', 'ar')
+    }
+
+    const url = `https://maps.googleapis.com/maps/api/place/nearbysearch/json?${params.toString()}`
+    const res = await safeFetch(url)
+    if (!res) {
+      console.warn('[nearby] no response after retries', placeType, lat.toFixed(4), lng.toFixed(4))
+      break
+    }
+
+    let data
+    try {
+      data = await res.json()
+    } catch (err) {
+      console.warn('[nearby] JSON parse failed', placeType, err instanceof Error ? err.message : err)
+      break
+    }
+
+    if (data.status === 'INVALID_REQUEST' && nextPageToken) {
+      await sleep(NEXT_PAGE_TOKEN_DELAY_MS)
+      continue
+    }
+
+    if (data.status !== 'OK' && data.status !== 'ZERO_RESULTS') {
+      console.warn('[nearby]', placeType, data.status, data.error_message || '')
+      break
+    }
+
+    out.push(...(data.results || []))
+    nextPageToken = data.next_page_token
+    if (!nextPageToken) break
+    await sleep(NEXT_PAGE_TOKEN_DELAY_MS)
   }
 
+  return out
+}
+
+async function fetchCityNearbyGridRaw(apiKey, city, expanded) {
+  const raw = []
+  const radiusM = radiusForCity(expanded)
+  const points = geoGridPoints(city)
+
+  for (const p of points) {
+    for (const placeType of NEARBY_PLACE_TYPES) {
+      const chunk = await nearbySearchPages(apiKey, p.lat, p.lng, radiusM, placeType, MAX_PAGES_PER_QUERY)
+      raw.push(...chunk)
+      await sleep(SLEEP_QUERY_MS)
+    }
+  }
+  return raw
+}
+
+/**
+ * Text search (center bias) + nearby grid; merged downstream by place_id.
+ * @param {{ expanded: boolean, includeFallbackQueries: boolean }} opts
+ */
+async function fetchCityRaw(apiKey, city, opts) {
+  const textRaw = await fetchCityTextSearchRaw(apiKey, city, opts.expanded, opts.includeFallbackQueries)
+  const nearbyRaw = await fetchCityNearbyGridRaw(apiKey, city, opts.expanded)
+  return { textRaw, nearbyRaw, merged: [...textRaw, ...nearbyRaw] }
+}
+
+async function fetchCityTextSearchRaw(apiKey, city, expanded, includeFallback) {
+  const raw = []
+  const centersUse = centersForCity(city, expanded)
+
   for (const center of centersUse) {
-    for (const token of searchQueries) {
-      for (const q of queriesForToken(token)) {
-        const chunk = await textSearchPages(apiKey, q, center, PAGES_PER_QUERY)
-        raw.push(...chunk)
-        await sleep(SLEEP_QUERY_MS)
-      }
+    const queries = [...primaryQueriesForCity(city)]
+    if (includeFallback) queries.push(...fallbackQueriesForCity(city))
+
+    for (const q of queries) {
+      const chunk = await textSearchPages(apiKey, q, center, MAX_PAGES_PER_QUERY)
+      raw.push(...chunk)
+      await sleep(SLEEP_QUERY_MS)
     }
   }
   return raw
@@ -530,23 +559,23 @@ function mergeIntoById(byId, raw) {
   }
 }
 
-function filterBase(r) {
+function filterBase(r, city) {
   const name = (r.name || '').trim()
   const addr = r.formatted_address || ''
   const types = r.types || []
   const lat = r.geometry?.location?.lat
   const lng = r.geometry?.location?.lng
   if (!name || typeof lat !== 'number' || typeof lng !== 'number') return null
-  if (!inEasternProvince(lat, lng)) return null
-  if (!looksSaudiAddress(addr)) return null
+  if (!inSaudiArabiaBounds(lat, lng)) return null
+  if (!passesGeoStrictAddress(addr, city.name)) return null
   if (!passesWomenOnlyFilter(name, addr, types)) return null
   return { name, addr, types, lat, lng }
 }
 
-function collectStrictCandidates(byId) {
+function collectStrictCandidates(byId, city) {
   const out = []
   for (const r of byId.values()) {
-    if (!filterBase(r)) continue
+    if (!filterBase(r, city)) continue
     if (!passesStrictPipeline(r)) continue
     out.push(r)
   }
@@ -554,12 +583,12 @@ function collectStrictCandidates(byId) {
   return out
 }
 
-function collectRelaxedOnlyCandidates(byId, strictIds) {
+function collectRelaxedOnlyCandidates(byId, strictIds, city) {
   const out = []
   for (const r of byId.values()) {
     const pid = r.place_id
     if (!pid || strictIds.has(pid)) continue
-    if (!filterBase(r)) continue
+    if (!filterBase(r, city)) continue
     if (!passesRelaxedPipeline(r)) continue
     out.push(r)
   }
@@ -567,10 +596,6 @@ function collectRelaxedOnlyCandidates(byId, strictIds) {
   return out
 }
 
-/**
- * high: strict-eligible + photo + rating > 4
- * medium: fallback-only OR strict with rating <= 4
- */
 function dataQualityFor(r, strictEligible) {
   if (!strictEligible) return 'medium'
   const rt = ratingNum(r)
@@ -621,50 +646,61 @@ async function main() {
   let totalSkippedDedupeRun = 0
   let citiesUsedFallback = 0
 
-  for (const cityCfg of EASTERN_CITIES) {
-    const { displayCity, searchQueries, centers } = cityCfg
+  for (const city of cities) {
+    const displayCity = city.name
+    const regionAr = regionArFor(city)
     const cityId = await resolveCityId(supabase, displayCity)
 
     const byId = new Map()
-    const rawPrimary = await fetchCityRaw(apiKey, cityCfg, { expanded: false, includeFallbackQueries: false })
-    mergeIntoById(byId, rawPrimary)
 
-    let strictList = collectStrictCandidates(byId)
+    const primaryBundle = await fetchCityRaw(apiKey, city, { expanded: false, includeFallbackQueries: false })
+    mergeIntoById(byId, primaryBundle.merged)
+
+    let strictList = collectStrictCandidates(byId, city)
     let usedFallback = false
-    let rawFallbackCount = 0
+    let fallbackBundle = { textRaw: [], nearbyRaw: [], merged: [] }
 
     if (strictList.length < MIN_PER_CITY) {
       usedFallback = true
       citiesUsedFallback += 1
-      console.log(`  ↳ fallback: relaxed filter + extra queries + radius ≥ ${RADIUS_EXPAND_MIN_M / 1000}km`)
-      const rawFb = await fetchCityRaw(apiKey, cityCfg, { expanded: true, includeFallbackQueries: true })
-      rawFallbackCount = rawFb.length
-      mergeIntoById(byId, rawFb)
-      strictList = collectStrictCandidates(byId)
+      console.log(`  ↳ fallback: relaxed filter + extra text queries + larger radius (text + nearby grid)`)
+      fallbackBundle = await fetchCityRaw(apiKey, city, { expanded: true, includeFallbackQueries: true })
+      mergeIntoById(byId, fallbackBundle.merged)
+      strictList = collectStrictCandidates(byId, city)
     }
 
     const strictIds = new Set(strictList.map((r) => r.place_id))
-    /** Enough strict rows → keep primary pipeline only (all high/medium per rating rule, no relaxed-only padding). */
     let finalItems
     let relaxedList = []
     if (strictList.length >= MIN_PER_CITY) {
       finalItems = strictList.slice(0, MAX_PER_CITY).map((r) => ({ r, strictEligible: true }))
     } else {
-      relaxedList = collectRelaxedOnlyCandidates(byId, strictIds)
+      relaxedList = collectRelaxedOnlyCandidates(byId, strictIds, city)
       finalItems = buildFinalList(strictList, relaxedList)
     }
 
-    console.log(`City: ${displayCity}`)
-    console.log(`  Primary raw rows: ${rawPrimary.length}`)
-    if (usedFallback) console.log(`  Fallback raw rows: ${rawFallbackCount} (merged into same pool)`)
-    console.log(`  Unique place_id (merged): ${byId.size}`)
-    console.log(`  Strict candidates (photo + rating>0): ${strictList.length}`)
-    if (relaxedList.length > 0) {
-      console.log(`  Relaxed-only (rating≥${FALLBACK_MIN_RATING}, no photo OK): ${relaxedList.length}`)
+    const textRowsPrimary = primaryBundle.textRaw.length
+    const nearbyRowsPrimary = primaryBundle.nearbyRaw.length
+    const textRowsFb = fallbackBundle.textRaw.length
+    const nearbyRowsFb = fallbackBundle.nearbyRaw.length
+
+    console.log(`City: ${displayCity} (${city.region}, ${city.country})`)
+    const sampleQ = buildGeoStrictQuery('صالون نسائي', city)
+    console.log(`  Sample text query: ${sampleQ.length > 100 ? `${sampleQ.slice(0, 100)}…` : sampleQ}`)
+    console.log(
+      `  Raw rows (pre-dedupe): text ${textRowsPrimary + textRowsFb} + nearby ${nearbyRowsPrimary + nearbyRowsFb} = ${textRowsPrimary + textRowsFb + nearbyRowsPrimary + nearbyRowsFb}`
+    )
+    if (usedFallback) {
+      console.log(`    (primary text ${textRowsPrimary}, nearby ${nearbyRowsPrimary}; fallback text ${textRowsFb}, nearby ${nearbyRowsFb})`)
     }
-    console.log(`  Final capped: ${finalItems.length} (max ${MAX_PER_CITY}, target ${MIN_PER_CITY}–${MAX_PER_CITY})`)
+    console.log(`  Unique place_id (merged): ${byId.size}`)
+    console.log(`  Strict (photo + rating>0 + geo + women): ${strictList.length}`)
+    if (relaxedList.length > 0) {
+      console.log(`  Relaxed-only (rating≥${FALLBACK_MIN_RATING}): ${relaxedList.length}`)
+    }
+    console.log(`  Final upsert cap: ${finalItems.length} (max ${MAX_PER_CITY}, target ${MIN_PER_CITY}–${MAX_PER_CITY})`)
     if (finalItems.length < MIN_PER_CITY) {
-      console.log(`  ⚠ Still below ${MIN_PER_CITY} after fallback — quota or sparse coverage.`)
+      console.log(`  ⚠ Below ${MIN_PER_CITY} after fallback.`)
     }
 
     let ins = 0
@@ -674,7 +710,7 @@ async function main() {
 
     for (const { r, strictEligible } of finalItems) {
       const name = (r.name || '').trim()
-      const addr = r.formatted_address || 'المنطقة الشرقية، السعودية'
+      const addr = r.formatted_address || `${displayCity}، المملكة العربية السعودية`
       const lat = r.geometry.location.lat
       const lng = r.geometry.location.lng
       const pid = r.place_id
@@ -695,11 +731,11 @@ async function main() {
         name_ar: name,
         name_en: name,
         description_ar:
-          'منشأة فعلية من Google Maps (المنطقة الشرقية). راجعي المواعيد والخدمات مباشرة مع الصالون — روزيرا.',
+          'منشأة فعلية من Google Maps (المملكة العربية السعودية). راجعي المواعيد والخدمات مباشرة مع المنشأة — روزيرا.',
         category: cat,
         category_label: `${CATEGORY_LABEL_AR[cat] || cat} (Google)`,
         city: displayCity,
-        region: REGION_AR,
+        region: regionAr,
         city_id: cityId,
         address_ar: addr,
         latitude: lat,
@@ -771,7 +807,7 @@ async function main() {
   }
 
   console.log(
-    `[seed:eastern] Done. inserts: ${totalInserted}, updates: ${totalUpdated}, skipped (other city): ${totalSkippedCrossCity}, skipped (dedupe run): ${totalSkippedDedupeRun}, cities using fallback: ${citiesUsedFallback}/${EASTERN_CITIES.length}`
+    `[seed:gcc-clean] Done. inserts: ${totalInserted}, updates: ${totalUpdated}, skipped (other city): ${totalSkippedCrossCity}, skipped (dedupe run): ${totalSkippedDedupeRun}, cities using fallback: ${citiesUsedFallback}/${cities.length}`
   )
 }
 

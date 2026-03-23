@@ -49,6 +49,7 @@ import Home from '@/pages/Home'
 import MapPage from '@/pages/MapPage'
 import TopSalons from '@/pages/TopSalons'
 import RecommendedSalons from '@/pages/RecommendedSalons'
+import SalonOnboarding from '@/pages/onboarding/SalonOnboarding'
 
 const SalonDetail = lazy(() => import('@/pages/SalonDetail'))
 const AdminLayout = lazy(() => import('@/pages/admin/AdminLayout'))
@@ -88,6 +89,7 @@ export default function App() {
       <Route path="/forgot-password" element={<ForgotPassword />} />
       <Route path="/reset-password" element={<ResetPassword />} />
       <Route path="/payment/callback" element={<PaymentCallback />} />
+      <Route path="/onboarding/salon" element={<SalonOnboarding />} />
 
       <Route element={<CustomerLayout />}>
         <Route path="/home" element={<Home />} />

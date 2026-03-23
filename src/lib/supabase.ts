@@ -129,6 +129,8 @@ export type Business = {
   google_place_id?: string | null
   /** أول صورة من Places — يُبنى رابطها في العميل بمفتاح الخرائط */
   google_photo_resource?: string | null
+  /** Google seed: high = photo + rating > 4; medium = fallback / relaxed pipeline */
+  data_quality?: 'high' | 'medium' | null
   created_at?: string
   sa_cities?: {
     name_ar: string
