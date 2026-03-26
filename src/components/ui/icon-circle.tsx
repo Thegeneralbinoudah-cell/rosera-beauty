@@ -3,8 +3,8 @@ import { cn } from '@/lib/utils'
 
 const sizeClass = {
   sm: 'h-10 w-10 [&_svg]:size-5',
-  md: 'h-12 w-12 [&_svg]:size-6',
-  lg: 'h-14 w-14 [&_svg]:size-7',
+  md: 'h-12 w-12 [&_svg]:size-5',
+  lg: 'h-14 w-14 [&_svg]:size-6',
 } as const
 
 export type IconCircleProps = {

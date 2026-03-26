@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button'
 import { toast } from 'sonner'
 import { useI18n } from '@/hooks/useI18n'
 import { consumePostAuthPath } from '@/lib/salonAcquisition'
+import { isPrivilegedStaffClient } from '@/lib/privilegedStaff'
 import PreferencesToggle from '@/components/PreferencesToggle'
 
 const DIGITS = 6
@@ -80,8 +81,12 @@ export default function VerifyOtp() {
       if (uid && target === 'admin') {
         const { data: adm } = await supabase.from('admins').select('id').eq('user_id', uid).maybeSingle()
         const { data: profAdm } = await supabase.from('profiles').select('role, email').eq('id', uid).single()
-        const p = profAdm as { role?: string; email?: string } | null
-        if (adm || p?.role === 'admin' || p?.email === 'admin@rosera.com') {
+        if (
+          isPrivilegedStaffClient({
+            isAdminFromAdminsTable: !!adm,
+            profile: profAdm as { role?: string; email?: string } | null,
+          })
+        ) {
           nav('/admin', { replace: true })
         } else {
           toast.error('ليس لديك صلاحية مسؤول')

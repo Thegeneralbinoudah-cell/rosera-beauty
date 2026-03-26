@@ -111,7 +111,7 @@ export default function Favorites() {
               onClick={() => remove(b.id)}
               aria-label="إزالة"
             >
-              <Heart className="h-6 w-6 fill-accent text-accent" />
+              <Heart className="h-6 w-6 fill-gold text-gold" />
             </button>
           </div>
         ))}

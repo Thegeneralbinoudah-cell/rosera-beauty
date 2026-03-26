@@ -1,3 +1,15 @@
+/** بطاقة منتج من متجر روزيرا (من Edge) */
+export type RozyProductCard = {
+  id: string
+  name_ar: string
+  price: number
+  /** سطر قصير من الوصف أو فائدة */
+  benefit: string
+  image_url: string | null
+  brand_ar?: string | null
+  category?: string | null
+}
+
 /** بيانات بطاقة صالون في محادثة روزي (من Edge أو التخزين) */
 export type RozySalonCard = {
   id: string
@@ -17,5 +29,23 @@ export type RozyChatAction = {
   service_id?: string | null
   /** نسبة الخصم الإضافي التي وعدت بها روزي (م clamp من السيرفر حسب حد الصالون) */
   discount_percent?: number | null
-  kind?: 'book' | 'more' | 'retry' | 'dismiss' | 'map' | 'salon_upgrade' | 'negotiated_book'
+  product_id?: string | null
+  product_name_ar?: string | null
+  product_price?: number | null
+  product_image_url?: string | null
+  product_brand_ar?: string | null
+  kind?:
+    | 'book'
+    | 'more'
+    | 'retry'
+    | 'dismiss'
+    | 'map'
+    | 'salon_upgrade'
+    | 'negotiated_book'
+    | 'store'
+    | 'add_to_cart'
+    | 'view_product'
+    | 'go_to_checkout'
+    /** من روزي → صفحة الصالون مع تمييز خدمة */
+    | 'salon_detail'
 }

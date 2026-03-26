@@ -11,17 +11,27 @@ type SortPillsProps<T extends string> = {
   dense?: boolean
   /** Single row + horizontal scroll on narrow screens */
   nowrap?: boolean
+  /** Accessible name for the tablist */
+  ariaLabel?: string
 }
 
 /**
  * Segmented sort control — real buttons, visible active state, press + hover motion.
  */
-export function SortPills<T extends string>({ value, onChange, options, className, dense, nowrap }: SortPillsProps<T>) {
+export function SortPills<T extends string>({
+  value,
+  onChange,
+  options,
+  className,
+  dense,
+  nowrap,
+  ariaLabel = 'Sort',
+}: SortPillsProps<T>) {
   return (
     <div
       className={cn('flex gap-2', nowrap ? 'flex-nowrap' : 'flex-wrap', className)}
       role="tablist"
-      aria-label="Sort"
+      aria-label={ariaLabel}
     >
       {options.map((opt) => {
         const active = value === opt.value
@@ -33,12 +43,13 @@ export function SortPills<T extends string>({ value, onChange, options, classNam
             aria-selected={active}
             onClick={() => onChange(opt.value)}
             className={cn(
-              'touch-manipulation rounded-2xl font-semibold transition-all duration-200 ease-out',
+              'touch-manipulation rounded-full border-2 font-bold transition-all duration-200 ease-out',
               'active:scale-[0.98]',
+              'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/25 focus-visible:ring-offset-2',
               dense ? 'px-3 py-2 text-xs' : 'px-4 py-2.5 text-sm',
               active
-                ? 'bg-gradient-to-br from-[#f472b6] via-[#f9a8c9] to-[#fbcfe8] text-[#1f2937] shadow-premium ring-2 ring-pink-300/50 dark:from-[#be185d] dark:via-[#db2777] dark:to-[#ec4899] dark:text-white dark:ring-pink-500/40'
-                : 'bg-white text-[#374151] shadow-sm ring-1 ring-[#E5E7EB] hover:bg-[#FDF2F8] hover:ring-[#F9A8C9]/35 dark:bg-card dark:text-foreground dark:ring-border dark:hover:bg-muted/50'
+                ? 'gradient-rosera border-transparent text-white shadow-elevated'
+                : 'border-primary/25 bg-card/95 text-foreground shadow-sm hover:border-primary/40 hover:bg-accent/80 hover:shadow-md'
             )}
           >
             {opt.label}

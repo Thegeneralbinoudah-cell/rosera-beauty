@@ -86,17 +86,31 @@ export function RosyStructuredAssistant({
                 key={a.id}
                 type="button"
                 variant={
-                  a.kind === 'book' || a.kind === 'salon_upgrade' || a.kind === 'negotiated_book'
+                  a.kind === 'book' ||
+                  a.kind === 'salon_upgrade' ||
+                  a.kind === 'negotiated_book' ||
+                  a.kind === 'add_to_cart' ||
+                  a.kind === 'go_to_checkout'
                     ? 'default'
-                    : a.kind === 'map'
+                    : a.kind === 'map' ||
+                        a.kind === 'store' ||
+                        a.kind === 'view_product' ||
+                        a.kind === 'salon_detail'
                       ? 'outline'
                       : 'secondary'
                 }
                 className={cn(
                   'h-11 w-full rounded-xl transition-transform active:scale-95',
-                  (a.kind === 'book' || a.kind === 'salon_upgrade' || a.kind === 'negotiated_book') &&
+                  (a.kind === 'book' ||
+                    a.kind === 'salon_upgrade' ||
+                    a.kind === 'negotiated_book' ||
+                    a.kind === 'add_to_cart' ||
+                    a.kind === 'go_to_checkout') &&
                     'bg-gradient-to-l from-[#9C27B0] to-[#E91E8C] text-white shadow-sm hover:opacity-[0.98]',
-                  a.kind === 'map' &&
+                  (a.kind === 'map' ||
+                    a.kind === 'store' ||
+                    a.kind === 'view_product' ||
+                    a.kind === 'salon_detail') &&
                     'border-pink-500/25 text-[#BE185D] hover:bg-pink-50 dark:border-pink-400/20 dark:hover:bg-pink-950/30'
                 )}
                 onClick={() => onAction(a)}

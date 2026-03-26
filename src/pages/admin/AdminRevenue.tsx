@@ -8,6 +8,8 @@ type BookingRow = {
   commission_amount: number | null
   created_at: string
   business_id: string
+  status?: string | null
+  payment_status?: string | null
 }
 
 export default function AdminRevenue() {
@@ -17,8 +19,8 @@ export default function AdminRevenue() {
   useEffect(() => {
     void supabase
       .from('bookings')
-      .select('total_price, commission_amount, created_at, business_id')
-      .eq('status', 'completed')
+      .select('total_price, commission_amount, created_at, business_id, status, payment_status')
+      .in('status', ['completed', 'confirmed'])
       .then(({ data }) => setBookings((data ?? []) as BookingRow[]))
     void supabase.from('businesses').select('id, name_ar, city').then(({ data }) => setBiz(data ?? []))
   }, [])
@@ -95,13 +97,14 @@ export default function AdminRevenue() {
     <div>
       <h1 className="text-2xl font-bold">الإيرادات</h1>
       <p className="mt-1 text-sm text-muted-foreground">
-        الأرقام من حجوزات <span className="font-semibold text-foreground">مكتملة</span> فقط — عمولة المنصة ={' '}
+        الأرقام من حجوزات <span className="font-semibold text-foreground">مكتملة أو مؤكدة</span> (بما فيها بعد الدفع
+        الإلكتروني) — عمولة المنصة في{' '}
         <code className="rounded bg-muted px-1">commission_amount</code>.
       </p>
 
       <div className="mt-6 grid gap-4 sm:grid-cols-3">
         <div className="rounded-xl border bg-white p-4 dark:bg-card">
-          <p className="text-xs font-semibold text-muted-foreground">حجوزات مكتملة</p>
+          <p className="text-xs font-semibold text-muted-foreground">حجوزات (مكتملة / مؤكدة)</p>
           <p className="mt-1 text-2xl font-extrabold tabular-nums">{totals.count.toLocaleString('ar-SA')}</p>
         </div>
         <div className="rounded-xl border bg-white p-4 dark:bg-card">

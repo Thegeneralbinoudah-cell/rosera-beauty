@@ -1,0 +1,17 @@
+-- OPTIONAL — not applied by migrations. Run only after auditing production data.
+-- Goal: enforce paid rows always carry a non-blank payment_id.
+-- Full verification queries: supabase/payment_verification_audit.sql
+--
+-- 1) Inspect rows that would violate the constraint:
+-- SELECT id, payment_status, payment_id, created_at FROM public.bookings
+-- WHERE payment_status = 'paid' AND (payment_id IS NULL OR trim(payment_id) = '');
+-- SELECT id, payment_status, payment_id, created_at FROM public.orders
+-- WHERE payment_status = 'paid' AND (payment_id IS NULL OR trim(payment_id) = '');
+--
+-- 2) If both queries return 0 rows (or after backfill), uncomment and apply:
+-- ALTER TABLE public.bookings DROP CONSTRAINT IF EXISTS bookings_paid_requires_payment_id;
+-- ALTER TABLE public.bookings ADD CONSTRAINT bookings_paid_requires_payment_id
+--   CHECK (payment_status <> 'paid' OR (payment_id IS NOT NULL AND trim(payment_id) <> ''));
+-- ALTER TABLE public.orders DROP CONSTRAINT IF EXISTS orders_paid_requires_payment_id;
+-- ALTER TABLE public.orders ADD CONSTRAINT orders_paid_requires_payment_id
+--   CHECK (payment_status <> 'paid' OR (payment_id IS NOT NULL AND trim(payment_id) <> ''));

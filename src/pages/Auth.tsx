@@ -9,9 +9,13 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { toast } from 'sonner'
 import { STORAGE_KEYS } from '@/lib/utils'
+import { runPostAuthRedirect } from '@/lib/postAuthRedirect'
 import { consumePostAuthPath } from '@/lib/salonAcquisition'
+import { isPrivilegedStaffClient } from '@/lib/privilegedStaff'
 import { usePreferences } from '@/contexts/PreferencesContext'
 import PreferencesToggle from '@/components/PreferencesToggle'
+import { OAuthSocialButtons } from '@/components/auth/OAuthSocialButtons'
+import { useI18n } from '@/hooks/useI18n'
 
 function normalizeSaudiPhone(digits: string): string | null {
   const d = digits.replace(/\D/g, '')
@@ -27,6 +31,7 @@ function normalizeSaudiPhone(digits: string): string | null {
 
 export default function Auth() {
   const { lang } = usePreferences()
+  const { t: tr } = useI18n()
   const nav = useNavigate()
   const [phone, setPhone] = useState('')
   const [email, setEmail] = useState('')
@@ -39,7 +44,7 @@ export default function Auth() {
   const [showPassword, setShowPassword] = useState(false)
 
   const fullPhone = normalizeSaudiPhone(phone)
-  const t = {
+  const ui = {
     title: lang === 'ar' ? 'مرحباً بك' : 'Welcome',
     phone: lang === 'ar' ? 'رقم الجوال' : 'Phone number',
     format: lang === 'ar' ? 'الصيغة: +966 ثم 9 أرقام تبدأ بـ 5' : 'Format: +966 then 9 digits starting with 5',
@@ -53,62 +58,7 @@ export default function Auth() {
   }
 
   const redirectAfterPhoneAuth = async () => {
-    const uid = (await supabase.auth.getUser()).data.user?.id
-    const target = sessionStorage.getItem('rosera_verify_target')
-    sessionStorage.removeItem('rosera_verify_target')
-
-    if (uid && target === 'owner') {
-      const [{ data: so }, { data: biz }] = await Promise.all([
-        supabase.from('salon_owners').select('id').eq('user_id', uid).limit(1).maybeSingle(),
-        supabase.from('businesses').select('id').eq('owner_id', uid).limit(1).maybeSingle(),
-      ])
-      if (so || biz) {
-        nav('/salon/dashboard', { replace: true })
-      } else {
-        toast.error('حسابك غير مرتبط بصالون')
-        nav('/home', { replace: true })
-      }
-      return
-    }
-
-    if (uid && target === 'admin') {
-      const { data: adm } = await supabase.from('admins').select('id').eq('user_id', uid).maybeSingle()
-      const { data: profAdm } = await supabase.from('profiles').select('role, email').eq('id', uid).single()
-      const p = profAdm as { role?: string; email?: string } | null
-      if (adm || p?.role === 'admin' || p?.email === 'admin@rosera.com') {
-        nav('/admin', { replace: true })
-      } else {
-        toast.error('ليس لديك صلاحية مسؤول')
-        nav('/home', { replace: true })
-      }
-      return
-    }
-
-    const postAuth = consumePostAuthPath()
-    if (postAuth) {
-      nav(postAuth, { replace: true })
-      return
-    }
-
-    if (uid) {
-      const { data: prof } = await supabase.from('profiles').select('full_name, role').eq('id', uid).single()
-      const role = ((prof as { role?: string } | null)?.role ?? 'user').toLowerCase()
-      if (role === 'owner') {
-        nav('/salon/dashboard', { replace: true })
-        return
-      }
-      if (role === 'admin' || role === 'supervisor') {
-        nav('/admin', { replace: true })
-        return
-      }
-      if ((prof as { full_name?: string } | null)?.full_name?.trim()) {
-        nav('/home', { replace: true })
-      } else {
-        nav('/complete-profile', { replace: true })
-      }
-    } else {
-      nav('/complete-profile', { replace: true })
-    }
+    await runPostAuthRedirect(nav)
   }
 
   const onPhone = async () => {
@@ -186,10 +136,20 @@ export default function Auth() {
       if (error) throw error
       const uid = data.user?.id
       if (uid) {
-        const { data: prof } = await supabase.from('profiles').select('role, full_name').eq('id', uid).single()
+        /** Self-only: RLS allows select where id = auth.uid() */
+        const [{ data: adm }, { data: prof }] = await Promise.all([
+          supabase.from('admins').select('id').eq('user_id', uid).maybeSingle(),
+          supabase.from('profiles').select('role, full_name, email').eq('id', uid).single(),
+        ])
         const role = ((prof as { role?: string } | null)?.role ?? 'user').toLowerCase()
         if (role === 'owner') return nav('/salon/dashboard', { replace: true })
-        if (role === 'admin' || role === 'supervisor') return nav('/admin', { replace: true })
+        if (
+          isPrivilegedStaffClient({
+            isAdminFromAdminsTable: !!adm,
+            profile: prof as { role?: string; email?: string } | null,
+          })
+        )
+          return nav('/admin', { replace: true })
         const postAuth = consumePostAuthPath()
         if (postAuth) return nav(postAuth, { replace: true })
         return nav('/home', { replace: true })
@@ -221,11 +181,24 @@ export default function Auth() {
               width={120}
               className="mx-auto block h-auto w-[120px] max-w-full object-contain"
             />
-            <h1 className="mt-4 text-2xl font-extrabold text-gray-900 dark:text-white">{t.title}</h1>
+            <h1 className="mt-4 text-2xl font-extrabold text-gray-900 dark:text-white">{ui.title}</h1>
           </div>
 
-          <div className="mt-10 space-y-4">
-            <Label className="text-gray-900 dark:text-white">{t.phone}</Label>
+          <OAuthSocialButtons disabled={loadingPhone || loadingVerify || loadingEmail} />
+
+          <div className="relative mt-8">
+            <div className="absolute inset-0 flex items-center">
+              <span className="w-full border-t border-gray-200 dark:border-gray-700" />
+            </div>
+            <div className="relative flex justify-center text-xs uppercase">
+              <span className="bg-white px-3 text-gray-500 dark:bg-gray-900 dark:text-gray-400">
+                {tr('auth.orDivider')}
+              </span>
+            </div>
+          </div>
+
+          <div className="mt-8 space-y-4">
+            <Label className="text-gray-900 dark:text-white">{ui.phone}</Label>
             <div className="flex gap-2">
               <div className="flex h-12 shrink-0 items-center gap-2 rounded-2xl border border-gray-200 bg-gray-50 px-4 dark:border-gray-700 dark:bg-gray-800">
                 <span>🇸🇦</span>
@@ -244,7 +217,7 @@ export default function Auth() {
                 disabled={phoneOtpSent}
               />
             </div>
-            <p className="text-xs text-gray-500 dark:text-gray-400">{t.format}</p>
+            <p className="text-xs text-gray-500 dark:text-gray-400">{ui.format}</p>
             {!phoneOtpSent ? (
               <Button
                 className="h-12 w-full rounded-2xl bg-gradient-to-l from-[#9C27B0] to-[#E91E8C] text-base font-bold shadow-lg shadow-primary/25"
@@ -257,12 +230,12 @@ export default function Auth() {
                     جاري الإرسال...
                   </span>
                 ) : (
-                  t.sendOtp
+                  ui.sendOtp
                 )}
               </Button>
             ) : (
               <>
-                <Label className="text-gray-900 dark:text-white">{t.otpLabel}</Label>
+                <Label className="text-gray-900 dark:text-white">{ui.otpLabel}</Label>
                 <Input
                   dir="ltr"
                   className="h-12 rounded-2xl border-gray-200 bg-gray-50 text-center text-2xl tracking-[0.5em] text-gray-900 placeholder:text-gray-400 dark:border-gray-700 dark:bg-gray-800 dark:text-white"
@@ -281,10 +254,10 @@ export default function Auth() {
                   {loadingVerify ? (
                     <span className="flex items-center justify-center gap-2">
                       <Loader2 className="h-5 w-5 animate-spin" />
-                      {t.verifying}
+                      {ui.verifying}
                     </span>
                   ) : (
-                    t.verify
+                    ui.verify
                   )}
                 </Button>
                 <button
@@ -308,7 +281,7 @@ export default function Auth() {
                 void onEmailLogin()
               }}
             >
-              <p className="mb-3 text-sm font-bold text-gray-900 dark:text-white">{t.emailLogin}</p>
+              <p className="mb-3 text-sm font-bold text-gray-900 dark:text-white">{ui.emailLogin}</p>
               <div className="space-y-2">
                 <Input
                   id="auth-email"
@@ -357,7 +330,7 @@ export default function Auth() {
                 ) : (
                   <span className="flex items-center justify-center gap-2">
                     <Mail className="h-4 w-4" aria-hidden />
-                    {t.emailBtn}
+                    {ui.emailBtn}
                   </span>
                 )}
               </Button>
@@ -370,7 +343,7 @@ export default function Auth() {
               onClick={guest}
               className="w-full pt-4 text-center text-sm font-semibold text-primary"
             >
-              {t.guest}
+              {ui.guest}
             </button>
             <div className="mt-8 flex flex-wrap justify-center gap-4 text-xs text-gray-500 dark:text-gray-400">
               <Link to="/privacy" className="hover:text-primary">سياسة الخصوصية</Link>

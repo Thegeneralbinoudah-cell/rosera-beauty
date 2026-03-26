@@ -1,84 +1,329 @@
+@import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
+.font-cairo {
+  font-family: 'Cairo', sans-serif;
+}
+
+/**
+ * ROSERA Premium UI — luxury beauty (Sephora-level cues)
+ * Font: Tajawal · Canvas: soft blush · Primary: pink #f472b6 · Accent: gold #fbbf24
+ * Spacing scale: 8 / 12 / 16 / 24 / 32 px (use gap-2…gap-8, p-2…p-8, m-2…m-8)
+ */
+
 @layer base {
+  body {
+    overscroll-behavior-y: contain;
+  }
+
+  html {
+    scroll-behavior: smooth;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    html {
+      scroll-behavior: auto;
+    }
+  }
+
   :root {
-    --background: 0 0% 100%;
-    --foreground: 215 28% 17%;
+    /* Spacing — 8 / 12 / 16 / 24 / 32 px (ds-2 … ds-6) */
+    --space-1: 0.25rem;
+    --space-2: 0.5rem; /* 8 */
+    --space-3: 0.75rem; /* 12 */
+    --space-4: 1rem; /* 16 */
+    --space-5: 1.5rem; /* 24 */
+    --space-6: 2rem; /* 32 */
+
+    /* Soft warm blush canvas — cards stay clean white */
+    --background: 340 90% 98.2%;
+    --foreground: 330 28% 18%;
     --card: 0 0% 100%;
-    --card-foreground: 215 28% 17%;
-    --primary: 340 87% 82%;
-    --primary-foreground: 215 28% 17%;
-    --secondary: 326 77% 95%;
-    --secondary-foreground: 215 28% 17%;
-    --muted: 326 45% 97%;
-    --muted-foreground: 220 9% 46%;
-    --accent: 291 64% 42%;
-    --border: 330 40% 92%;
-    --input: 330 35% 94%;
-    --ring: 340 87% 72%;
-    --radius: 16px;
+    --card-foreground: 330 28% 18%;
     --popover: 0 0% 100%;
-    --popover-foreground: 215 28% 17%;
+    --popover-foreground: 330 28% 18%;
+
+    /* Primary pink #f472b6 */
+    --primary: 330 81% 70%;
+    --primary-foreground: 0 0% 100%;
+    --primary-hover: 330 78% 64%;
+    --primary-active: 330 74% 58%;
+    --primary-subtle: 330 55% 96%;
+
+    --secondary: 330 40% 96%;
+    --secondary-foreground: 330 28% 22%;
+
+    --muted: 340 30% 95%;
+    --muted-foreground: 330 12% 42%;
+
+    /* Accent — soft gold wash (menus, hovers); solid gold = hsl(var(--gold)) */
+    --accent: 43 85% 94%;
+    --accent-foreground: 330 28% 18%;
+
+    --destructive: 0 72% 55%;
+    --destructive-foreground: 0 0% 100%;
+
+    --success: 160 72% 38%;
+    --success-foreground: 0 0% 100%;
+
+    --border: 340 25% 90%;
+    --input: 340 20% 94%;
+    --ring: 330 81% 70%;
+
+    --gold: 43 96% 56%;
+    --gold-foreground: 330 28% 16%;
+    --gold-subtle: 43 85% 94%;
+
+    --rose-strong: 330 72% 48%;
+    --neutral-warm-50: 30 40% 98%;
+    --neutral-warm-100: 30 35% 95%;
+    --neutral-warm-200: 28 25% 88%;
+
+    /* Radius — sm / md / lg / xl / 2xl */
+    --radius-sm: 0.5rem;
+    --radius-md: 0.625rem;
+    --radius-lg: 0.75rem;
+    --radius-xl: 1rem;
+    --radius-2xl: 1.25rem;
+    --radius-3xl: 1.75rem;
+    --radius-full: 9999px;
+    --radius: var(--radius-xl);
+
+    /* Depth — soft lift, pink/gold bloom on hover */
+    --shadow-xs: 0 1px 2px rgb(0 0 0 / 0.04);
+    --shadow-sm: 0 4px 18px rgb(244 114 182 / 0.14), 0 2px 8px rgb(0 0 0 / 0.045);
+    --shadow-md: 0 10px 28px rgb(244 114 182 / 0.2), 0 4px 14px rgb(251 191 36 / 0.08);
+    --shadow-lg: 0 18px 44px rgb(244 114 182 / 0.24), 0 8px 22px rgb(251 191 36 / 0.14);
+    --shadow-xl: 0 24px 52px rgb(0 0 0 / 0.07), 0 0 36px rgb(251 191 36 / 0.2);
+    --shadow-inner-soft: inset 0 1px 0 hsl(0 0% 100% / 0.7);
+    --shadow-nav: 0 -8px 32px rgb(0 0 0 / 0.06), 0 0 24px rgb(244 114 182 / 0.08);
+
+    /* Semantic shadow aliases */
+    --shadow-subtle: var(--shadow-xs);
+    --shadow-medium: var(--shadow-sm);
+    --shadow-elevated: var(--shadow-md);
+    --shadow-floating: var(--shadow-lg);
+
+    /* Overlays */
+    --overlay-scrim: 220 18% 12%;
+
+    /* Motion */
+    --duration-instant: 100ms;
+    --duration-fast: 150ms;
+    --duration-normal: 200ms;
+    --duration-slow: 300ms;
+    --ease-out-premium: cubic-bezier(0.22, 1, 0.36, 1);
+    --ease-spring-soft: cubic-bezier(0.34, 1.56, 0.64, 1);
   }
+
   .dark {
-    --background: 224 71% 4%;
-    --foreground: 210 40% 98%;
-    --card: 224 71% 4%;
-    --card-foreground: 210 40% 98%;
-    --secondary: 215 28% 17%;
-    --secondary-foreground: 210 40% 98%;
-    --muted: 215 28% 17%;
-    --muted-foreground: 217 11% 65%;
-    --accent: 291 64% 42%;
-    --border: 215 28% 17%;
-    --input: 215 28% 17%;
-    --ring: 340 87% 72%;
-    --popover: 224 71% 4%;
-    --popover-foreground: 210 40% 98%;
+    --background: 224 42% 6%;
+    --foreground: 210 36% 96%;
+    --card: 224 40% 9%;
+    --card-foreground: 210 36% 96%;
+    --popover: 224 40% 9%;
+    --popover-foreground: 210 36% 96%;
+
+    --primary: 330 70% 72%;
+    --primary-foreground: 224 42% 8%;
+    --primary-hover: 330 68% 68%;
+    --primary-active: 330 65% 64%;
+    --primary-subtle: 330 35% 18%;
+
+    --secondary: 224 32% 16%;
+    --secondary-foreground: 210 36% 96%;
+
+    --muted: 224 28% 14%;
+    --muted-foreground: 217 14% 68%;
+
+    --accent: 43 35% 22%;
+    --accent-foreground: 43 90% 92%;
+
+    --destructive: 0 62% 48%;
+    --destructive-foreground: 0 0% 100%;
+
+    --success: 160 55% 42%;
+    --success-foreground: 0 0% 100%;
+
+    --border: 224 28% 18%;
+    --input: 224 28% 16%;
+    --ring: 330 65% 65%;
+
+    --gold: 43 88% 58%;
+    --gold-foreground: 224 42% 8%;
+    --gold-subtle: 43 40% 16%;
+
+    --rose-strong: 330 70% 72%;
+    --neutral-warm-50: 224 35% 10%;
+    --neutral-warm-100: 224 30% 14%;
+    --neutral-warm-200: 224 25% 20%;
+
+    --shadow-xs: 0 1px 2px rgb(0 0 0 / 0.28);
+    --shadow-sm: 0 10px 30px rgb(0 0 0 / 0.28), 0 0 18px rgb(244 114 182 / 0.1);
+    --shadow-md: 0 10px 30px rgb(0 0 0 / 0.32), 0 0 22px rgb(244 114 182 / 0.14);
+    --shadow-lg: 0 14px 40px rgb(0 0 0 / 0.38), 0 0 28px rgb(244 114 182 / 0.16);
+    --shadow-xl: 0 22px 52px rgb(0 0 0 / 0.42), 0 0 28px rgb(251 191 36 / 0.12);
+    --shadow-inner-soft: inset 0 1px 0 hsl(0 0% 100% / 0.06);
+    --shadow-nav: 0 -8px 32px rgb(0 0 0 / 0.32), 0 0 20px rgb(244 114 182 / 0.08);
+
+    --shadow-subtle: var(--shadow-xs);
+    --shadow-medium: var(--shadow-sm);
+    --shadow-elevated: var(--shadow-md);
+    --shadow-floating: var(--shadow-lg);
+
+    --overlay-scrim: 224 42% 4%;
   }
+
   * {
     @apply border-border;
   }
+
   body {
-    @apply min-h-dvh bg-luxury-surface font-cairo text-body font-medium tracking-luxury text-luxury-ink antialiased dark:bg-rosera-dark dark:text-white;
+    @apply min-h-dvh bg-background font-sans text-body font-medium tracking-luxury text-foreground antialiased;
+    font-feature-settings: 'kern' 1;
+    overscroll-behavior-y: contain;
+    text-rendering: optimizeLegibility;
   }
 
-  h1,
-  h2,
+  h1 {
+    @apply text-heading-1 font-bold leading-[1.2] tracking-luxury-tight text-foreground;
+  }
+  h2 {
+    @apply text-heading-2 font-semibold leading-snug tracking-luxury-tight text-foreground;
+  }
   h3 {
-    @apply font-bold tracking-luxury-tight text-luxury-ink dark:text-white;
+    @apply text-heading-3 font-semibold leading-snug tracking-luxury-tight text-foreground;
+  }
+}
+
+@layer components {
+  /** Category / filter chips — outline idle · gradient selected */
+  .category-chip {
+    @apply shrink-0 rounded-full border-2 border-primary/20 bg-card/95 px-3 py-1.5 text-xs font-bold text-foreground shadow-sm transition-all duration-200 ease-out;
+    @apply hover:border-primary/40 hover:shadow-md;
+  }
+  .category-chip--selected {
+    @apply gradient-rosera border-transparent text-white shadow-md;
+  }
+  .tab-chip {
+    @apply shrink-0 rounded-full border-2 border-primary/20 bg-card/95 px-4 py-2 text-sm font-bold text-foreground shadow-sm transition-all duration-200 ease-out;
+    @apply hover:border-primary/40 hover:shadow-md;
+  }
+  .tab-chip--selected {
+    @apply gradient-rosera border-transparent text-white shadow-md;
+  }
+
+  /** صفحة — spacing 16px grid + safe area */
+  .ds-page {
+    @apply w-full px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-4 sm:px-6 sm:pt-6;
+  }
+  /** مسافة بين أقسام — 24px */
+  .ds-section {
+    @apply space-y-6 py-6;
+  }
+  /** حشوة داخل بطاقة — 24px */
+  .ds-card-padding {
+    @apply p-6;
+  }
+  /** رأس صفحة / قسم */
+  .ds-header {
+    @apply mb-6 flex flex-col gap-1 sm:mb-8;
+  }
+  /** عناصر قائمة */
+  .ds-list {
+    @apply flex flex-col gap-3 sm:gap-4;
+  }
+  /** مسافة آمنة سفلية فوق الشريط الثابت */
+  .ds-safe-bottom {
+    padding-bottom: max(5rem, env(safe-area-inset-bottom));
+  }
+
+  .rosera-screen {
+    @apply ds-page min-h-dvh;
+  }
+
+  /** بطاقة موحّدة — صالون، منتج، حجز */
+  .luxury-card {
+    @apply rounded-3xl border border-border/40 bg-card p-6 text-card-foreground shadow-elevated transition-all duration-200 ease-out;
+    @apply hover:border-primary/25 hover:shadow-floating;
+  }
+
+  /** رأس صفحات العميل — زجاجي ناعم */
+  .luxury-screen-header {
+    @apply sticky top-0 z-10 border-b border-border/40 bg-background/90 px-4 py-4 shadow-sm backdrop-blur-md backdrop-saturate-150 dark:bg-card/90;
+    box-shadow: 0 1px 0 hsl(43 70% 88% / 0.35);
+  }
+  .dark .luxury-screen-header {
+    box-shadow: 0 1px 0 hsl(330 30% 22% / 0.5);
+  }
+
+  /** عناوين أقسام — هرمية واضحة */
+  .luxury-section-heading {
+    @apply text-heading-2 font-bold tracking-luxury-tight text-foreground;
+  }
+
+  /** زر / صندوق بحث بطولي — الصفحة الرئيسية والخرائط */
+  .luxury-hero-search {
+    @apply relative flex w-full items-center gap-3 rounded-3xl border border-primary/20 bg-white px-4 py-4 text-start shadow-elevated ring-1 ring-gold/10 transition-all duration-200 hover:border-primary/30 hover:shadow-floating active:scale-[0.99] dark:bg-card/95 dark:ring-gold/5;
+  }
+
+  /** خلفية صفحة فاخرة خفيفة */
+  .luxury-page-canvas {
+    @apply min-h-dvh bg-gradient-to-b from-background via-background to-primary/[0.045];
   }
 }
 
 @layer utilities {
-  /** أيقونة داخل دائرة — خلفية primary (#F9A8C9) بنسبة 10% */
-  .icon-circle-pink {
-    @apply inline-flex shrink-0 items-center justify-center rounded-full bg-primary/10 text-[#BE185D] ring-1 ring-primary/20 transition-colors duration-200 dark:bg-primary/15 dark:text-pink-200 dark:ring-primary/25;
+  /** Standard motion — no hard jumps */
+  .ui-transition {
+    @apply transition-all duration-200 ease-out;
   }
-  /** غلاف صفحة عميل: padding 16–20px، مسافات موحّدة */
-  .rosera-screen {
-    @apply min-h-dvh w-full px-section-x py-section-y sm:px-5;
+  @media (prefers-reduced-motion: reduce) {
+    .ui-transition {
+      @apply transition-none;
+    }
+  }
+
+  .scroll-smooth-touch {
+    -webkit-overflow-scrolling: touch;
+    scroll-behavior: smooth;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .scroll-smooth-touch {
+      scroll-behavior: auto;
+    }
+  }
+
+  .icon-circle-pink {
+    @apply inline-flex shrink-0 items-center justify-center rounded-full bg-primary/10 text-accent-foreground ring-1 ring-primary/20 transition-all duration-200 ease-out dark:bg-primary/15 dark:text-pink-200 dark:ring-primary/25;
+    box-shadow: 0 0 20px rgb(244 114 182 / 0.22);
+  }
+  .dark .icon-circle-pink {
+    box-shadow: 0 0 18px rgb(244 114 182 / 0.16);
+  }
+
+  .pb-safe {
+    padding-bottom: max(5rem, env(safe-area-inset-bottom));
   }
 }
 
-/* react-day-picker — ألوان روزيرا */
+/* react-day-picker */
 .rosera-calendar .rdp-day_button.rdp-selected {
-  background: linear-gradient(135deg, #8b5cf6, #ec4899) !important;
+  background: linear-gradient(135deg, hsl(var(--primary)), hsl(var(--rose-strong))) !important;
   color: white !important;
-  border-radius: 10px;
+  border-radius: var(--radius-lg);
 }
 .rosera-calendar .rdp-day_button.rdp-today:not(.rdp-selected) {
-  border: 2px solid #8b5cf6;
-  border-radius: 10px;
+  border: 2px solid hsl(var(--primary));
+  border-radius: var(--radius-lg);
 }
 .rosera-calendar .rdp-weekday {
   font-size: 0.75rem;
-  color: #9ca3af;
+  color: hsl(var(--muted-foreground));
 }
 
-/* Google Maps: حاوية ثابتة — 100% بدون قفزات ارتفاع/عرض أو وميض «no imagery» */
 .rosera-map-page .rosera-map-shell {
   min-height: 0;
   flex: 1 1 0%;
@@ -107,7 +352,6 @@
   max-width: 100%;
 }
 
-/* حاوية الخريطة LTR داخل صفحة قد تكون RTL — إحداثيات وجغرافيا ثابتة */
 .rosera-map-page .rosera-map-shell[dir='ltr'] {
   direction: ltr;
 }
@@ -116,7 +360,6 @@
   direction: ltr;
 }
 
-/* شارة Google وروابط الائتمان تبقى مقروءة (LTR) تحت أي dir للصفحة */
 .rosera-google-map-root .gm-style-cc,
 .rosera-google-map-root .gm-style-cc span,
 .rosera-google-map-root .gm-style a[href*='google'] {
@@ -124,30 +367,41 @@
   unicode-bidi: embed;
 }
 
-/* تقييم على دبوس الخريطة — أرقام ثابتة الاتجاه داخل واجهة RTL */
 .rosera-google-map-root .rosera-map-pin-rating-label {
   direction: ltr !important;
   unicode-bidi: isolate !important;
 }
 
-/* طبقة Google الداخلية تمتد مع الحاوية */
+.rosera-google-map-root .rosera-map-pin-rating-label--on-red {
+  color: #ffffff !important;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
+}
+
 .rosera-google-map-root .gm-style,
 .rosera-google-map-root .gm-style > div:first-child {
   width: 100% !important;
   height: 100% !important;
 }
+
+/** Primary CTA — pink → gold, soft shadow */
 .gradient-rosera {
-  background: linear-gradient(135deg, #f9a8c9 0%, #f472b6 48%, #ec4899 100%);
-  color: #ffffff;
-  text-shadow: 0 1px 0 rgba(31, 41, 55, 0.08);
-  box-shadow: 0 4px 20px -4px rgba(249, 168, 201, 0.5), 0 2px 8px -2px rgba(236, 72, 153, 0.25);
+  background: linear-gradient(
+    135deg,
+    hsl(330 81% 70%) 0%,
+    hsl(330 75% 72%) 42%,
+    hsl(43 96% 56%) 100%
+  );
+  color: hsl(0 0% 100%);
+  text-shadow: 0 1px 2px hsl(330 40% 20% / 0.15);
+  box-shadow: 0 6px 20px rgb(244 114 182 / 0.35), 0 2px 8px rgb(251 191 36 / 0.2);
 }
 .dark .gradient-rosera {
-  background: linear-gradient(135deg, #be185d 0%, #db2777 50%, #ec4899 100%);
-  color: #fff;
-  box-shadow: 0 4px 24px -4px rgba(190, 24, 93, 0.45);
-}
-
-.pb-safe {
-  padding-bottom: max(5rem, env(safe-area-inset-bottom));
+  background: linear-gradient(
+    135deg,
+    hsl(var(--primary-active)) 0%,
+    hsl(var(--primary)) 45%,
+    hsl(43 88% 54%) 100%
+  );
+  color: hsl(0 0% 100%);
+  box-shadow: 0 8px 28px rgb(244 114 182 / 0.25);
 }

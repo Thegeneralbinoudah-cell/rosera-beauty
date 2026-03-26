@@ -17,7 +17,10 @@ export function BottomNav() {
   const { t } = useI18n()
 
   return (
-    <nav className="fixed bottom-0 inset-x-0 z-50 border-t border-primary/25 bg-white/90 pb-safe pt-2 shadow-nav backdrop-blur-xl dark:border-border dark:bg-rosera-dark/95">
+    <nav
+      className="fixed bottom-0 inset-x-0 z-50 border-t border-primary/20 bg-background/95 pb-safe pt-2 shadow-nav backdrop-blur-xl dark:border-border"
+      aria-label={t('nav.main')}
+    >
       <div className="mx-auto flex max-w-lg items-center justify-around px-1">
         {items.map(({ to, k, Icon, match }) => {
           const active = match(pathname)
@@ -33,13 +36,13 @@ export function BottomNav() {
               }}
               className={cn(
                 'relative flex flex-1 flex-col items-center gap-0.5 py-2 text-[10px] font-bold tracking-luxury-tight transition-all duration-200 active:scale-95',
-                active ? 'text-[#BE185D]' : 'text-muted-foreground'
+                active ? 'text-rosera-strong' : 'text-muted-foreground'
               )}
             >
               {active && (
                 <motion.span
                   layoutId="navdot"
-                  className="absolute -top-0.5 h-1 w-8 rounded-full bg-[#F9A8C9]"
+                  className="absolute -top-0.5 h-1 w-8 rounded-full bg-primary/40"
                   transition={{ type: 'spring', stiffness: 400, damping: 30 }}
                 />
               )}
@@ -50,7 +53,7 @@ export function BottomNav() {
                 )}
               >
                 <Icon
-                  className={cn('h-5 w-5 transition-transform duration-200', active ? 'text-[#BE185D]' : 'text-muted-foreground')}
+                  className={cn('h-5 w-5 transition-transform duration-200', active ? 'text-rosera-strong' : 'text-muted-foreground')}
                   strokeWidth={active ? 2.5 : 2}
                 />
               </span>

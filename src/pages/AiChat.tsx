@@ -8,7 +8,7 @@ import {
   type ReactNode,
 } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Send, Sparkles, Camera, ImageIcon, MapPin, Star, Loader2 } from 'lucide-react'
+import { Send, Sparkles, Camera, ImageIcon, MapPin, Star, Loader2, Package } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -23,13 +23,16 @@ import {
   type ChatRow,
   type RoziBookingAction,
 } from '@/hooks/useChat'
-import type { RozyChatAction, RozySalonCard } from '@/lib/roseyChatTypes'
+import type { RozyChatAction, RozyProductCard, RozySalonCard } from '@/lib/roseyChatTypes'
 import { resolveBusinessCoverImage } from '@/lib/businessImages'
 import { RosyStructuredAssistant } from '@/components/rosey/RosyStructuredAssistant'
 import { RosyBookingGuide } from '@/components/rosey/RosyBookingGuide'
+import { CartHeaderButton } from '@/components/store/CartHeaderButton'
 import { useI18n } from '@/hooks/useI18n'
 import { buildMapExploreUrl } from '@/lib/mapExploreUrl'
 import { trackEvent } from '@/lib/analytics'
+import { captureProductEvent } from '@/lib/posthog'
+import { useCartStore } from '@/stores/cartStore'
 import { fetchRosySalonBookingPreview, type RosySalonBookingPreview } from '@/lib/roseySalonBookingPreview'
 import { cn } from '@/lib/utils'
 import { VoiceWaveform } from '@/components/rosey/VoiceWaveform'
@@ -44,7 +47,8 @@ function tomorrowBookingIsoDate(): string {
 type RosyBookingNavExtra = Partial<
   Pick<RoziBookingAction, 'service_id' | 'booking_date' | 'suggested_slots'>
 > & {
-  initialStep?: 1 | 2 | 3
+  /** BookingFlow: 1=خدمة 2=موظف 3=موعد 4=تأكيد 5=دفع — quick يستخدم 3 بعد اختيار الخدمة */
+  initialStep?: 1 | 2 | 3 | 4 | 5
   quick?: boolean
   /** خصم إضافي من روزي — يُطبَّق في الحجز بعد التحقق من إعدادات الصالون */
   rosyNegotiation?: { discountPercent: number }
@@ -107,19 +111,54 @@ function isSalonOwnerRosySalesRole(profileRole: string | null | undefined, isSal
   return r === 'owner' || r === 'salon_owner' || r === 'business_owner'
 }
 
-export default function AiChat() {
-  const { t } = useI18n()
+export default function AiChat({ embedded = false }: { embedded?: boolean }) {
+  const { t, lang } = useI18n()
   const { user, profile, isSalonPortal } = useAuth()
   const nav = useNavigate()
   const salonOwnerSalesMode = useMemo(
     () => isSalonOwnerRosySalesRole(profile?.role, isSalonPortal),
     [profile?.role, isSalonPortal]
   )
+  const rosyBookingFromChatRef = useRef(false)
+  const messagesForAbandonRef = useRef<ChatRow[]>([])
+  const embeddedForAbandonRef = useRef(embedded)
+  const rosyFirstMessageSeenRef = useRef(false)
+
+  const goSalonDetail = useCallback(
+    (salonId: string, serviceId?: string | null) => {
+      const svc = serviceId?.trim() || ''
+      captureProductEvent('rosy_to_booking', {
+        salon_id: salonId,
+        cta: 'view_details',
+        ...(svc ? { service_id: svc } : {}),
+      })
+      captureProductEvent('rosy_to_booking_click', { salon_id: salonId })
+      trackEvent('rosy_booking_click', {
+        salonId,
+        source: 'chat',
+        cta: 'view_details',
+        ...(svc ? { serviceId: svc } : {}),
+      })
+      nav(`/salon/${salonId}`, { state: { preselect: svc || undefined, source: 'rosy' } })
+    },
+    [nav]
+  )
+
   const goBooking = useCallback((salonId: string, extra?: RosyBookingNavExtra) => {
+    rosyBookingFromChatRef.current = true
+    const preSvc = extra?.service_id?.trim() || ''
+    captureProductEvent('rosy_to_booking', {
+      salon_id: salonId,
+      cta: 'book_now',
+      ...(preSvc ? { service_id: preSvc } : {}),
+    })
+    captureProductEvent('rosy_to_booking_click', { salon_id: salonId })
     toast.message('جاري تحويلك للحجز ✨', { duration: 2400 })
     trackEvent('rosy_booking_click', {
       salonId,
       source: 'chat',
+      cta: 'book_now',
+      ...(preSvc ? { serviceId: preSvc } : {}),
       ...(extra?.quick ? { quick: true } : {}),
       ...(extra?.rosyNegotiation?.discountPercent != null
         ? { rosyNegotiationPct: extra.rosyNegotiation.discountPercent }
@@ -151,15 +190,24 @@ export default function AiChat() {
     },
     [goBooking]
   )
-  const { messages, loading, historyError, sending, sendMessage, reloadHistory, kickoffSalonOwnerVoiceSales } =
-    useChat(user?.id, {
+  const {
+    messages,
+    loading,
+    historyError,
+    sending,
+    sendingImage,
+    sendMessage,
+    reloadHistory,
+    clearChatHistory,
+    kickoffSalonOwnerVoiceSales,
+  } = useChat(user?.id, {
       onBookingAction,
       salonOwnerSalesMode,
       onSalonOwnerSubscriptionIntent: () => {
         if (user?.id) {
           trackEvent({
             event_type: 'rosy_salon_subscription_upsell_click',
-            entity_type: 'profile',
+            entity_type: 'preference',
             entity_id: user.id,
             user_id: user.id,
             metadata: { source: 'voice_sales' },
@@ -168,9 +216,68 @@ export default function AiChat() {
         nav('/salon/subscription')
       },
     })
+
+  useEffect(() => {
+    messagesForAbandonRef.current = messages
+    embeddedForAbandonRef.current = embedded
+  }, [messages, embedded])
+
+  useEffect(() => {
+    if (loading || rosyFirstMessageSeenRef.current) return
+    if (!messages.some((m) => !m.is_user)) return
+    rosyFirstMessageSeenRef.current = true
+    captureProductEvent('rosy_first_message_seen', {
+      mode: salonOwnerSalesMode ? 'owner_sales' : 'customer',
+      embedded,
+    })
+  }, [messages, loading, salonOwnerSalesMode, embedded])
+
+  useEffect(() => {
+    return () => {
+      const m = messagesForAbandonRef.current
+      const hadUserMessage = m.some((x) => x.is_user)
+      if (hadUserMessage && !rosyBookingFromChatRef.current) {
+        captureProductEvent('rosy_abandon', {
+          embedded: embeddedForAbandonRef.current,
+        })
+      }
+    }
+  }, [])
+
+  useEffect(() => {
+    const onClear = () => void clearChatHistory()
+    window.addEventListener('rosey-clear-chat', onClear)
+    return () => window.removeEventListener('rosey-clear-chat', onClear)
+  }, [clearChatHistory])
+
+  useEffect(() => {
+    captureProductEvent('rosy_open', {
+      mode: salonOwnerSalesMode ? 'owner_sales' : 'customer',
+      embedded,
+    })
+  }, [salonOwnerSalesMode, embedded])
   const [salonPreviewById, setSalonPreviewById] = useState<Map<string, RosySalonBookingPreview>>(() => new Map())
   const [input, setInput] = useState('')
   const scrollRef = useRef<HTMLDivElement>(null)
+  const chatInputRef = useRef<HTMLInputElement>(null)
+
+  /** iOS / Android: اجعل حقل الإدخال فوق لوحة المفاتيح — يعمل في الوضع المضمّن وصفحة /chat الكاملة */
+  useEffect(() => {
+    if (typeof window === 'undefined' || !window.visualViewport) return
+    const vv = window.visualViewport
+    const scrollInputIntoView = () => {
+      if (document.activeElement === chatInputRef.current) {
+        chatInputRef.current?.scrollIntoView({ block: 'center', behavior: 'smooth' })
+      }
+    }
+    vv.addEventListener('resize', scrollInputIntoView)
+    vv.addEventListener('scroll', scrollInputIntoView)
+    return () => {
+      vv.removeEventListener('resize', scrollInputIntoView)
+      vv.removeEventListener('scroll', scrollInputIntoView)
+    }
+  }, [])
+
   const galRef = useRef<HTMLInputElement>(null)
   const camFallbackRef = useRef<HTMLInputElement>(null)
   const videoRef = useRef<HTMLVideoElement>(null)
@@ -201,9 +308,11 @@ export default function AiChat() {
     () => {}
   )
 
-  historyErrorRef.current = historyError
-  loadingRef.current = loading
-  sendingRef.current = sending
+  useEffect(() => {
+    historyErrorRef.current = historyError
+    loadingRef.current = loading
+    sendingRef.current = sending
+  }, [historyError, loading, sending])
 
   const clearResumeListenTimeout = useCallback(() => {
     if (resumeListenTimeoutRef.current) {
@@ -591,8 +700,6 @@ export default function AiChat() {
     await sendMessage(input.trim() || '', { base64, mime }, clientGeoRef.current)
   }
 
-  if (!user) return null
-
   const onlyWelcome = !loading && !historyError && messages.length === 1 && messages[0]?.id === 'welcome'
 
   const handleRozyAction = useCallback(
@@ -608,12 +715,52 @@ export default function AiChat() {
         })
         return
       }
+      if (a.kind === 'salon_detail' && a.salon_id) {
+        goSalonDetail(a.salon_id, a.service_id)
+        return
+      }
       if (a.kind === 'book' && a.salon_id) {
-        goBooking(a.salon_id)
+        goBooking(a.salon_id, { service_id: a.service_id ?? undefined })
         return
       }
       if (a.kind === 'map') {
         nav(buildMapExploreUrl())
+        return
+      }
+      if (a.kind === 'store') {
+        nav('/store')
+        return
+      }
+      if (a.kind === 'view_product' && a.product_id) {
+        nav(`/product/${encodeURIComponent(a.product_id)}`)
+        return
+      }
+      if (a.kind === 'go_to_checkout') {
+        useCartStore.getState().markRosyCheckoutCtaClicked()
+        nav('/checkout')
+        return
+      }
+      if (a.kind === 'add_to_cart' && a.product_id) {
+        const cart = useCartStore.getState()
+        const hadBefore = cart.items.some((i) => i.productId === a.product_id)
+        cart.add({
+          productId: a.product_id,
+          name_ar: a.product_name_ar ?? 'منتج',
+          brand_ar: a.product_brand_ar ?? undefined,
+          image_url: a.product_image_url ?? undefined,
+          price: typeof a.product_price === 'number' && Number.isFinite(a.product_price) ? a.product_price : 0,
+        })
+        if (hadBefore) cart.bumpCartUiPulse()
+        toast.success(t('store.addedToast'))
+        if (user?.id) {
+          trackEvent({
+            event_type: 'click',
+            entity_type: 'product',
+            entity_id: a.product_id,
+            user_id: user.id,
+            metadata: { source: 'rosy_add_to_cart' },
+          })
+        }
         return
       }
       if (a.kind === 'more') {
@@ -628,7 +775,7 @@ export default function AiChat() {
         if (user?.id) {
           trackEvent({
             event_type: 'rosy_salon_subscription_upsell_click',
-            entity_type: 'profile',
+            entity_type: 'preference',
             entity_id: user.id,
             user_id: user.id,
           })
@@ -640,8 +787,10 @@ export default function AiChat() {
         goBooking(a.salon_id)
       }
     },
-    [goBooking, sendMessage, nav, user?.id]
+    [goBooking, goSalonDetail, sendMessage, nav, user, t]
   )
+
+  if (!user) return null
 
   const rosyAvatar = (size: 'sm' | 'md' = 'md') => (
     <div
@@ -655,6 +804,55 @@ export default function AiChat() {
       <Sparkles className={size === 'md' ? 'h-5 w-5' : 'h-4 w-4'} strokeWidth={2} />
     </div>
   )
+
+  const renderRosyProductCards = (products: RozyProductCard[]) => {
+    const list = products.slice(0, 3)
+    return (
+      <div className="w-full space-y-3">
+        <p className="text-start text-xs font-semibold text-muted-foreground">{t('aiChat.pickProducts')}</p>
+        {list.map((p) => {
+          const img = p.image_url?.trim() ? p.image_url : null
+          return (
+            <div
+              key={p.id}
+              className="overflow-hidden rounded-xl border border-pink-500/20 bg-white shadow-md dark:border-pink-400/20 dark:bg-card"
+            >
+              {img ? (
+                <img src={img} alt="" className="aspect-[16/10] w-full object-cover" />
+              ) : (
+                <div className="flex aspect-[16/10] w-full items-center justify-center bg-gradient-to-br from-pink-50 to-rose-100 dark:from-pink-950/40 dark:to-rose-950/30">
+                  <Package className="h-10 w-10 text-pink-300 dark:text-pink-600/80" aria-hidden />
+                </div>
+              )}
+              <div className="space-y-2 p-3">
+                <div className="text-start">
+                  <p className="line-clamp-2 text-sm font-bold leading-snug text-[#1F1F1F] dark:text-foreground">
+                    {p.name_ar}
+                  </p>
+                  {p.brand_ar ? (
+                    <p className="mt-0.5 text-xs text-muted-foreground">{p.brand_ar}</p>
+                  ) : null}
+                  <p className="mt-1 text-sm font-semibold text-[#BE185D]">
+                    {p.price.toLocaleString('ar-SA', { maximumFractionDigits: 2 })} ر.س
+                  </p>
+                  <p className="mt-1 line-clamp-3 text-xs leading-relaxed text-muted-foreground">{p.benefit}</p>
+                </div>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  className="h-11 w-full rounded-xl border-pink-500/25 text-[#BE185D] transition-transform hover:bg-pink-50 active:scale-95 dark:border-pink-400/20 dark:hover:bg-pink-950/30"
+                  onClick={() => nav(`/product/${encodeURIComponent(p.id)}`)}
+                >
+                  {lang === 'ar' ? 'تفاصيل المنتج' : 'View product'}
+                </Button>
+              </div>
+            </div>
+          )
+        })}
+      </div>
+    )
+  }
 
   const renderRosySalonCards = (salons: RozySalonCard[]) => {
     const list = salons.slice(0, 3)
@@ -671,6 +869,7 @@ export default function AiChat() {
           const preview = salonPreviewById.get(salon.id)
           const canQuickBook =
             Boolean(preview && preview.serviceCount > 0 && preview.firstServiceId)
+          const suggestedSvc = preview?.firstServiceNameAr?.trim()
 
           return (
             <div
@@ -695,15 +894,31 @@ export default function AiChat() {
                       </span>
                     ) : null}
                   </div>
+                  {suggestedSvc ? (
+                    <p className="mt-2 text-start text-xs font-semibold text-[#9B2257]/95">
+                      خدمة مقترحة: {suggestedSvc}
+                    </p>
+                  ) : null}
                 </div>
                 <div className="flex flex-col gap-2">
                   <Button
                     type="button"
                     size="sm"
                     className="h-11 w-full rounded-xl bg-gradient-to-l from-[#9C27B0] to-[#E91E8C] text-white shadow-sm transition-transform active:scale-95"
-                    onClick={() => goBooking(salon.id)}
+                    onClick={() =>
+                      goBooking(salon.id, { service_id: preview?.firstServiceId ?? undefined })
+                    }
                   >
-                    احجزي الآن
+                    احجز الآن
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    className="h-11 w-full rounded-xl border-pink-500/25 text-[#BE185D] transition-transform hover:bg-pink-50 active:scale-95 dark:border-pink-400/20 dark:hover:bg-pink-950/30"
+                    onClick={() => goSalonDetail(salon.id, preview?.firstServiceId)}
+                  >
+                    عرض التفاصيل
                   </Button>
                   {canQuickBook && preview?.firstServiceId ? (
                     <Button
@@ -717,7 +932,7 @@ export default function AiChat() {
                           booking_date: tomorrowBookingIsoDate(),
                           suggested_slots: ['10:00'],
                           quick: true,
-                          initialStep: 2,
+                          initialStep: 3,
                         })
                       }
                     >
@@ -759,9 +974,11 @@ export default function AiChat() {
   }
 
   const renderAssistantAttachments = (row: ChatRow): ReactNode => {
+    const hasProducts = Boolean(row.products?.length)
     const hasSalons = Boolean(row.salons?.length)
     return (
       <>
+        {hasProducts && row.products ? renderRosyProductCards(row.products) : null}
         {hasSalons && row.salons ? renderRosySalonCards(row.salons) : null}
         {row.actions?.length ? (
           <RosyStructuredAssistant
@@ -775,23 +992,107 @@ export default function AiChat() {
     )
   }
 
-  return (
-    <div className="flex min-h-dvh flex-col bg-rosera-light pb-28 dark:bg-rosera-dark">
-      <header className="sticky top-0 z-10 border-b border-primary/10 bg-white px-4 py-4 dark:bg-card">
-        <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-[#fce4ec] to-[#e91e8c] text-[#9B2257] shadow-md">
-            <Sparkles className="h-5 w-5" strokeWidth={2} aria-hidden />
-          </div>
-          <div>
-            <h1 className="text-lg font-extrabold text-[#1F1F1F] dark:text-foreground">روزي</h1>
-            <p className="text-xs font-medium text-[#374151] dark:text-rosera-gray">
-              مساعدة الحجز والجمال — نبرة سعودية دافئة ✨
-            </p>
-          </div>
+  const renderVoiceUi = (): ReactNode => (
+    <>
+      {(voiceUi === 'listening' || voiceUi === 'processing') && (
+        <div
+          className="max-h-16 w-full overflow-y-auto rounded-2xl border border-pink-500/25 bg-white/95 px-3 py-2 text-center text-xs font-semibold leading-snug text-[#374151] shadow-lg backdrop-blur-md dark:border-pink-400/20 dark:bg-card/95 dark:text-foreground"
+          dir="rtl"
+        >
+          {liveTranscript ? liveTranscript : voiceUi === 'processing' ? '⏳ …' : '… استمعي'}
         </div>
-      </header>
+      )}
+      <VoiceWaveform
+        phase={voiceUi === 'speaking' ? 'speaking' : voiceUi === 'listening' ? 'listening' : 'idle'}
+        className="drop-shadow-[0_0_14px_rgba(236,72,153,0.4)]"
+      />
+      <button
+        type="button"
+        disabled={
+          !!historyError ||
+          loading ||
+          (voiceUi !== 'listening' && voiceUi !== 'speaking' && (sending || voiceUi === 'processing'))
+        }
+        onClick={() => void toggleVoiceInput()}
+        aria-label={
+          voiceUi === 'listening'
+            ? 'إيقاف المحادثة الصوتية'
+            : voiceUi === 'speaking'
+              ? 'قطع صوت روزي ومتابعة الحديث'
+              : voiceUi === 'processing'
+                ? 'جاري معالجة كلامك'
+                : 'تحدثي مع روزي — وضع محادثة متواصل'
+        }
+        className={cn(
+          'flex h-14 min-h-[56px] w-14 min-w-[56px] shrink-0 touch-manipulation items-center justify-center rounded-full bg-gradient-to-br from-[#fce4ec] via-[#fbcfe8] to-[#f472b6] text-lg shadow-[0_0_32px_rgba(236,72,153,0.55),0_8px_24px_rgba(190,24,93,0.18)] ring-2 ring-white/95 transition-transform active:scale-95 disabled:pointer-events-none disabled:opacity-45 dark:ring-pink-950/40',
+          voiceUi === 'listening' && 'ring-4 ring-red-400/55 scale-[1.04]',
+          voiceUi === 'processing' && 'ring-4 ring-amber-300/50',
+          voiceUi === 'speaking' && 'ring-4 ring-violet-400/50 scale-[1.03] shadow-[0_0_36px_rgba(167,139,250,0.45)]'
+        )}
+      >
+        {voiceUi === 'processing' ? (
+          <Loader2 className="h-7 w-7 animate-spin text-[#9B2257]" aria-hidden />
+        ) : voiceUi === 'listening' ? (
+          <span className="text-2xl leading-none" aria-hidden>
+            🔴
+          </span>
+        ) : voiceUi === 'speaking' ? (
+          <span className="text-2xl leading-none" aria-hidden>
+            ✨
+          </span>
+        ) : (
+          <span className="text-2xl leading-none" aria-hidden>
+            🎤
+          </span>
+        )}
+      </button>
+      <p className="pointer-events-none text-center text-[10px] font-medium text-muted-foreground drop-shadow-sm">
+        {voiceUi === 'listening'
+          ? 'متواصل — 🔴 يوقف'
+          : voiceUi === 'speaking'
+            ? 'روزي ✨ — اضغطي للقطع'
+            : voiceUi === 'processing'
+              ? '⏳ روزي…'
+              : '🎤 محادثة صوتية فاخرة'}
+      </p>
+    </>
+  )
 
-      <div ref={scrollRef} className="flex-1 space-y-4 overflow-y-auto px-4 py-5">
+  return (
+    <div
+      className={cn(
+        'flex flex-col',
+        embedded
+          ? 'max-h-[80vh] min-h-0 flex-1 overflow-hidden bg-background'
+          : 'luxury-page-canvas pb-[calc(7rem+env(safe-area-inset-bottom,0px)+12px)]'
+      )}
+    >
+      {!embedded && (
+        <header className="luxury-screen-header z-10">
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex min-w-0 flex-1 items-center gap-3">
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-primary/90 via-primary to-amber-500/90 text-primary-foreground shadow-elevated ring-2 ring-gold/25">
+                <Sparkles className="h-5 w-5" strokeWidth={2} aria-hidden />
+              </div>
+              <div className="min-w-0">
+                <h1 className="text-heading-3 font-extrabold text-foreground">روزي</h1>
+                <p className="text-body-sm font-medium text-muted-foreground">
+                  مساعدة الحجز والجمال — نبرة سعودية دافئة ✨
+                </p>
+              </div>
+            </div>
+            <CartHeaderButton />
+          </div>
+        </header>
+      )}
+
+      <div
+        ref={scrollRef}
+        className={cn(
+          'min-h-0 flex-1 touch-pan-y space-y-4 overflow-y-auto overscroll-y-contain scroll-smooth px-4 py-5 [-webkit-overflow-scrolling:touch]',
+          embedded ? 'scroll-pb-6' : 'scroll-pb-32'
+        )}
+      >
         {loading ? (
           <p className="text-center font-medium text-[#374151] dark:text-rosera-gray">جاري التحميل...</p>
         ) : historyError ? (
@@ -807,7 +1108,7 @@ export default function AiChat() {
               <div className="mx-auto max-w-lg space-y-6">
                 <div className="flex animate-in fade-in slide-in-from-bottom-2 duration-300 items-start gap-3">
                   {rosyAvatar('md')}
-                  <div className="max-w-[min(100%,22rem)] rounded-2xl border border-pink-500/20 bg-white px-4 py-4 shadow-sm dark:border-pink-400/20 dark:bg-card">
+                  <div className="max-w-[min(100%,22rem)] rounded-2xl border border-primary/15 bg-card/95 px-4 py-4 shadow-elevated backdrop-blur-sm">
                     <p className="text-sm font-bold leading-snug text-foreground">{t('aiChat.bookingWelcomeTitle')}</p>
                     <p className="mt-2 text-sm font-medium leading-relaxed text-muted-foreground">
                       {t('aiChat.bookingWelcomeSub')}
@@ -833,7 +1134,7 @@ export default function AiChat() {
                     key={row.id}
                     className="flex justify-end animate-in fade-in slide-in-from-bottom-2 duration-300"
                   >
-                    <div className="max-w-[min(85%,26rem)] rounded-2xl bg-[#F9A8C9] px-4 py-3.5 text-white shadow-sm">
+                    <div className="max-w-[min(85%,26rem)] rounded-2xl bg-gradient-to-br from-primary to-primary/85 px-4 py-3.5 text-primary-foreground shadow-elevated">
                       <p className="whitespace-pre-wrap text-sm font-medium leading-relaxed">{row.message}</p>
                     </div>
                   </div>
@@ -844,7 +1145,7 @@ export default function AiChat() {
                   >
                     {rosyAvatar('md')}
                     <div className="flex min-w-0 max-w-[min(85%,28rem)] flex-col gap-3">
-                      <div className="rounded-2xl border border-pink-500/20 bg-white px-4 py-3.5 shadow-sm dark:border-pink-400/20 dark:bg-card">
+                      <div className="rounded-2xl border border-primary/15 bg-card/95 px-4 py-3.5 shadow-elevated backdrop-blur-sm">
                         {renderAssistantTextOnly(row)}
                       </div>
                       {renderAssistantAttachments(row)}
@@ -856,12 +1157,14 @@ export default function AiChat() {
             {sending && (
               <div className="flex animate-in fade-in slide-in-from-bottom-2 duration-300 justify-start gap-3">
                 {rosyAvatar('sm')}
-                <div className="rounded-2xl border border-pink-500/20 bg-white px-4 py-3.5 shadow-sm dark:border-pink-400/20 dark:bg-card">
-                  <p className="text-xs font-semibold text-[#9B2257]/90 dark:text-pink-200/90">روزي تكتب...</p>
+                <div className="rounded-2xl border border-primary/15 bg-card/95 px-4 py-3.5 shadow-elevated backdrop-blur-sm">
+                  <p className="text-xs font-semibold text-primary">
+                    {sendingImage ? 'جاري تحليل البشرة…' : 'روزي تكتب...'}
+                  </p>
                   <span className="mt-2 flex gap-1.5" aria-hidden>
-                    <span className="h-2 w-2 animate-bounce rounded-full bg-[#F9A8C9] [animation-delay:0ms]" />
-                    <span className="h-2 w-2 animate-bounce rounded-full bg-[#F9A8C9] [animation-delay:150ms]" />
-                    <span className="h-2 w-2 animate-bounce rounded-full bg-[#F9A8C9] [animation-delay:300ms]" />
+                    <span className="h-2 w-2 animate-bounce rounded-full bg-primary/70 [animation-delay:0ms]" />
+                    <span className="h-2 w-2 animate-bounce rounded-full bg-primary/70 [animation-delay:150ms]" />
+                    <span className="h-2 w-2 animate-bounce rounded-full bg-primary/70 [animation-delay:300ms]" />
                   </span>
                 </div>
               </div>
@@ -960,13 +1263,33 @@ export default function AiChat() {
       <input ref={galRef} type="file" accept="image/*" className="hidden" onChange={onPickImage} />
       <input ref={camFallbackRef} type="file" accept="image/*" capture="user" className="hidden" onChange={onPickImage} />
 
-      <div className="sticky bottom-0 z-30 border-t border-primary/10 bg-white pb-[calc(5.25rem+env(safe-area-inset-bottom))] dark:bg-card">
-        <div className="flex gap-2 p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+      {embedded ? (
+        <div className="relative z-20 shrink-0 border-t border-primary/12 bg-gradient-to-b from-white to-[#fffafc] dark:from-card dark:to-card">
+          <div className="mx-auto flex w-full max-w-[18rem] flex-col items-center gap-2 px-4 pb-2 pt-2">
+            {renderVoiceUi()}
+          </div>
+        </div>
+      ) : null}
+
+      <div
+        className={cn(
+          'sticky bottom-0 z-30 border-t border-primary/12 bg-gradient-to-b from-white to-[#fffafc] shadow-[0_-8px_32px_-12px_rgba(244,114,182,0.12)] dark:from-card dark:to-card dark:shadow-none',
+          embedded
+            ? 'pb-[calc(env(safe-area-inset-bottom,0px)+12px)]'
+            : 'pb-[calc(5.5rem+env(safe-area-inset-bottom,0px)+12px)]'
+        )}
+      >
+        <div
+          className={cn(
+            'flex gap-2 p-3 pb-[max(0.75rem,env(safe-area-inset-bottom,0px))]',
+            embedded && 'touch-manipulation'
+          )}
+        >
           <Button
             type="button"
             size="icon"
             variant="outline"
-            className="shrink-0 rounded-2xl"
+            className="min-h-[44px] min-w-[44px] shrink-0 touch-manipulation rounded-2xl"
             aria-label="تحليل وجه — كاميرا أو رفع"
             disabled={!!historyError || loading}
             onClick={openFaceScanFlow}
@@ -974,16 +1297,25 @@ export default function AiChat() {
             <Sparkles className="h-5 w-5 text-[#9B2257]" />
           </Button>
           <Input
-            className="flex-1 rounded-2xl"
+            ref={chatInputRef}
+            className="flex-1 touch-manipulation rounded-2xl"
             placeholder="اكتبي لروزي..."
             value={input}
             disabled={!!historyError || loading}
+            autoComplete="off"
+            enterKeyHint="send"
+            inputMode="text"
             onChange={(e) => setInput(e.target.value)}
+            onFocus={() => {
+              window.setTimeout(() => {
+                chatInputRef.current?.scrollIntoView({ block: 'center', behavior: 'smooth' })
+              }, 280)
+            }}
             onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && void send(input)}
           />
           <Button
             size="icon"
-            className="shrink-0 rounded-2xl bg-gradient-to-l from-[#9C27B0] to-[#E91E8C]"
+            className="min-h-[44px] min-w-[44px] shrink-0 touch-manipulation rounded-2xl bg-gradient-to-l from-[#9C27B0] to-[#E91E8C]"
             disabled={!!historyError || loading || sending}
             onClick={() => void send(input)}
           >
@@ -992,75 +1324,18 @@ export default function AiChat() {
         </div>
       </div>
 
-      <div className="pointer-events-none fixed bottom-[calc(5.25rem+env(safe-area-inset-bottom))] left-1/2 z-40 flex w-[min(100%,20rem)] -translate-x-1/2 flex-col items-center gap-2 px-4">
-        <div className="pointer-events-auto flex w-full max-w-[18rem] flex-col items-center gap-2">
-          {(voiceUi === 'listening' || voiceUi === 'processing') && (
-            <div
-              className="max-h-16 w-full overflow-y-auto rounded-2xl border border-pink-500/25 bg-white/95 px-3 py-2 text-center text-xs font-semibold leading-snug text-[#374151] shadow-lg backdrop-blur-md dark:border-pink-400/20 dark:bg-card/95 dark:text-foreground"
-              dir="rtl"
-            >
-              {liveTranscript ? liveTranscript : voiceUi === 'processing' ? '⏳ …' : '… استمعي'}
-            </div>
-          )}
-          <VoiceWaveform
-            phase={
-              voiceUi === 'speaking' ? 'speaking' : voiceUi === 'listening' ? 'listening' : 'idle'
-            }
-            className="drop-shadow-[0_0_14px_rgba(236,72,153,0.4)]"
-          />
-          <button
-            type="button"
-            disabled={
-              !!historyError ||
-              loading ||
-              (voiceUi !== 'listening' &&
-                voiceUi !== 'speaking' &&
-                (sending || voiceUi === 'processing'))
-            }
-            onClick={() => void toggleVoiceInput()}
-            aria-label={
-              voiceUi === 'listening'
-                ? 'إيقاف المحادثة الصوتية'
-                : voiceUi === 'speaking'
-                  ? 'قطع صوت روزي ومتابعة الحديث'
-                  : voiceUi === 'processing'
-                    ? 'جاري معالجة كلامك'
-                    : 'تحدثي مع روزي — وضع محادثة متواصل'
-            }
-            className={cn(
-              'flex h-[3.65rem] w-[3.65rem] shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-[#fce4ec] via-[#fbcfe8] to-[#f472b6] text-lg shadow-[0_0_32px_rgba(236,72,153,0.55),0_8px_24px_rgba(190,24,93,0.18)] ring-2 ring-white/95 transition-transform active:scale-95 disabled:pointer-events-none disabled:opacity-45 dark:ring-pink-950/40',
-              voiceUi === 'listening' && 'ring-4 ring-red-400/55 scale-[1.04]',
-              voiceUi === 'processing' && 'ring-4 ring-amber-300/50',
-              voiceUi === 'speaking' && 'ring-4 ring-violet-400/50 scale-[1.03] shadow-[0_0_36px_rgba(167,139,250,0.45)]'
-            )}
-          >
-            {voiceUi === 'processing' ? (
-              <Loader2 className="h-7 w-7 animate-spin text-[#9B2257]" aria-hidden />
-            ) : voiceUi === 'listening' ? (
-              <span className="text-2xl leading-none" aria-hidden>
-                🔴
-              </span>
-            ) : voiceUi === 'speaking' ? (
-              <span className="text-2xl leading-none" aria-hidden>
-                ✨
-              </span>
-            ) : (
-              <span className="text-2xl leading-none" aria-hidden>
-                🎤
-              </span>
-            )}
-          </button>
-          <p className="pointer-events-none text-center text-[10px] font-medium text-muted-foreground drop-shadow-sm">
-            {voiceUi === 'listening'
-              ? 'متواصل — 🔴 يوقف'
-              : voiceUi === 'speaking'
-                ? 'ElevenLabs ✨ — اضغطي للقطع'
-                : voiceUi === 'processing'
-                  ? '⏳ روزي…'
-                  : '🎤 محادثة صوتية فاخرة'}
-          </p>
+      {!embedded ? (
+        <div
+          className="pointer-events-none fixed left-1/2 z-[55] flex w-[min(100%,20rem)] -translate-x-1/2 flex-col items-center gap-2 px-4"
+          style={{
+            bottom: 'calc(6.25rem + env(safe-area-inset-bottom, 0px) + 12px)',
+          }}
+        >
+          <div className="pointer-events-auto flex w-full max-w-[18rem] flex-col items-center gap-2">
+            {renderVoiceUi()}
+          </div>
         </div>
-      </div>
+      ) : null}
     </div>
   )
 }

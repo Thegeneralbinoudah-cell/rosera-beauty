@@ -4,6 +4,8 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { toast } from 'sonner'
+import { Link } from 'react-router-dom'
+import { formatPrice } from '@/lib/utils'
 import {
   Select,
   SelectContent,
@@ -12,7 +14,8 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 
-type BizRow = { id: string; name_ar: string; city: string }
+type BizRow = { id: string; name_ar: string; city: string; is_featured?: boolean; total_bookings?: number | null }
+type SubRow = { plan: string; status: string; price: number | null }
 type ProdRow = { id: string; name_ar: string }
 type BoostRow = {
   id: string
@@ -34,6 +37,9 @@ export default function AdminMonetization() {
   const [products, setProducts] = useState<ProdRow[]>([])
   const [recentBoosts, setRecentBoosts] = useState<BoostRow[]>([])
   const [commissionRows, setCommissionRows] = useState<{ commission_amount: number | null; business_id: string }[]>([])
+  const [subRows, setSubRows] = useState<SubRow[]>([])
+  const [featuredSalonCount, setFeaturedSalonCount] = useState(0)
+  const [topByBookings, setTopByBookings] = useState<BizRow[]>([])
 
   const [scope, setScope] = useState<'salon' | 'product'>('salon')
   const [businessId, setBusinessId] = useState('')
@@ -44,16 +50,38 @@ export default function AdminMonetization() {
   const [saving, setSaving] = useState(false)
 
   const load = useCallback(async () => {
-    const [bRes, pRes, boostRes, bookRes] = await Promise.all([
+    const since = new Date()
+    since.setDate(since.getDate() - 365)
+    const sinceIso = since.toISOString()
+
+    const [bRes, pRes, boostRes, bookRes, subRes, featRes, topBizRes] = await Promise.all([
       supabase.from('businesses').select('id, name_ar, city').eq('is_active', true).eq('is_demo', false).order('name_ar').limit(400),
       supabase.from('products').select('id, name_ar').eq('is_active', true).eq('is_demo', false).order('name_ar').limit(400),
       supabase.from('boosts').select('*').order('created_at', { ascending: false }).limit(15),
-      supabase.from('bookings').select('commission_amount, business_id').limit(8000),
+      supabase
+        .from('bookings')
+        .select('commission_amount, business_id')
+        .gte('created_at', sinceIso)
+        .order('created_at', { ascending: false })
+        .limit(5000),
+      supabase.from('salon_subscriptions').select('plan, status, price').eq('status', 'active'),
+      supabase.from('businesses').select('id', { count: 'exact', head: true }).eq('is_active', true).eq('is_featured', true),
+      supabase
+        .from('businesses')
+        .select('id, name_ar, city, is_featured, total_bookings')
+        .eq('is_active', true)
+        .eq('is_demo', false)
+        .order('total_bookings', { ascending: false, nullsFirst: false })
+        .limit(12),
     ])
     setBiz((bRes.data ?? []) as BizRow[])
     setProducts((pRes.data ?? []) as ProdRow[])
     setRecentBoosts((boostRes.data ?? []) as BoostRow[])
     setCommissionRows((bookRes.data ?? []) as typeof commissionRows)
+    setSubRows((subRes.data ?? []) as SubRow[])
+    setFeaturedSalonCount(featRes.count ?? 0)
+    setTopByBookings((topBizRes.data ?? []) as BizRow[])
+    if (subRes.error) console.warn('[AdminMonetization] subscriptions', subRes.error)
   }, [])
 
   useEffect(() => {
@@ -75,8 +103,15 @@ export default function AdminMonetization() {
     const activeBoosts = recentBoosts.filter(
       (x) => x.is_active && x.start_date <= t && x.end_date >= t
     ).length
-    return { totalCommission, top, activeBoosts }
-  }, [commissionRows, recentBoosts])
+    const subByPlan: Record<string, number> = {}
+    let mrr = 0
+    for (const s of subRows) {
+      const p = (s.plan || 'other').toLowerCase()
+      subByPlan[p] = (subByPlan[p] ?? 0) + 1
+      mrr += Number(s.price ?? 0)
+    }
+    return { totalCommission, top, activeBoosts, subByPlan, mrr, activeSubs: subRows.length }
+  }, [commissionRows, recentBoosts, subRows])
 
   const bizName = (id: string | null) => biz.find((x) => x.id === id)?.name_ar ?? id ?? '—'
 
@@ -143,9 +178,21 @@ export default function AdminMonetization() {
 
   return (
     <div className="mx-auto max-w-4xl space-y-10">
-      <div>
-        <h1 className="text-2xl font-bold">التحقق من الإيرادات والدفع</h1>
-        <p className="mt-1 text-sm text-rosera-gray">عمولات الحجز، الدفع للظهور، وأعلى الصالونات من العمولة (بدون تعطيل تجربة المستخدم).</p>
+      <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end sm:justify-between">
+        <div>
+          <h1 className="text-2xl font-bold">تحقيق الدخل</h1>
+          <p className="mt-1 text-sm text-rosera-gray">
+            اشتراكات B2B، تمييز الصالونات، تعزيز الظهور (boosts)، وعمولة الحجز — لوحة تشغيل للأعمال.
+          </p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <Button variant="outline" size="sm" asChild>
+            <Link to="/admin/revenue">تفاصيل الإيرادات والرسوم البيانية</Link>
+          </Button>
+          <Button variant="outline" size="sm" asChild>
+            <Link to="/admin/salons">إدارة الصالونات والتمييز</Link>
+          </Button>
+        </div>
       </div>
 
       <div className="grid gap-4 sm:grid-cols-3">
@@ -158,8 +205,39 @@ export default function AdminMonetization() {
           <p className="mt-2 text-2xl font-extrabold text-[#9C27B0]">{stats.activeBoosts}</p>
         </div>
         <div className="rounded-xl border bg-white p-4 dark:bg-card">
-          <p className="text-xs font-bold text-rosera-gray">صفوف الحجز في العيّنة</p>
-          <p className="mt-2 text-2xl font-extrabold">{commissionRows.length}</p>
+          <p className="text-xs font-bold text-rosera-gray">اشتراكات B2B نشطة</p>
+          <p className="mt-2 text-2xl font-extrabold text-emerald-700 dark:text-emerald-400">
+            {stats.activeSubs.toLocaleString('ar-SA')}
+          </p>
+          <p className="mt-1 text-[11px] text-rosera-gray">
+            MRR تقريبي: {formatPrice(stats.mrr)} · حسب الخطة: {['basic', 'pro', 'premium'].map((p) => `${p} ${stats.subByPlan[p] ?? 0}`).join(' · ')}
+          </p>
+        </div>
+      </div>
+
+      <div className="grid gap-4 sm:grid-cols-2">
+        <div className="rounded-xl border bg-white p-5 dark:bg-card">
+          <p className="font-bold text-primary">صالونات بعلامة «مميّز» في المنصة</p>
+          <p className="mt-2 text-3xl font-extrabold tabular-nums">{featuredSalonCount.toLocaleString('ar-SA')}</p>
+          <p className="mt-2 text-xs text-rosera-gray">يُرفع ترتيبهم في القوائم والتوصيات مع خطط الاشتراك.</p>
+        </div>
+        <div className="rounded-xl border bg-white p-5 dark:bg-card">
+          <p className="font-bold text-primary">أعلى الصالونات حجوزاً (مرجعية)</p>
+          <ol className="mt-3 list-decimal space-y-1 pe-4 text-sm">
+            {topByBookings.length === 0 ? (
+              <li className="text-rosera-gray">لا بيانات</li>
+            ) : (
+              topByBookings.map((r) => (
+                <li key={r.id} className="flex justify-between gap-2 border-b border-border/40 py-1 last:border-0">
+                  <span className="min-w-0 truncate">
+                    {r.name_ar}
+                    {r.is_featured ? <span className="ms-1 text-xs text-primary">★</span> : null}
+                  </span>
+                  <span className="shrink-0 tabular-nums font-semibold">{Number(r.total_bookings ?? 0).toLocaleString('ar-SA')}</span>
+                </li>
+              ))
+            )}
+          </ol>
         </div>
       </div>
 

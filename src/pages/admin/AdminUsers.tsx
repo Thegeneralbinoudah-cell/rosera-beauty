@@ -11,6 +11,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { toast } from 'sonner'
+import { isPlatformOwner } from '@/lib/platformOwner'
 import {
   Dialog,
   DialogContent,
@@ -36,7 +37,7 @@ type Row = {
 
 export default function AdminUsers() {
   const { profile } = useAuth()
-  const isOwner = (profile?.role ?? '').toLowerCase() === 'owner'
+  const isOwner = isPlatformOwner(profile)
   const [rows, setRows] = useState<Row[]>([])
   const [q, setQ] = useState('')
   const [roleFilter, setRoleFilter] = useState('')

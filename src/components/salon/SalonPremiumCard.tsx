@@ -11,6 +11,7 @@ import { trackEvent } from '@/lib/analytics'
 import { inferPreferenceServiceKey } from '@/lib/roseyUserPreference'
 import { cn } from '@/lib/utils'
 import type { SalonActiveOffer } from '@/lib/offers'
+import { formatDistrictCityLine } from '@/lib/locationFormat'
 
 export type SalonPremiumCardData = {
   id: string
@@ -22,6 +23,7 @@ export type SalonPremiumCardData = {
   average_rating?: number | null
   total_reviews?: number | null
   city?: string | null
+  address_ar?: string | null
   category?: string | null
   category_label?: string | null
   price_range?: string | null
@@ -85,6 +87,7 @@ export function SalonPremiumCard({
     Number.isFinite(activeOffer.discount_percentage)
       ? Math.min(100, Math.max(0, Math.round(activeOffer.discount_percentage)))
       : null
+  const locationLine = formatDistrictCityLine(salon.address_ar, salon.city)
 
   const pushPreference = (source: 'salon_card_open' | 'salon_card_book') => {
     if (!user?.id) return
@@ -147,8 +150,8 @@ export function SalonPremiumCard({
   return (
     <Card
       className={cn(
-        'group flex h-full flex-col overflow-hidden rounded-2xl border border-primary/10',
-        'origin-center bg-white/95 shadow-[0_12px_40px_-18px_rgba(233,30,140,0.35)]',
+        'group flex h-full flex-col overflow-hidden rounded-3xl border border-primary/12',
+        'origin-center bg-white/95 shadow-floating ring-1 ring-gold/10',
         'animate-in fade-in slide-in-from-bottom-2 fill-mode-both duration-500',
         'transition-[transform,box-shadow] duration-300 ease-out will-change-transform',
         !isRecommended && 'hover:scale-[1.02] hover:shadow-[0_24px_56px_-18px_rgba(156,39,176,0.45)]',
@@ -224,8 +227,10 @@ export function SalonPremiumCard({
           <h2 className="line-clamp-2 text-base font-extrabold leading-snug text-[#1F1F1F] dark:text-foreground">
             {salon.name_ar}
           </h2>
-          {showCity && salon.city ? (
-            <p className="line-clamp-1 text-xs font-medium text-rosera-gray">{salon.city}</p>
+          {showCity && (locationLine || salon.city) ? (
+            <p className="whitespace-normal text-[15px] font-medium leading-snug text-gray-700 dark:text-gray-300">
+              {locationLine || salon.city}
+            </p>
           ) : null}
           {scoreCaption ? (
             <p className="text-[11px] font-semibold uppercase tracking-wide text-primary/80">{scoreCaption}</p>

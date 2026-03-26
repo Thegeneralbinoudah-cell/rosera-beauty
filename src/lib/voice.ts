@@ -1,7 +1,6 @@
-const VOICE_PHASE = 'rosy-voice-phase' as const
+import type { ElevenLabsClient } from '@elevenlabs/elevenlabs-js'
 
-/** نفس بداية تنبيه تحليل الوجه في المحادثة — لإسقاطه من الصوت فقط */
-const FACE_SCAN_VOICE_CUT = '⚠️ تنبيه مهم:'
+const VOICE_PHASE = 'rosy-voice-phase' as const
 
 export type RosyVoicePhase = 'speaking' | 'idle'
 
@@ -13,32 +12,46 @@ function emitVoicePhase(phase: RosyVoicePhase) {
 let currentAudio: HTMLAudioElement | null = null
 let currentObjectUrl: string | null = null
 
-let elevenClient: import('@elevenlabs/elevenlabs-js').ElevenLabsClient | null = null
+let elevenClient: ElevenLabsClient | null = null
+let elevenClientApiKey: string | null = null
 
-async function getElevenLabsClient() {
-  const key = import.meta.env.VITE_ELEVENLABS_API_KEY
-  if (!key || typeof key !== 'string') return null
-  if (!elevenClient) {
-    try {
-      const { ElevenLabsClient } = await import('@elevenlabs/elevenlabs-js')
-      elevenClient = new ElevenLabsClient({ apiKey: key })
-    } catch {
-      return null
-    }
+async function getElevenLabsClient(apiKey: string): Promise<ElevenLabsClient | null> {
+  if (elevenClient && elevenClientApiKey === apiKey) {
+    return elevenClient
   }
-  return elevenClient
+  elevenClient = null
+  elevenClientApiKey = null
+  try {
+    const { ElevenLabsClient } = await import('@elevenlabs/elevenlabs-js')
+    elevenClient = new ElevenLabsClient({ apiKey })
+    elevenClientApiKey = apiKey
+    return elevenClient
+  } catch {
+    return null
+  }
 }
 
+/**
+ * جاهز للصوت: يتطلب **مفتاح API** و **Voice ID** من Voice Lab (نسخه من الإعدادات/API) —
+ * ليس اسم صوت ولا preset ولا صوتاً من المكتبة.
+ */
 export function isElevenLabsConfigured(): boolean {
-  return Boolean(import.meta.env.VITE_ELEVENLABS_API_KEY)
+  const key = typeof import.meta.env.VITE_ELEVENLABS_API_KEY === 'string' ? import.meta.env.VITE_ELEVENLABS_API_KEY.trim() : ''
+  const vid = import.meta.env.VITE_ELEVENLABS_VOICE_ID?.trim() ?? ''
+  return Boolean(key && vid)
 }
 
-export function stripForAssistantVoice(text: string): string {
-  const idx = text.indexOf(FACE_SCAN_VOICE_CUT)
-  let t = (idx === -1 ? text : text.slice(0, idx)).trim()
-  t = t.replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/gu, ' ')
-  t = t.replace(/\s+/g, ' ').trim()
+/**
+ * نص المساعد كما وُلّد — لا إعادة صياغة ولا استبدال عبارات (مثل Voice Lab).
+ */
+export function prepareRosyTtsText(text: string): string {
+  const t = String(text ?? '').trim()
   return t.length > 0 ? t : 'ردّيت عليكِ في الشات.'
+}
+
+/** @deprecated استخدمي prepareRosyTtsText */
+export function stripForAssistantVoice(text: string): string {
+  return prepareRosyTtsText(text)
 }
 
 async function streamToMp3Blob(stream: ReadableStream<Uint8Array>): Promise<Blob> {
@@ -60,17 +73,41 @@ async function streamToMp3Blob(stream: ReadableStream<Uint8Array>): Promise<Blob
   return new Blob([out], { type: 'audio/mpeg' })
 }
 
-function stopBrowserUtterance() {
-  try {
-    speechSynthesis.cancel()
-  } catch {
-    /* ignore */
-  }
+/**
+ * تشغيل مع التعامل مع حظر autoplay: إعادة المحاولة بعد أول نقرة / لمس.
+ * لا نرفض الوعد عند فشل التشغيل الأول — ننتظر تفاعل المستخدم ثم ننتظر انتهاء المقطع.
+ */
+function waitForAudioPlaybackWithUnlock(audio: HTMLAudioElement): Promise<void> {
+  return new Promise((resolve, reject) => {
+    audio.onended = () => resolve()
+    audio.onerror = () => {
+      console.error('❌ Audio element error')
+      reject(new Error('Audio playback failed'))
+    }
+
+    const tryPlayAfterGesture = () => {
+      const unlock = () => {
+        window.removeEventListener('click', unlock)
+        window.removeEventListener('touchstart', unlock)
+        void audio.play().catch((e: unknown) => {
+            console.error('❌ Retry failed', e)
+            window.addEventListener('click', unlock)
+            window.addEventListener('touchstart', unlock)
+          })
+      }
+      window.addEventListener('click', unlock)
+      window.addEventListener('touchstart', unlock)
+    }
+
+    void audio.play().catch((err: unknown) => {
+        console.warn('⚠️ Autoplay blocked, retrying after user interaction', err)
+        tryPlayAfterGesture()
+      })
+  })
 }
 
-/** إيقاف أي تشغيل صوتي (ElevenLabs أو المتصفح). */
+/** إيقاف تشغيل ElevenLabs فقط — لا Web Speech API. */
 export function stopRosyVoicePlayback() {
-  stopBrowserUtterance()
   if (currentAudio) {
     currentAudio.pause()
     currentAudio.src = ''
@@ -83,111 +120,118 @@ export function stopRosyVoicePlayback() {
   emitVoicePhase('idle')
 }
 
-/** صوت Bella الافتراضي في ElevenLabs */
-export const ELEVENLABS_BELLA_VOICE_ID = 'EXAVITQu4vr4xnSDxMaL'
+/** نطق عربي + استنساخ — نموذج واحد فقط */
+const MODEL_ID = 'eleven_multilingual_v2' as const
+
+/** استنساخ واضح: similarity كامل، ثبات منخفض — لا style ولا speed ولا useSpeakerBoost */
+const VOICE_SETTINGS = {
+  stability: 0.2,
+  similarityBoost: 1.0,
+} as const
 
 export type RosySpeakMode = 'default' | 'salon_owner_sales'
 
-async function speakElevenLabs(
-  plain: string,
-  opts?: {
-    voiceId?: string
-    voiceSettings?: {
-      stability?: number
-      similarityBoost?: number
-      style?: number
-      useSpeakerBoost?: boolean
-      speed?: number
-    }
-  }
-): Promise<boolean> {
-  const client = await getElevenLabsClient()
-  if (!client) return false
-  const envVoice = (import.meta.env.VITE_ELEVENLABS_VOICE_ID as string | undefined)?.trim()
-  const voiceId = opts?.voiceId?.trim() || envVoice || ELEVENLABS_BELLA_VOICE_ID
-  const stream = await client.textToSpeech.convert(voiceId, {
-    text: plain,
-    modelId: 'eleven_multilingual_v2',
-    ...(opts?.voiceSettings ? { voiceSettings: opts.voiceSettings } : {}),
-  })
-  const blob = await streamToMp3Blob(stream)
-  const url = URL.createObjectURL(blob)
-  currentObjectUrl = url
-  const audio = new Audio(url)
-  currentAudio = audio
-  emitVoicePhase('speaking')
-  await new Promise<void>((resolve, reject) => {
-    audio.onended = () => resolve()
-    audio.onerror = () => reject(new Error('audio'))
-    void audio.play().catch(() => reject(new Error('play')))
-  })
-  stopRosyVoicePlayback()
-  return true
+export type RosySpeakResult = {
+  ok: boolean
+  usedElevenLabs: boolean
+  error?: string
 }
 
-async function speakBrowser(plain: string): Promise<void> {
-  emitVoicePhase('speaking')
-  await new Promise<void>((resolve) => {
-    const utterance = new SpeechSynthesisUtterance(plain)
-    utterance.lang = 'ar-SA'
-    utterance.rate = 1
-    utterance.pitch = 1.02
-    const list = speechSynthesis.getVoices()
-    const ar = list.filter((v) => v.lang.toLowerCase().startsWith('ar'))
-    const voice =
-      ar.find((v) => /female|woman|أنثى|girl/i.test(`${v.name} ${v.voiceURI}`)) ?? ar[0]
-    if (voice) utterance.voice = voice
-    utterance.onend = () => resolve()
-    utterance.onerror = () => resolve()
-    speechSynthesis.speak(utterance)
-  })
-  emitVoicePhase('idle')
+/** تسلسل تشغيلات TTS حتى لا تتداخل المقاطع */
+let speakQueueTail: Promise<RosySpeakResult> = Promise.resolve({ ok: false, usedElevenLabs: false })
+
+/**
+ * صوت روزي: **ElevenLabs فقط** — `voiceId` من `VITE_ELEVENLABS_VOICE_ID` (معرّف الاستنساخ من Voice Lab، ليس اسماً ولا preset).
+ */
+export async function speak(text: string, options?: { mode?: RosySpeakMode }): Promise<RosySpeakResult> {
+  void options
+  if (text.length === 0) {
+    emitVoicePhase('idle')
+    return { ok: false, usedElevenLabs: false, error: 'Empty text' }
+  }
+
+  const next = speakQueueTail.then(() => speakOnce(text))
+  speakQueueTail = next.catch(() => ({ ok: false, usedElevenLabs: false }))
+  return next
+}
+
+async function speakOnce(text: string): Promise<RosySpeakResult> {
+  const finalText = text
+
+  stopRosyVoicePlayback()
+  await new Promise<void>((r) => setTimeout(r, 80))
+
+  const apiKeyRaw = import.meta.env.VITE_ELEVENLABS_API_KEY
+  const apiKey = typeof apiKeyRaw === 'string' ? apiKeyRaw.trim() : ''
+  if (!apiKey) {
+    console.warn('⚠️ ElevenLabs not configured — missing VITE_ELEVENLABS_API_KEY')
+    emitVoicePhase('idle')
+    return { ok: false, usedElevenLabs: false, error: 'Missing API key' }
+  }
+
+  const voiceId = import.meta.env.VITE_ELEVENLABS_VOICE_ID
+  if (typeof voiceId !== 'string' || !voiceId) {
+    console.error('❌ Missing VITE_ELEVENLABS_VOICE_ID')
+    emitVoicePhase('idle')
+    return { ok: false, usedElevenLabs: false, error: 'Missing cloned voice ID' }
+  }
+
+  const client = await getElevenLabsClient(apiKey)
+  if (!client) {
+    emitVoicePhase('idle')
+    return { ok: false, usedElevenLabs: false, error: 'ElevenLabs client failed to load' }
+  }
+
+  try {
+    const stream = await client.textToSpeech.convert(voiceId, {
+      text: finalText,
+      modelId: MODEL_ID,
+      voiceSettings: { ...VOICE_SETTINGS },
+    })
+    const blob = await streamToMp3Blob(stream)
+    if (!blob || blob.size === 0) {
+      console.error('❌ Invalid audio blob')
+      emitVoicePhase('idle')
+      return { ok: false, usedElevenLabs: false, error: 'Invalid audio blob' }
+    }
+
+    const blobUrl = URL.createObjectURL(blob)
+    currentObjectUrl = blobUrl
+    const audio = new Audio()
+    audio.muted = false
+    audio.volume = 1
+    audio.src = blobUrl
+    currentAudio = audio
+    emitVoicePhase('speaking')
+    await waitForAudioPlaybackWithUnlock(audio)
+    stopRosyVoicePlayback()
+    emitVoicePhase('idle')
+    return { ok: true, usedElevenLabs: true }
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : 'ElevenLabs TTS failed'
+    console.error('[Rosy TTS]', msg, e)
+    stopRosyVoicePlayback()
+    emitVoicePhase('idle')
+    return { ok: false, usedElevenLabs: false, error: msg }
+  }
+}
+
+/** نفس `speak` — للاستدعاء من المحادثة */
+export async function playRosyVoice(text: string, options?: { mode?: RosySpeakMode }): Promise<RosySpeakResult> {
+  return speak(text, options)
 }
 
 /**
- * تشغيل رد روزي صوتياً — ElevenLabs إن وُجد المفتاح، وإلا صوت المتصفح.
- * المفتاح في Vite يُعرّض للعميل؛ للإنتاج يُفضّل بروكسي عبر Edge Function.
- * `salon_owner_sales`: Bella + إعدادات أنعم وأقرب للإقناع الودّي.
+ * TEMP — اختبار سريع للصوت المستنسخ من كونسول المتصفح:
+ * `testRosyVoiceDirect()` أو `import('@/lib/voice').then((m) => m.testVoiceDirect())`
  */
-export async function speak(
-  text: string,
-  options?: { mode?: RosySpeakMode }
-): Promise<{ ok: boolean; usedElevenLabs: boolean }> {
-  const plain = stripForAssistantVoice(text)
-  if (!plain) {
-    emitVoicePhase('idle')
-    return { ok: false, usedElevenLabs: false }
-  }
-  stopRosyVoicePlayback()
-  const mode = options?.mode ?? 'default'
-  const salesVoiceId =
-    (import.meta.env.VITE_ELEVENLABS_SALES_VOICE_ID as string | undefined)?.trim() || ELEVENLABS_BELLA_VOICE_ID
-  try {
-    if (isElevenLabsConfigured()) {
-      const ok =
-        mode === 'salon_owner_sales'
-          ? await speakElevenLabs(plain, {
-              voiceId: salesVoiceId,
-              voiceSettings: {
-                stability: 0.52,
-                similarityBoost: 0.78,
-                style: 0.24,
-                useSpeakerBoost: true,
-                speed: 0.97,
-              },
-            })
-          : await speakElevenLabs(plain)
-      if (ok) {
-        emitVoicePhase('idle')
-        return { ok: true, usedElevenLabs: true }
-      }
-    }
-    await speakBrowser(plain)
-    return { ok: true, usedElevenLabs: false }
-  } catch {
-    emitVoicePhase('idle')
-    return { ok: false, usedElevenLabs: false }
-  }
+export async function testVoiceDirect(): Promise<void> {
+  const text = 'هلا والله كيف أقدر أخدمك'
+  await playRosyVoice(text)
+}
+
+if (import.meta.env.DEV && typeof window !== 'undefined') {
+  ;(window as unknown as { testRosyVoiceDirect: () => Promise<void> }).testRosyVoiceDirect = () => testVoiceDirect()
 }
 
 export const ROSY_VOICE_PHASE_EVENT = VOICE_PHASE

@@ -30,23 +30,19 @@ import { filterFemaleBeautyBusinesses } from '@/lib/roseraBusinessFilters'
 import { buildMapExploreUrl } from '@/lib/mapExploreUrl'
 import { markGeolocationKnown } from '@/lib/geoSession'
 import { fetchActiveSalonFeaturedAdSalonIds } from '@/lib/salonAds'
+import {
+  SEARCH_BUSINESS_CATEGORY_OPTIONS,
+  resolveSearchCategoryFilter,
+  businessMatchesSearchCategory,
+  normalizeArabicLabel,
+} from '@/lib/searchCategoryFilter'
+import { trackCategoryFilterSelected } from '@/lib/analytics'
 
 type BizRow = Business & {
   sa_cities?: { name_ar: string; sa_regions?: { name_ar: string } | null } | null
 }
 
 const SEARCH_SORT_PREFS_KEY = 'rosera:search:sort'
-
-const CATEGORY_OPTIONS: { value: string; key: string }[] = [
-  { value: 'صالون نسائي', key: 'search.cat.salon_female' },
-  { value: 'سبا ومساج', key: 'search.cat.spa_massage' },
-  { value: 'مكياج', key: 'search.cat.makeup' },
-  { value: 'عناية بالبشرة', key: 'search.cat.skincare' },
-  { value: 'عيادة تجميل', key: 'search.cat.clinic_beauty' },
-  { value: 'عيادة جلدية', key: 'search.cat.clinic_skin' },
-  { value: 'عيادة ليزر', key: 'search.cat.clinic_laser' },
-  { value: 'عيادة حقن وفيلر', key: 'search.cat.clinic_filler' },
-]
 
 export default function SearchPage() {
   const { t } = useI18n()
@@ -84,6 +80,21 @@ export default function SearchPage() {
   useEffect(() => {
     setCatLabelLocal(categoryLabelF)
   }, [categoryLabelF])
+
+  /** Normalize legacy/alias `categoryLabel` in the URL to the canonical chip string. */
+  useEffect(() => {
+    const res = resolveSearchCategoryFilter(categoryLabelF)
+    if (!res.ok) return
+    if (normalizeArabicLabel(categoryLabelF) === res.canonical) return
+    setParams(
+      (prev) => {
+        const p = new URLSearchParams(prev)
+        p.set('categoryLabel', res.canonical)
+        return p
+      },
+      { replace: true }
+    )
+  }, [categoryLabelF, setParams])
 
   useEffect(() => {
     navigator.geolocation?.getCurrentPosition(
@@ -167,14 +178,9 @@ export default function SearchPage() {
     if (cityF.trim()) {
       r = r.filter((b) => (b.city === cityF || b.sa_cities?.name_ar === cityF))
     }
-    if (catLabelLocal.trim()) {
-      const cat = catLabelLocal.trim()
-      r = r.filter((b) => {
-        const lbl = (b.category_label ?? '').trim()
-        if (lbl.includes(cat) || lbl === cat || cat.includes(lbl)) return true
-        const hay = `${lbl} ${b.name_ar ?? ''} ${b.description_ar ?? ''} ${b.category ?? ''}`
-        return hay.includes(cat)
-      })
+    const catRes = resolveSearchCategoryFilter(catLabelLocal)
+    if (catRes.ok) {
+      r = r.filter((b) => businessMatchesSearchCategory(b, catRes.canonical))
     }
     const mr = parseFloat(minRating)
     if (mr > 0) r = r.filter((b) => (b.average_rating ?? 0) >= mr)
@@ -212,6 +218,11 @@ export default function SearchPage() {
     return r
   }, [list, q, cityF, catLabelLocal, minRating, sortBy, userPos])
 
+  const categoryBannerLabel = (() => {
+    const res = resolveSearchCategoryFilter(catLabelLocal)
+    return res.ok ? res.canonical : null
+  })()
+
   const withDist = useMemo(() => {
     if (!userPos) return filtered.map((b) => ({ b, km: undefined as number | undefined }))
     return filtered.map((b) => ({
@@ -247,7 +258,7 @@ export default function SearchPage() {
     let n = 0
     if (q.trim()) n += 1
     if (cityF.trim()) n += 1
-    if (catLabelLocal.trim()) n += 1
+    if (resolveSearchCategoryFilter(catLabelLocal).ok) n += 1
     if (parseFloat(minRating) > 0) n += 1
     if (sortBy !== 'rating') n += 1
     return n
@@ -277,6 +288,7 @@ export default function SearchPage() {
           <SortPills
             value={sortBy}
             onChange={(v) => setSortBy(v)}
+            ariaLabel={t('a11y.sortResults')}
             options={[
               { value: 'rating', label: t('city.sort.rating') },
               { value: 'booked', label: t('city.sort.booked') },
@@ -307,9 +319,10 @@ export default function SearchPage() {
       </div>
 
       <div className="mx-auto max-w-lg px-4 py-4">
-        {categoryLabelF && (
+        {categoryBannerLabel && (
           <p className="mb-3 text-sm text-rosera-gray">
-            {t('search.categoryChip')} <strong className="text-foreground">{categoryLabelF}</strong>
+            {t('search.categoryChip')}{' '}
+            <strong className="text-foreground">{categoryBannerLabel}</strong>
           </p>
         )}
         {loading ? (
@@ -320,22 +333,51 @@ export default function SearchPage() {
           </div>
         ) : filtered.length === 0 ? (
           <div className="py-10">
-            <EmptyState
-              icon={MapPin}
-              title={t('search.emptyStateTitle')}
-              subtitle={t('search.emptyStateSub')}
-              ctaLabel={t('search.emptyStateCtaNearest')}
-              onClick={() =>
-                nav(
-                  buildMapExploreUrl({
-                    sortNearest: true,
-                    searchQuery: q,
-                    city: cityF.trim() || null,
-                  })
-                )
-              }
-              analyticsSource="search"
-            />
+            {resolveSearchCategoryFilter(catLabelLocal).ok ? (
+              <EmptyState
+                icon={SlidersHorizontal}
+                title={t('search.emptyCategoryTitle')}
+                subtitle={t('search.emptyCategorySub')}
+                ctaLabel={t('search.emptyCategoryCtaFilter')}
+                onClick={() => setFilterOpen(true)}
+                analyticsSource="search_category_empty"
+              >
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="w-full max-w-sm rounded-2xl border-primary/25"
+                  onClick={() =>
+                    nav(
+                      buildMapExploreUrl({
+                        sortNearest: true,
+                        searchQuery: q,
+                        city: cityF.trim() || null,
+                        categoryLabel: categoryBannerLabel,
+                      })
+                    )
+                  }
+                >
+                  {t('search.emptyCategoryCtaMap')}
+                </Button>
+              </EmptyState>
+            ) : (
+              <EmptyState
+                icon={MapPin}
+                title={t('search.emptyStateTitle')}
+                subtitle={t('search.emptyStateSub')}
+                ctaLabel={t('search.emptyStateCtaNearest')}
+                onClick={() =>
+                  nav(
+                    buildMapExploreUrl({
+                      sortNearest: true,
+                      searchQuery: q,
+                      city: cityF.trim() || null,
+                    })
+                  )
+                }
+                analyticsSource="search"
+              />
+            )}
           </div>
         ) : (
           <div className="grid gap-4 sm:grid-cols-2">
@@ -364,13 +406,20 @@ export default function SearchPage() {
             </div>
             <div>
               <Label>{t('search.categoryLabel')}</Label>
-              <Select value={catLabelLocal || 'all'} onValueChange={(v) => setCatLabelLocal(v === 'all' ? '' : v)}>
+              <Select
+                value={catLabelLocal || 'all'}
+                onValueChange={(v) => {
+                  const next = v === 'all' ? '' : v
+                  setCatLabelLocal(next)
+                  trackCategoryFilterSelected('search_filter', next || 'all')
+                }}
+              >
                 <SelectTrigger className="mt-2 rounded-xl">
                   <SelectValue placeholder={t('common.all')} />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">{t('common.all')}</SelectItem>
-                  {CATEGORY_OPTIONS.map(({ value, key }) => (
+                  {SEARCH_BUSINESS_CATEGORY_OPTIONS.map(({ value, key }) => (
                     <SelectItem key={value} value={value}>
                       {t(key)}
                     </SelectItem>

@@ -4,6 +4,7 @@ import { motion } from 'framer-motion'
 import { useAuth } from '@/contexts/AuthContext'
 import { STORAGE_KEYS } from '@/lib/utils'
 import { ROSERA_LOGO_SRC } from '@/lib/branding'
+import { LazyImage } from '@/components/ui/lazy-image'
 
 export default function SplashScreen() {
   const nav = useNavigate()
@@ -32,7 +33,12 @@ export default function SplashScreen() {
         transition={{ duration: 0.5, ease: 'easeOut' }}
         className="text-center"
       >
-        <img src={ROSERA_LOGO_SRC} alt="" className="mx-auto w-18 h-18 rounded-2xl object-contain" />
+        <LazyImage
+          src={ROSERA_LOGO_SRC}
+          alt=""
+          className="mx-auto w-18 h-18 rounded-2xl object-contain"
+          priority
+        />
         <h1 className="mt-4 text-5xl font-extrabold tracking-tight">روزيرا</h1>
         <p className="mt-4 max-w-xs text-lg font-medium text-white/95 leading-relaxed">
           جمالك يبدأ من هنا

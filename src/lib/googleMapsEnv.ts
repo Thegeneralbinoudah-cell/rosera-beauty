@@ -20,3 +20,11 @@ export function getGoogleMapsApiKey(): string {
 export function isGoogleMapsConfigured(): boolean {
   return getGoogleMapsApiKey().length > 0
 }
+
+/** Vector map + Advanced Markers — Cloud Console → Map Management → Map ID */
+export function getGoogleMapsMapId(): string | undefined {
+  const raw = import.meta.env.VITE_GOOGLE_MAPS_MAP_ID
+  if (typeof raw !== 'string') return undefined
+  const t = raw.trim()
+  return t.length > 0 ? t : undefined
+}

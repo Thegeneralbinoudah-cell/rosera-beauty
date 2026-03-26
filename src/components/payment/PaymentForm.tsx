@@ -44,6 +44,8 @@ export type PaymentFormProps = {
   amount: number
   description: string
   refId: string | null
+  /** يُضاف لرابط callback لصفحة الدفع — يسمح بالعودة لمسار الحجز عند الفشل */
+  bookingSalonId?: string | null
   checkoutPaymentMethod?: CheckoutPaymentMethod
   onSuccess: (result: PaymentResult) => void
   onPending?: (refId: string) => void
@@ -111,6 +113,7 @@ export default function PaymentForm({
   amount,
   description,
   refId,
+  bookingSalonId,
   checkoutPaymentMethod = 'mada',
   onSuccess,
   onPending,
@@ -118,7 +121,9 @@ export default function PaymentForm({
   disabled,
 }: PaymentFormProps) {
   const reactId = useId().replace(/:/g, '')
-  const hostIdRef = useRef(`mysr-host-${type}-${reactId}`)
+  /** يتغير عند «إعادة المحاولة» لإعادة تهيئة ويدجت Moyasar */
+  const [widgetKey, setWidgetKey] = useState(0)
+  const hostId = `mysr-host-${type}-${reactId}-${widgetKey}`
   const containerRef = useRef<HTMLDivElement>(null)
   const [scriptLoaded, setScriptLoaded] = useState(false)
   const initOnceRef = useRef(false)
@@ -163,7 +168,7 @@ export default function PaymentForm({
 
   useEffect(() => {
     initOnceRef.current = false
-  }, [refId, amount, description, type, checkoutPaymentMethod, useMoyasar])
+  }, [refId, amount, description, type, checkoutPaymentMethod, useMoyasar, widgetKey])
 
   useEffect(() => {
     if (!useMoyasar || !scriptLoaded || !window.Moyasar || !MOYASAR_PK || !refId) return
@@ -174,14 +179,18 @@ export default function PaymentForm({
     initOnceRef.current = true
     el.innerHTML = ''
     const base = window.location.origin
-    const callbackUrl = `${base}/payment/callback?type=${encodeURIComponent(type)}&ref=${encodeURIComponent(refId)}`
+    const salonQ =
+      type === 'booking' && bookingSalonId && String(bookingSalonId).trim()
+        ? `&salon=${encodeURIComponent(String(bookingSalonId).trim())}`
+        : ''
+    const callbackUrl = `${base}/payment/callback?type=${encodeURIComponent(type)}&ref=${encodeURIComponent(refId)}${salonQ}`
 
     const amountHalalas = Math.max(0, Math.round(Number(amount) * 100))
 
     const methods = buildMoyasarMethods(checkoutPaymentMethod, applePayAvailable, appleMobile)
 
     const opts: MoyasarInitOpts = {
-      element: `#${hostIdRef.current}`,
+      element: `#${hostId}`,
       amount: amountHalalas,
       currency: 'SAR',
       description,
@@ -204,8 +213,14 @@ export default function PaymentForm({
         : {}),
       on_completed: async (payment: MoyasarPayment) => {
         if (payment?.status === 'paid' || payment?.status === 'authorized') {
+          const pid = payment?.id != null ? String(payment.id).trim() : ''
+          if (!pid) {
+            console.error('[PaymentForm] Moyasar on_completed without payment id', { type, refId, status: payment?.status })
+            reportError('لم يُستلم رقم عملية الدفع')
+            return
+          }
           window.location.assign(
-            `${base}/payment/callback?type=${encodeURIComponent(type)}&ref=${encodeURIComponent(refId)}&id=${encodeURIComponent(payment.id)}`
+            `${base}/payment/callback?type=${encodeURIComponent(type)}&ref=${encodeURIComponent(refId)}&id=${encodeURIComponent(pid)}${salonQ}`
           )
         }
       },
@@ -228,6 +243,8 @@ export default function PaymentForm({
     appleMobile,
     useMoyasar,
     reportError,
+    hostId,
+    bookingSalonId,
   ])
 
   if (PAYMENT_MODE_FREE || !MOYASAR_PK) {
@@ -245,7 +262,7 @@ export default function PaymentForm({
       <div className="rounded-2xl border border-primary/20 bg-primary/5 p-5">
         <p className="text-center font-semibold text-foreground">الدفع التجريبي — بدون بطاقة</p>
         <Button
-          className="mt-4 w-full rounded-2xl bg-gradient-to-l from-[#9C27B0] to-[#E91E8C]"
+          className="mt-4 w-full rounded-2xl"
           disabled={disabled}
           onClick={() => onSuccess({ payment_status: 'free' })}
         >
@@ -270,7 +287,7 @@ export default function PaymentForm({
       <div className="rounded-2xl border border-primary/20 bg-primary/5 p-5">
         <p className="text-center text-sm text-muted-foreground">جاري تجهيز الطلب...</p>
         <Button
-          className="mt-4 w-full rounded-2xl bg-gradient-to-l from-[#9C27B0] to-[#E91E8C]"
+          className="mt-4 w-full rounded-2xl"
           disabled={disabled}
           onClick={() => onPending?.('')}
         >
@@ -280,11 +297,20 @@ export default function PaymentForm({
     )
   }
 
+  const retryWidget = () => {
+    initOnceRef.current = false
+    setLocalError(null)
+    setWidgetKey((k) => k + 1)
+  }
+
   return (
     <div className="space-y-4">
       {localError ? (
-        <div className="rounded-xl border border-destructive/30 bg-destructive/10 px-3 py-2 text-center text-sm text-destructive">
-          {localError}
+        <div className="space-y-3 rounded-xl border border-destructive/30 bg-destructive/10 px-4 py-4 text-center">
+          <p className="text-sm text-destructive">{localError}</p>
+          <Button type="button" variant="outline" className="rounded-xl" onClick={retryWidget}>
+            إعادة المحاولة
+          </Button>
         </div>
       ) : null}
       <p className="text-center text-sm font-semibold text-foreground">الدفع الآمن 🔒</p>
@@ -320,7 +346,7 @@ export default function PaymentForm({
         </div>
       ) : null}
       <div
-        id={hostIdRef.current}
+        id={hostId}
         ref={containerRef}
         className="mysr-form min-h-[280px] w-full max-w-full rounded-2xl border-2 border-primary/15 bg-white p-3 shadow-inner dark:border-primary/25 dark:bg-[#14141c] sm:p-5"
       />

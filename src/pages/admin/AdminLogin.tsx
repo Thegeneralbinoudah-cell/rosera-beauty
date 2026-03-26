@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { toast } from 'sonner'
+import { isPrivilegedStaffClient } from '@/lib/privilegedStaff'
 
 export default function AdminLogin() {
   const nav = useNavigate()
@@ -36,15 +37,18 @@ export default function AdminLogin() {
       const uid = data.user?.id
       if (!uid) throw new Error('تعذر تحديد المستخدم')
 
-      const { data: prof, error: pErr } = await supabase
-        .from('profiles')
-        .select('role')
-        .eq('id', uid)
-        .single()
+      const [{ data: adm }, { data: prof, error: pErr }] = await Promise.all([
+        supabase.from('admins').select('id').eq('user_id', uid).maybeSingle(),
+        supabase.from('profiles').select('role, email').eq('id', uid).single(),
+      ])
       if (pErr) throw pErr
 
-      const role = ((prof as { role?: string } | null)?.role ?? 'user').toLowerCase()
-      if (role !== 'admin' && role !== 'owner') {
+      if (
+        !isPrivilegedStaffClient({
+          isAdminFromAdminsTable: !!adm,
+          profile: prof as { role?: string; email?: string } | null,
+        })
+      ) {
         await supabase.auth.signOut()
         toast.error('ليس لديك صلاحية')
         return

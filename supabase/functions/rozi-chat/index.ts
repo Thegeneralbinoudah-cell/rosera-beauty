@@ -4,10 +4,15 @@ import {
   rankServices,
   skinTokensFromPayload,
   type ProductForRank,
+  type ScoredItem,
   type ServiceForRank,
   type SkinPayloadForRank,
   type UserRecommendationHistory,
 } from '../_shared/ranking.ts'
+import {
+  getProductsByCategory,
+  inferPrimaryStoreCategory,
+} from '../_shared/roseyStoreProducts.ts'
 
 const cors = {
   'Access-Control-Allow-Origin': '*',
@@ -30,7 +35,12 @@ type OpenAIChatMessage = {
   content: string | OpenAIContentPart[]
 }
 
-type IntentName = 'search_salon' | 'recommend_service' | 'booking_request' | 'general_question'
+type IntentName =
+  | 'search_salon'
+  | 'recommend_service'
+  | 'booking_request'
+  | 'store_products'
+  | 'general_question'
 
 type ClassifyResult = {
   intent: IntentName
@@ -85,6 +95,22 @@ type RozyActionOut = {
   kind?: string
   service_id?: string | null
   discount_percent?: number | null
+  product_id?: string | null
+  product_name_ar?: string | null
+  product_price?: number | null
+  product_image_url?: string | null
+  product_brand_ar?: string | null
+}
+
+/** بطاقات منتجات للواجهة — تطابق `RozyProductCard` في العميل */
+type RozyProductOut = {
+  id: string
+  name_ar: string
+  price: number
+  benefit: string
+  image_url: string | null
+  brand_ar: string | null
+  category: string | null
 }
 
 function haversineKm(lat1: number, lon1: number, lat2: number, lon2: number): number {
@@ -97,7 +123,389 @@ function haversineKm(lat1: number, lon1: number, lat2: number, lon2: number): nu
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
 }
 
+const STORE_CATEGORY_AR = [
+  'عناية بالبشرة',
+  'مكياج',
+  'عناية بالشعر',
+  'عطور',
+  'أظافر',
+  'أجهزة تجميل',
+  'سبا',
+  'عناية بالجسم',
+] as const
+
+const VALID_STORE_CATS = new Set<string>(STORE_CATEGORY_AR)
+
+function utteranceSalonHeavy(utterance: string): boolean {
+  return /صالون|حجز|موعد|احجز|أحجز|احجزي|أقرب\s*صالون|دلّيني\s*صالون|دليني\s*صالون|موعد\s*في/i.test(utterance)
+}
+
+/** استنتاج فئات المتجر من نص المستخدم — يطابق أعمدة `products.category` */
+function inferStoreCategoriesFromUtterance(utterance: string): string[] {
+  const s = new Set<string>()
+  if (/بشرتك|بشرتي|جاف|جافة|جفاف|ترطيب|ريتينول|حمض|سيروم|كريم|بشرة|مسام|حبوب|نضارة|حساس|تهيج|واقي\s*شمس|spf|نياسيناميد/i.test(utterance)) {
+    s.add('عناية بالبشرة')
+  }
+  if (/ماسك|قناع|قناع\s*طين|تقشير\s*بشرة|ماسكات/i.test(utterance)) {
+    s.add('عناية بالبشرة')
+    s.add('سبا')
+  }
+  if (/شامبو|شعر|فروة|تساقط|بروتين|كيراتين|زيت\s*شعر|تموج|كيرلي|صبغ|أطراف/i.test(utterance)) s.add('عناية بالشعر')
+  if (/عطر|عطور|ماء\s*عطر|بارفان|perfume/i.test(utterance)) s.add('عطور')
+  if (/أظافر|اظافر|طلاء|مانيكير|بديكير|جيل\s*أظافر/i.test(utterance)) s.add('أظافر')
+  if (/مكياج|أحمر\s*شفاه|فاونديشن|كونسيلر|آيلاينر|ماسكارا|باليت|هايلايتر/i.test(utterance)) s.add('مكياج')
+  if (/دايسون|سيراميك|ليزر\s*منزل|فوريو|جهاز\s*تجميل|styler|مكواة\s*شعر|أداة\s*تصفيف|آي\s*بي\s*إل/i.test(utterance)) {
+    s.add('أجهزة تجميل')
+  }
+  if (/سبا|استحمام|ملح\s*استحمام|حمام\s*زيت|شمعة|تدليك|bath/i.test(utterance)) s.add('سبا')
+  if (/جسم|لوشن|بودرة|مزيل\s*عرق|كريم\s*جسم|صابون\s*جسم|زيت\s*جسم/i.test(utterance)) s.add('عناية بالجسم')
+  return [...s]
+}
+
+function normalizeStoreCategoriesFromEntities(raw: unknown): string[] {
+  if (!Array.isArray(raw)) return []
+  const out: string[] = []
+  for (const x of raw) {
+    if (typeof x !== 'string') continue
+    const t = x.trim()
+    if (VALID_STORE_CATS.has(t)) out.push(t)
+  }
+  return [...new Set(out)]
+}
+
+function resolveStoreCategories(entities: Record<string, unknown>, utterance: string, intent: IntentName): string[] {
+  const fromAi = normalizeStoreCategoriesFromEntities(entities.store_categories)
+  const inferred = inferStoreCategoriesFromUtterance(utterance)
+  const merged = new Set([...fromAi, ...inferred])
+  let list = [...merged]
+  if (intent === 'store_products' && list.length === 0) list = inferred
+  return list
+}
+
+/** فئة متجر واحدة: تصنيف المصنّف ثم استنتاج من النص (خريطة STEP 2). */
+function pickPrimaryStoreCategory(entities: Record<string, unknown>, utterance: string): string | null {
+  const fromAi = normalizeStoreCategoriesFromEntities(entities.store_categories)
+  if (fromAi.length) return fromAi[0]
+  return inferPrimaryStoreCategory(utterance)
+}
+
+function shortenBenefit(desc: string | null | undefined): string {
+  const t = (desc ?? '').replace(/\s+/g, ' ').trim()
+  if (!t) return 'منتج من متجر روزيرا.'
+  return t.length > 110 ? `${t.slice(0, 107)}…` : t
+}
+
+function mapRankedProductsToRozyOut(ranked: ScoredItem<ProductForRank>[]): RozyProductOut[] {
+  return ranked.map((x) => ({
+    id: x.item.id,
+    name_ar: x.item.name_ar,
+    price: Math.round(Number(x.item.price ?? 0) * 100) / 100,
+    benefit: shortenBenefit(x.item.description_ar),
+    image_url: (x.item as { image_url?: string | null }).image_url ?? null,
+    brand_ar: x.item.brand_ar ? String(x.item.brand_ar) : null,
+    category: x.item.category ?? null,
+  }))
+}
+
+/** لا يوجد store_categories من المصنّف → نية أضعف → أقل منتجات لتقليل الإرباك. */
+function isUncertainStoreIntent(entities: Record<string, unknown>): boolean {
+  return normalizeStoreCategoriesFromEntities(entities.store_categories).length === 0
+}
+
+/**
+ * بعد الترتيب الذكي: خيار بسعر أعلى (premium) + خيار بسعر متوسط (متوازن) + (إن وُجد ثالث) الأكثر مبيعاً حسب المراجعات.
+ */
+function diversifyCommercePicks(scored: ScoredItem<ProductForRank>[], limit: number): ScoredItem<ProductForRank>[] {
+  if (scored.length === 0) return []
+  if (scored.length <= limit) return scored.slice(0, limit)
+  const items = scored.map((s) => s.item)
+  const scoreMap = new Map(scored.map((s) => [s.item.id, s]))
+  const num = (x: unknown) => Number(x ?? 0)
+  const byPriceDesc = [...items].sort((a, b) => num(b.price) - num(a.price))
+  const byRatingDesc = [...items].sort((a, b) => num(b.rating) - num(a.rating))
+  const byReviewsDesc = [...items].sort((a, b) => num(b.review_count) - num(a.review_count))
+
+  const premium = byPriceDesc[0]
+  const balanced =
+    byPriceDesc[Math.floor(byPriceDesc.length / 2)] ?? byRatingDesc[Math.min(1, byRatingDesc.length - 1)]
+
+  const pickOrder: ProductForRank[] = []
+  const add = (p: ProductForRank | undefined) => {
+    if (!p || pickOrder.some((x) => x.id === p.id)) return
+    pickOrder.push(p)
+  }
+
+  add(premium)
+  add(balanced)
+  if (limit >= 3) {
+    const bestSelling =
+      byReviewsDesc.find((p) => !pickOrder.some((x) => x.id === p.id)) ??
+      byRatingDesc.find((p) => !pickOrder.some((x) => x.id === p.id))
+    add(bestSelling)
+  }
+  for (const s of scored) {
+    if (pickOrder.length >= limit) break
+    add(s.item)
+  }
+
+  return pickOrder.slice(0, limit).map((item) => scoreMap.get(item.id)!)
+}
+
+async function fetchProductsForStoreRecommendations(
+  sb: SupabaseClient,
+  entities: Record<string, unknown>,
+  utterance: string,
+  intent: IntentName,
+  skinPayload: SkinPayloadForRank | null,
+  reco: UserRecommendationHistory,
+  max = 3
+): Promise<RozyProductOut[]> {
+  const poolSize = 12
+  const primary = pickPrimaryStoreCategory(entities, utterance)
+  if (primary) {
+    const rows = await getProductsByCategory(sb, primary, poolSize)
+    if (rows.length) {
+      const asRank = rows as unknown as ProductForRank[]
+      const tokens = skinTokensFromPayload(skinPayload)
+      const ranked = rankProducts(asRank, skinPayload, tokens, reco, Math.min(24, asRank.length))
+      const diversified = diversifyCommercePicks(ranked, max)
+      return mapRankedProductsToRozyOut(diversified)
+    }
+  }
+
+  const categories = resolveStoreCategories(entities, utterance, intent)
+  if (categories.length === 0) return []
+  const { data, error } = await sb
+    .from('products')
+    .select('id,name_ar,brand_ar,description_ar,category,image_url,price,rating,review_count')
+    .eq('is_active', true)
+    .eq('is_demo', false)
+    .in('category', categories)
+    .limit(48)
+  if (error) {
+    console.warn('[rozi-chat] fetchProductsForStoreRecommendations fallback', error.message)
+    return []
+  }
+  const rows = (data ?? []) as ProductForRank[]
+  if (rows.length === 0) return []
+  const tokens = skinTokensFromPayload(skinPayload)
+  const ranked = rankProducts(rows, skinPayload, tokens, reco, Math.min(24, rows.length))
+  const diversified = diversifyCommercePicks(ranked, max)
+  return mapRankedProductsToRozyOut(diversified)
+}
+
+function buildStoreProductBrainBlock(
+  picks: RozyProductOut[],
+  skinPayload: SkinPayloadForRank | null,
+  memoryNarrative: string,
+  slotCap: 2 | 3
+): string {
+  if (picks.length === 0) return ''
+  const lines = picks.map(
+    (p) =>
+      `- [${p.id}] **${p.name_ar}**${p.brand_ar ? ` (${p.brand_ar})` : ''} — **${p.price.toFixed(0)} ر.س**${p.benefit ? ` — ${p.benefit}` : ''}`
+  )
+  const skinHint =
+    skinPayload && (skinPayload.skin_type || (skinPayload.concerns && skinPayload.concerns.length > 0))
+      ? `- نوع/اهتمام البشرة من السياق: ${skinPayload.skin_type ?? 'غير محدد'}${skinPayload.concerns?.length ? ` — اهتمامات: ${skinPayload.concerns.join('، ')}` : ''}`
+      : ''
+  const prefHint = memoryNarrative.trim()
+    ? `- تفضيلات وذاكرة المحادثة (استخدميها بلطف دون إطالة): ${memoryNarrative.slice(0, 400)}${memoryNarrative.length > 400 ? '…' : ''}`
+    : ''
+  const contextExtras = [skinHint, prefHint].filter(Boolean).join('\n')
+  const countHint = slotCap === 2 ? '**منتجان فقط** (نية غير واضحة من المصنّف)' : 'حتى **3** منتجات'
+
+  return `## منتجات متجر روزيرا (مُختارة — استخدميها في الرد)
+${lines.join('\n')}
+${contextExtras ? `${contextExtras}\n` : ''}
+- الترتيب يميل لأعلى تقييم وشعبية؛ جرّبي **نبرة الأكثر مبيعاً** بلطف عند أحد المنتجين إن لزم.
+- افتتحي بسطر يبرّر للمستخدم (مثال): **"هلا والله ✨ بشرتك تحتاج ترطيب قوي، أنصحك بهذي:"** — خصّصي حسب سياق البشرة أعلاه إن وُجد.
+- ثم قائمة بنفس النمط (${countHint} من الجدول):
+  - [اسم المنتج] — [السعر] ر.س
+- **عبارة إلحاح واحدة فقط** عندما يكون المنتج قوياً في التقييم/المراجعات في البيانات — **مرة واحدة في كل الرد** ولا تكرّريها: **"هذا من الأكثر طلباً 🔥"** — لا تضيفي غيرها من عبارات الاستعجال.
+- **بعد القائمة مباشرة** أضيفي سطرين ثابتين (سيُكمَلان برمجياً إن نسيتِ): **"إذا تبين، أختار لك الأفضل بينهم ✨"** ثم **"تبين أضيف لك المنتج للسلة؟ 🛍️"**
+- أزرار الواجهة: عرض المنتج + أضف للسلة — شجّعي على التجربة بلطف دون ضغط.
+- روابط: /store و /product/{id}.
+`
+}
+
+function appendProductConversionLines(reply: string): string {
+  let t = reply.trim()
+  if (!t) return 'إذا تبين، أختار لك الأفضل بينهم ✨\n\nتبين أضيف لك المنتج للسلة؟ 🛍️'
+  if (!/أختار\s*لك\s*الأفضل\s*بينهم/i.test(t)) {
+    t = `${t}\n\nإذا تبين، أختار لك الأفضل بينهم ✨`
+  }
+  if (!/تبين\s*أضيف\s*لك/i.test(t)) {
+    t = `${t}\n\nتبين أضيف لك المنتج للسلة؟ 🛍️`
+  }
+  return t
+}
+
+function cartSummaryPhrase(cartLineCount: number): string {
+  if (cartLineCount <= 0) return ''
+  return cartLineCount === 1
+    ? 'سلتك فيها منتج واحد 🛍️'
+    : `سلتك فيها ${cartLineCount} منتجات 🛍️`
+}
+
+/** تناوب جولات التردد: مباشرة لطيفة / ناعمة / خيارين — يبني ثقة دون إلحاح */
+function hesitationToneFromTurns(checkoutUserTurnsWithCart: number): 0 | 1 | 2 {
+  const n = Math.max(0, Math.floor(checkoutUserTurnsWithCart))
+  return (n % 3) as 0 | 1 | 2
+}
+
+type HesitationToneStats = { exposures: [number, number, number]; conversions: [number, number, number] }
+
+function parseToneStatsRows(data: unknown): HesitationToneStats | null {
+  if (!Array.isArray(data) || data.length === 0) return null
+  const order = ['direct', 'soft', 'choice'] as const
+  const ex: [number, number, number] = [0, 0, 0]
+  const cv: [number, number, number] = [0, 0, 0]
+  for (const row of data) {
+    if (!row || typeof row !== 'object') continue
+    const r = row as { tone?: string; exposures?: unknown; conversions?: unknown }
+    const i = order.indexOf((r.tone ?? '') as (typeof order)[number])
+    if (i < 0) continue
+    ex[i] = Number(r.exposures) || 0
+    cv[i] = Number(r.conversions) || 0
+  }
+  return { exposures: ex, conversions: cv }
+}
+
+/** Minimum exposure events (all tones) before biasing toward best converters; else rotation. */
+const HESITATION_MIN_TOTAL_EXPOSURES = 30
+const HESITATION_EXPLORATION_RATE = 0.12
+
+function pickHesitationToneAdaptive(
+  checkoutUserTurnsWithCart: number,
+  stats: HesitationToneStats | null
+): { tone: 0 | 1 | 2; source: 'rotation' | 'adaptive' } {
+  const total = stats ? stats.exposures[0] + stats.exposures[1] + stats.exposures[2] : 0
+  if (!stats || total < HESITATION_MIN_TOTAL_EXPOSURES) {
+    return { tone: hesitationToneFromTurns(checkoutUserTurnsWithCart), source: 'rotation' }
+  }
+  if (Math.random() < HESITATION_EXPLORATION_RATE) {
+    return { tone: (Math.floor(Math.random() * 3) % 3) as 0 | 1 | 2, source: 'adaptive' }
+  }
+  const w = [0, 1, 2].map((i) => {
+    const e = stats.exposures[i] ?? 0
+    const c = stats.conversions[i] ?? 0
+    return (c + 1) / (e + 2)
+  })
+  const sum = w.reduce((a, b) => a + b, 0) || 1
+  let r = Math.random() * sum
+  for (let i = 0; i < 3; i++) {
+    r -= w[i]
+    if (r <= 0) return { tone: i as 0 | 1 | 2, source: 'adaptive' }
+  }
+  return { tone: 2, source: 'adaptive' }
+}
+
+function buildCartContextBlockForBrain(
+  cartLineCount: number,
+  cartTotalQty: number,
+  offerCheckoutThisTurn: boolean,
+  hesitationMode: boolean,
+  hesitationTone: 0 | 1 | 2
+): string {
+  if (cartLineCount <= 0) return ''
+  const phrase = cartSummaryPhrase(cartLineCount)
+  const qtyLine = cartTotalQty > 0 ? String(cartTotalQty) : String(cartLineCount)
+  let s = `## سلة التسوق (من التطبيق — حيّة)
+- ${phrase}
+- أنواع في السلة: ${cartLineCount} — إجمالي القطع: ${qtyLine}
+`
+  if (hesitationMode) {
+    const toneHint =
+      hesitationTone === 0
+        ? '**هذه الجولة — نبرة مباشرة لطيفة**: يمكن ذكر السلة باختصار ثم "تبين نكمل الطلب الحين؟ ✨" — بدون ضغط بيع.'
+        : hesitationTone === 1
+          ? '**هذه الجولة — نبرة ناعمة**: ركّزي على: "إذا حابة نكمل الطلب الحين أرتبه لك بسرعة ✨" — كمساعدة لا كمندوبة مبيعات.'
+          : '**هذه الجولة — نبرة مساعدة بخيارين**: "تبين نكمل الطلب أو أختار لك خيار ثاني؟" — تقديري لوقتها، بدون إلحاح.'
+    s += `- **تردد مريح**: السلة غير فارغة ومرّت جولات بدون الضغط على «إتمام الطلب». ${toneHint}
+- لا تكرري جمل عجلة أو ندرة إلا إن ناسبت السياق — الأولوية للثقة والوضوح.
+- زر الواجهة **إتمام الطلب** → /checkout (دعم للي تبغى تكمل، لا إجبار).
+`
+  } else if (offerCheckoutThisTurn) {
+    s += `- **هذه الجولة**: شجّعي بلطف على إتمام الطلب:
+  - "${phrase}" ثم "تبين نكمل الطلب الحين؟ ✨"
+  - زر الواجهة **إتمام الطلب** → /checkout
+`
+  } else {
+    s += `- يمكن ذكر السلة باختصار عند الصلة دون ضغط.\n`
+  }
+  return s
+}
+
+function appendCheckoutConversionLines(reply: string, cartLineCount: number): string {
+  if (cartLineCount <= 0) return reply
+  let t = reply.trim()
+  const line1 = cartSummaryPhrase(cartLineCount)
+  const line2 = 'تبين نكمل الطلب الحين؟ ✨'
+  if (line1 && !/سلتك\s*فيها/i.test(t)) t = `${t}\n\n${line1}`
+  if (!/نكمل\s*الطلب\s*الحين/i.test(t)) t = `${t}\n\n${line2}`
+  return t
+}
+
+/**
+ * جولة 2+ مع سلة وبدون ضغط «إتمام الطلب» من روزي.
+ * يتناوب: مباشرة لطيفة / ناعمة / خيارين — يقلّل الإحساس بالبيع.
+ */
+function appendHesitationCheckoutLines(
+  reply: string,
+  hesitationTone: 0 | 1 | 2,
+  cartLineCount: number
+): string {
+  let t = reply.trim()
+  const phrase = cartSummaryPhrase(cartLineCount)
+
+  if (hesitationTone === 0) {
+    if (phrase && !/سلتك\s*فيها/i.test(t)) t = `${t}\n\n${phrase}`
+    if (!/نكمل\s*الطلب\s*الحين/i.test(t)) t = `${t}\n\nتبين نكمل الطلب الحين؟ ✨`
+    return t
+  }
+  if (hesitationTone === 1) {
+    const soft = 'إذا حابة نكمل الطلب الحين أرتبه لك بسرعة ✨'
+    if (!/إذا\s*حابة\s*نكمل\s*الطلب\s*الحين/i.test(t) && !/أرتبه\s*لك\s*بسرعة/i.test(t)) {
+      t = `${t}\n\n${soft}`
+    }
+    return t
+  }
+  const choice = 'تبين نكمل الطلب أو أختار لك خيار ثاني؟'
+  if (!/نكمل\s*الطلب\s*أو\s*أختار/i.test(t)) t = `${t}\n\n${choice}`
+  return t
+}
+
+function buildProductConversionActions(picks: RozyProductOut[]): RozyActionOut[] {
+  const out: RozyActionOut[] = []
+  for (const p of picks) {
+    const shortName = p.name_ar.length > 30 ? `${p.name_ar.slice(0, 28)}…` : p.name_ar
+    out.push({
+      id: `rozy-view-product-${p.id}`,
+      label: `عرض ${shortName}`,
+      kind: 'view_product',
+      product_id: p.id,
+      product_name_ar: p.name_ar,
+      product_price: p.price,
+      product_image_url: p.image_url,
+      product_brand_ar: p.brand_ar,
+    })
+    out.push({
+      id: `rozy-add-cart-${p.id}`,
+      label: 'أضف للسلة 🛍️',
+      kind: 'add_to_cart',
+      product_id: p.id,
+      product_name_ar: p.name_ar,
+      product_price: p.price,
+      product_image_url: p.image_url,
+      product_brand_ar: p.brand_ar,
+    })
+  }
+  return out
+}
+
 function shouldIncludeSalonCards(intent: IntentName, utterance: string): boolean {
+  if (intent === 'store_products') return false
   if (intent === 'search_salon' || intent === 'recommend_service' || intent === 'booking_request') return true
   if (intent !== 'general_question') return false
   return /صالون|حجز|موعد|سبا|أظافر|شعر|ليزر|مكياج|تجميل|عيادة|أقرب|تقييم|رخيص|سعر|غال[يى]|غالي|خصم|أرخص|ارخص|ابي\s*خصم|أبي\s*خصم|ابغى\s*خصم|فيه\s*أرخص|في\s*أرخص|وش\s*الأفضل|وش\s*احسن|دلّيني|دليني|نصايح|اقتراح/i.test(
@@ -308,7 +716,13 @@ function skinPayloadFromRow(row: SkinContextRow | null): SkinPayloadForRank | nu
   }
 }
 
-const INTENTS: IntentName[] = ['search_salon', 'recommend_service', 'booking_request', 'general_question']
+const INTENTS: IntentName[] = [
+  'search_salon',
+  'recommend_service',
+  'booking_request',
+  'store_products',
+  'general_question',
+]
 
 function readOpenAiApiKey(): string {
   const raw = Deno.env.get('OPENAI_API_KEY')?.trim() || ''
@@ -952,7 +1366,7 @@ async function fetchServices(sb: SupabaseClient, businessIds: string[], serviceK
 async function fetchProducts(sb: SupabaseClient): Promise<ProductRow[]> {
   const { data, error } = await sb
     .from('products')
-    .select('id,name_ar,price,category,description_ar,brand_ar,rating,review_count')
+    .select('id,name_ar,price,category,description_ar,brand_ar,rating,review_count,image_url')
     .eq('is_active', true)
     .eq('is_demo', false)
     .limit(120)
@@ -992,6 +1406,8 @@ function buildBrainContext(params: {
   skinBlock: string
   rankedServicesLines: string
   rankedProductsLines: string
+  storeProductBlock?: string
+  cartContextBlock?: string
 }): string {
   const {
     memoryNarrative,
@@ -1003,6 +1419,8 @@ function buildBrainContext(params: {
     skinBlock,
     rankedServicesLines,
     rankedProductsLines,
+    storeProductBlock,
+    cartContextBlock,
   } = params
   const mem = memoryNarrative.trim() ? `${memoryNarrative.trim()}\n\n` : ''
   const salonLines =
@@ -1027,6 +1445,9 @@ function buildBrainContext(params: {
 
   const skinSection = skinBlock.trim() ? `${skinBlock}\n\n` : ''
 
+  const storePickSection = storeProductBlock?.trim() ? `${storeProductBlock.trim()}\n\n` : ''
+  const cartSection = cartContextBlock?.trim() ? `${cartContextBlock.trim()}\n\n` : ''
+
   const rankSection =
     rankedServicesLines.trim() || rankedProductsLines.trim()
       ? `## توصيات مرتبة لبشرتكِ وتفضيلاتكِ (استخدمي الأسباب في الرد)
@@ -1043,7 +1464,7 @@ ${rankedProductsLines.trim() || '(لا توجد)'}
 - الاسم: ${profile.full_name || '—'}
 - المدينة المفضلة في الملف: ${profile.city || '—'}
 
-${skinSection}${rankSection}## آخر المحادثات (ملخص)
+${skinSection}${storePickSection}${cartSection}${rankSection}## آخر المحادثات (ملخص)
 ${historyText || '(بداية المحادثة)'}
 
 ## صالونات وعيادات (بيانات حقيقية من قاعدة روزيرا — استخدمي المعرفات [uuid] عند التوصية)
@@ -1066,13 +1487,15 @@ function buildRosyPersonalityBlock(params: {
   const { intent, hasBookedBefore, isFrequentChatter, luxuryHint, priceSensitive } = params
   let s = `## شخصية روزي (إلزامي — مستوى مساعد ذكي)
 - سعودية (لهجة بيضاء مفهومة)، دافئة، أنثوية، **قصيرة** — تفهمين السوق والسلانج (يالله، وش، ابغى، زين، يلا، حيل، ضبطي…).
+- **افهمي كلام المستخدمة وتكلّمي بنفس الطابع**: ابغى، وش الأفضل، مره، حلو، تمام، زين، يا بعدي.
 - أمثلة نبرة: "أكيد حبيبتي 💖"، "تمام يا الغالية"، "لقيت لك أفضل الخيارات 👇✨"
+- **لا تعتذري** — لا تقلي «آسفة» أو «عذراً» أو «معذرة»؛ قدّمي بدلاً من ذلك **خطوة تالية مفيدة** (خريطة، بحث، خدمة مقترحة، أو سؤال واحد واضح).
 - **استنتاجي**: اربطي بالمحادثة السابقة؛ لا تكرري سؤالاً إن الجواب ظاهر في التاريخ أو في ذاكرة المستخدمة.
 - **مسار**: قصد المستخدمة → اقتراح واضح (أفضل 3) → تأكيد خفيف → دفع لطيف نحو الحجز.
 - التصنيف الحالي للرسالة: **${intent}**.
 - لا تعرضي JSON أو جداول؛ البطاقات تظهر في الواجهة — اكتفي بجملة قصيرة + إيموجي واحد أو اثنين كحد أقصى.
 - بعد عرض خيارات الصالونات: وجّهي للحجز: "تحبي أحجز لكِ من هنا؟ 💕" أو "نكمّل الحجز؟ ✨"
-- **إن لم تُجد صالونات مناسبة في البيانات** ابدئي بالضبط: "ما لقيت شيء مناسب 😢\\nخليني أوريك الأقرب لك" ثم نصيحة قصيرة (خريطة/بحث).
+- **إن لم تُجد صالونات مناسبة في البيانات**: قدّمي بديلاً فورياً — اقتراح مدينة/حي، أو «جرّبي البحث أو الخريطة من الأسفل»، أو خدمة شائعة (قص، أظافر، عناية) **بدون** اعتذار طويل.
 `
   if (isFrequentChatter || hasBookedBefore) {
     s += `- مستخدمة واثقة مع التطبيق — **قلّلي الأسئلة** وقدّمي خيارات مباشرة.\n`
@@ -1157,6 +1580,13 @@ Deno.serve(async (req) => {
       contextBlock?: string
       userLat?: number
       userLng?: number
+      cartLineCount?: number
+      cartTotalQty?: number
+      checkoutRecentCartAdd?: boolean
+      checkoutShortAffirm?: boolean
+      checkoutUserTurnsWithCart?: number
+      checkoutClickedFromRosy?: boolean
+      salonOwnerSalesMode?: boolean
     }
 
     const historyMsgs = Array.isArray(body.messages) ? body.messages.filter((m) => m.role !== 'system').slice(-16) : []
@@ -1185,6 +1615,7 @@ Deno.serve(async (req) => {
       { data: skinRow, error: skErr },
       memoryPack,
       ownerB2bCtx,
+      { data: toneStatsRows, error: toneStatsErr },
     ] = await Promise.all([
       userSb.from('profiles').select('id,full_name,city,preferred_language').eq('id', userId).maybeSingle(),
       userSb
@@ -1202,11 +1633,15 @@ Deno.serve(async (req) => {
         .maybeSingle(),
       fetchMemoryPack(userSb, userId),
       fetchSalonOwnerB2BContext(userSb, userId),
+      userSb.rpc('rosey_hesitation_tone_stats', { p_days: 90 }),
     ])
 
     if (pErr) console.warn('[rozi-chat] profile', pErr.message)
     if (hErr) console.warn('[rozi-chat] history', hErr.message)
     if (skErr) console.warn('[rozi-chat] skin_analysis', skErr.message)
+    if (toneStatsErr) console.warn('[rozi-chat] rosey_hesitation_tone_stats', toneStatsErr.message)
+
+    const toneStatsParsed = parseToneStatsRows(toneStatsRows)
 
     const profile = (prof ?? { id: userId, full_name: null, city: null, preferred_language: 'ar' }) as ProfileRow
     const profileCity = (profile.city || 'الخبر').trim()
@@ -1215,6 +1650,17 @@ Deno.serve(async (req) => {
 
     const utterance = lastUserText(historyMsgs, hasImage)
 
+    const cartLineCount =
+      typeof body.cartLineCount === 'number' && body.cartLineCount > 0 ? Math.floor(body.cartLineCount) : 0
+    const cartTotalQty =
+      typeof body.cartTotalQty === 'number' && body.cartTotalQty > 0 ? Math.floor(body.cartTotalQty) : 0
+    const checkoutRecentCartAdd = body.checkoutRecentCartAdd === true
+    const checkoutShortAffirm = body.checkoutShortAffirm === true
+    const checkoutUserTurnsWithCart =
+      typeof body.checkoutUserTurnsWithCart === 'number' ? Math.max(0, Math.floor(body.checkoutUserTurnsWithCart)) : 0
+    const checkoutClickedFromRosy = body.checkoutClickedFromRosy === true
+    const clientSalonOwnerSalesMode = body.salonOwnerSalesMode === true
+
     let intent: IntentName = 'general_question'
     let entities: Record<string, unknown> = {}
 
@@ -1222,16 +1668,18 @@ Deno.serve(async (req) => {
       const cls = await openaiJson<{ intent?: string; entities?: Record<string, unknown> }>(
         apiKey,
         `Classify for Rosera (Saudi women's beauty app). JSON only:
-{"intent":"search_salon"|"recommend_service"|"booking_request"|"general_question","entities":{...}}
+{"intent":"search_salon"|"recommend_service"|"booking_request"|"store_products"|"general_question","entities":{...}}
 
 Intents:
 - booking_request: أبغى أحجز، ابغى احجز، احجز، احجزي، موعد، نحجز، ابي احجز، reserve
-- search_salon: وش الأفضل، وش احسن، وين صالون، أقرب، دوري لي، استكشاف، مقارنة صالونات، "وش تنصحين"
-- recommend_service: تركيز على خدمة: أظافر، شعر، ليزر، سبا، مكياج…
-- general_question: منتجات، التطبيق، شكر، تحية، صورة، غير واضح
+- search_salon: وش الأفضل، وش احسن، وين صالون، أقرب، دوري لي، استكشاف، مقارنة صالونات، "وش تنصحين" (صالونات)
+- recommend_service: تركيز على خدمة في صالون: أظافر، شعر، ليزر، سبا، مكياج…
+- store_products: شراء منتجات من متجر التطبيق، نصيحة منتج، بشرتي جافة، أبغى ماسك، أفضل شامبو، تساقط شعر، عطر، مكياج للبيت، جهاز تجميل، وش أشتري من المتجر، منتجات عناية
+- general_question: التطبيق، شكر، تحية، صورة غير واضحة، غير مصنف
 
 entities (optional):
 - query, service_keyword, salon_hint, city, date_hint (strings)
+- store_categories: string[] — فئات عربية حرفياً من القائمة فقط: "عناية بالبشرة"|"مكياج"|"عناية بالشعر"|"عطور"|"أظافر"|"أجهزة تجميل"|"سبا"|"عناية بالجسم"
 - budget_tier: "low"|"mid"|"high"|null — رخيص، أرخص، توفير، ميزانية، غالي، سعر، خصم → low
 - urgency: "today"|"soon"|null — اليوم، الحين، الآن، عاجل، حالاً → today
 - style: "luxury"|"budget"|null — فخم، VIP، لوكس → luxury
@@ -1338,6 +1786,56 @@ entities (optional):
     const services = await fetchServices(userSb, businessIds, serviceKeyword || undefined)
     const products = await fetchProducts(userSb)
     const skinPayload = skinPayloadFromRow((skinRow ?? null) as SkinContextRow | null)
+
+    const storeCats = resolveStoreCategories(entities, utterance, intent)
+    const hasProductCategory =
+      storeCats.length > 0 || pickPrimaryStoreCategory(entities, utterance) != null
+    const shouldFetchStore =
+      hasProductCategory &&
+      (intent === 'store_products' ||
+        ((intent === 'general_question' || intent === 'recommend_service') && !utteranceSalonHeavy(utterance)))
+    const uncertainProducts = isUncertainStoreIntent(entities)
+    const productLimit = uncertainProducts ? 2 : 3
+    const productPicks = shouldFetchStore
+      ? await fetchProductsForStoreRecommendations(userSb, entities, utterance, intent, skinPayload, recoHistory, productLimit)
+      : []
+    const storeProductBlock = buildStoreProductBrainBlock(
+      productPicks,
+      skinPayload,
+      memoryPack.narrative,
+      productLimit === 2 ? 2 : 3
+    )
+
+    const qtyForCartBrain = cartTotalQty > 0 ? cartTotalQty : cartLineCount
+    const hesitationMode =
+      cartLineCount > 0 &&
+      !hasImage &&
+      !ownerB2bCtx.is_owner &&
+      !clientSalonOwnerSalesMode &&
+      !checkoutClickedFromRosy &&
+      checkoutUserTurnsWithCart >= 2
+    const shouldOfferCheckout =
+      cartLineCount > 0 &&
+      !hasImage &&
+      !ownerB2bCtx.is_owner &&
+      !clientSalonOwnerSalesMode &&
+      !checkoutClickedFromRosy &&
+      (checkoutRecentCartAdd || checkoutShortAffirm || checkoutUserTurnsWithCart >= 2)
+
+    const hesitationAdaptive = hesitationMode
+      ? pickHesitationToneAdaptive(checkoutUserTurnsWithCart, toneStatsParsed)
+      : { tone: 0 as 0 | 1 | 2, source: 'rotation' as const }
+    const hesitationTone = hesitationAdaptive.tone
+    const hesitationToneSource = hesitationMode ? hesitationAdaptive.source : 'rotation'
+
+    const cartContextBlock = buildCartContextBlockForBrain(
+      cartLineCount,
+      qtyForCartBrain,
+      shouldOfferCheckout,
+      hesitationMode,
+      hesitationTone
+    )
+
     const tokens = skinTokensFromPayload(skinPayload)
     const rankedSvc = rankServices(services as ServiceForRank[], skinPayload, tokens, recoHistory, 10)
     const rankedProd = rankProducts(products as ProductForRank[], skinPayload, tokens, recoHistory, 8)
@@ -1361,6 +1859,8 @@ entities (optional):
       skinBlock,
       rankedServicesLines,
       rankedProductsLines,
+      storeProductBlock,
+      cartContextBlock: cartContextBlock || undefined,
     })
 
     let negotiationExtraSystem = ''
@@ -1401,8 +1901,9 @@ entities (optional):
 
 ## مهمتكِ التنفيذية
 - اعتمدي فقط على **البيانات الحقيقية** في القسم التالي لذكر صالون/خدمة/منتج (معرفات [uuid] للحجز: /salon/{id} ثم /booking/{id}).
+- **ممنوع الاعتذار** — كل رد يجب أن يتضمّن توصية أو اقتراحاً قابلاً للتنفيذ.
 - شجّعي على الحجز بلطف عند المناسب.
-- منتجات المتجر: /store و /product/{id}.
+- منتجات المتجر: /store و /product/{id} — إن وُجد قسم "منتجات متجر روزيرا (مُختارة)" فالزمي الأسماء والأسعار والفوائد منه فقط.
 - صورة الوجه: تحليل مختصر — **ليس تشخيصاً طبياً** — ولا تطلبي حفظ الصور.
 - قسم تحليل البشرة والتوصيات المرتبة: استخدميهما عند الصلة دون إطالة.
 
@@ -1458,13 +1959,31 @@ ${extraLegacy}
       reply = `${negotiationReplyPrefix}${reply}`
     }
 
-    if (shouldIncludeSalonCards(intent, utterance) && rankedSalons.length === 0) {
+    if (productPicks.length > 0) {
+      reply = appendProductConversionLines(reply)
+    }
+
+    if (shouldOfferCheckout) {
+      reply = hesitationMode
+        ? appendHesitationCheckoutLines(reply, hesitationTone, cartLineCount)
+        : appendCheckoutConversionLines(reply, cartLineCount)
+    }
+
+    const hideSalonsForStoreProducts =
+      productPicks.length > 0 &&
+      (intent === 'store_products' || (intent === 'general_question' && !utteranceSalonHeavy(utterance)))
+
+    if (shouldIncludeSalonCards(intent, utterance) && rankedSalons.length === 0 && !hideSalonsForStoreProducts) {
       reply = `ما لقيت شيء مناسب 😢\nخليني أوريك الأقرب لك\n\n${reply}`
     }
 
     let salonsOut: RozySalonOut[] = []
     let actionsOut: RozyActionOut[] = []
-    if (shouldIncludeSalonCards(intent, utterance) && rankedSalons.length > 0) {
+    if (
+      !hideSalonsForStoreProducts &&
+      shouldIncludeSalonCards(intent, utterance) &&
+      rankedSalons.length > 0
+    ) {
       salonsOut = salonsToPayload(rankedSalons, userLatLng)
       actionsOut = buildActionsForSalons(salonsOut)
     }
@@ -1477,6 +1996,16 @@ ${extraLegacy}
     }
     if (negotiationActions.length) {
       actionsOut = [...actionsOut, ...negotiationActions]
+    }
+    if (productPicks.length > 0) {
+      actionsOut = [...actionsOut, ...buildProductConversionActions(productPicks)]
+      actionsOut.push({ id: 'rozy-open-store', label: 'تصفحي المتجر', kind: 'store' })
+    }
+    if (shouldOfferCheckout && !actionsOut.some((a) => a.kind === 'go_to_checkout')) {
+      actionsOut = [
+        ...actionsOut,
+        { id: 'rozy-go-checkout', label: 'إتمام الطلب', kind: 'go_to_checkout' },
+      ]
     }
     if (urgentToday && salonsOut.length > 0) {
       reply = `في مواعيد اليوم متاحة 🔥\n\n${reply}`
@@ -1538,13 +2067,28 @@ Recent conversation (last user + assistant):\n${utterance}\n---\nAssistant draft
       )
     }
 
+    const brainIntent =
+      productPicks.length > 0 && intent === 'general_question' ? ('store_products' as IntentName) : intent
+
     return new Response(
       JSON.stringify({
         reply,
         brain: {
-          intent,
+          intent: brainIntent,
           entities: {
             ...entities,
+            store_categories: storeCats,
+            store_product_ids: productPicks.map((p) => p.id),
+            store_intent_uncertain: uncertainProducts,
+            store_product_limit: productPicks.length > 0 ? productLimit : null,
+            checkout_nudge: shouldOfferCheckout,
+            checkout_hesitation: hesitationMode,
+            checkout_hesitation_tone: hesitationMode
+              ? (['direct', 'soft', 'choice'] as const)[hesitationTone]
+              : null,
+            checkout_hesitation_tone_source: hesitationMode ? hesitationToneSource : null,
+            cart_line_count: cartLineCount,
+            cart_total_qty: cartLineCount > 0 ? qtyForCartBrain : null,
             rosy_price_negotiation: Boolean(negotiationExtraSystem),
           },
           salon_subscription_pitch: subscriptionUpsell,
@@ -1557,6 +2101,7 @@ Recent conversation (last user + assistant):\n${utterance}\n---\nAssistant draft
         },
         action: bookingAction,
         salons: salonsOut,
+        products: productPicks,
         actions: actionsOut,
       }),
       { headers: { ...cors, 'Content-Type': 'application/json' } }
@@ -1570,6 +2115,7 @@ Recent conversation (last user + assistant):\n${utterance}\n---\nAssistant draft
         brain: { intent: 'general_question' as IntentName, entities: {} },
         action: null,
         salons: [],
+        products: [],
         actions: [
           { id: 'retry_soft', label: 'جرّبي مرة ثانية', kind: 'retry' },
           { id: 'more_options', label: 'شوفي خيارات ثانية', kind: 'more' },

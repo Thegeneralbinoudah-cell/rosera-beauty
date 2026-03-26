@@ -1,4 +1,5 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
+import type { SalonSubscriptionPlan } from '@/lib/salonSubscriptionPlans'
 
 /**
  * قراءة صريحة من import.meta.env (Vite يحقن VITE_* فقط في العميل).
@@ -18,6 +19,11 @@ const key = readViteEnv('VITE_SUPABASE_ANON_KEY')
 
 /** يُستخدم للتحقق قبل الاستدعاءات الحرجة */
 export const isSupabaseConfigured = url.length > 0 && key.length > 0
+
+/**
+ * Canonical KSA geography: `sa_regions` + `sa_cities` (migration 003+).
+ * The legacy `public.cities` table from 001 is not used by current app flows — do not query it for new features.
+ */
 
 /** عميل Supabase واحد للتطبيق — يُصدَّر للاستيراد من أي مكوّن */
 export const supabase: SupabaseClient = createClient(url, key, {
@@ -54,6 +60,8 @@ export type Business = {
   total_bookings?: number
   price_range?: string
   is_featured?: boolean
+  /** عند وجود العمود في الاستعلام (مثلاً select *) */
+  subscription_plan?: SalonSubscriptionPlan | null
   is_demo?: boolean
   source_type?: 'manual' | 'imported' | 'provider_api' | 'legacy_seed' | 'verified'
   /** Direct link from Google Places (client-side only) */
@@ -96,11 +104,40 @@ export type Service = {
   id: string
   business_id: string
   name_ar: string
+  name_en?: string | null
   category: string
   price: number
   duration_minutes: number
+  is_active?: boolean | null
+  is_demo?: boolean | null
 }
 
+export type SalonTeamRow = {
+  id: string
+  salon_id: string
+  name_ar: string
+  role_ar: string | null
+  image_url: string | null
+  sort_order: number
+}
+
+/** Customer-facing staff (public.staff) — optional on bookings */
+export type StaffMember = {
+  id: string
+  salon_id: string
+  name: string | null
+  name_ar: string | null
+  specialty: string | null
+  specialty_ar: string | null
+  rating: number | null
+  image_url: string | null
+  sort_order: number
+}
+
+/**
+ * Full `profiles` row — RLS allows only self-read; for **other users’** display names/avatars use
+ * `public_profiles` (view) or `public_profiles` queries, never `profiles` for cross-user UI.
+ */
 export type Profile = {
   id: string
   full_name?: string
@@ -124,8 +161,11 @@ export type PublicProfile = {
 export type Product = {
   id: string
   name_ar: string
+  name_en?: string | null
   brand_ar?: string
+  brand_en?: string | null
   description_ar?: string
+  description_en?: string | null
   category: string
   image_url?: string
   price: number

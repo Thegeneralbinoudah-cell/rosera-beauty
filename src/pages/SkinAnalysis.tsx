@@ -1,9 +1,9 @@
-import { useState, useEffect, useCallback, useMemo, type ChangeEvent } from 'react'
+import { useState, useEffect, useCallback, useMemo, useRef, type ChangeEvent } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { Progress } from '@/components/ui/progress'
 import { motion } from 'framer-motion'
-import { ChevronLeft, Sparkles } from 'lucide-react'
+import { Camera, ChevronLeft, Sparkles } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/contexts/AuthContext'
 import { toast } from 'sonner'
@@ -18,6 +18,7 @@ import {
 } from '@/lib/personalization'
 import { trackEvent } from '@/lib/analytics'
 import { getEdgeFunctionErrorMessage, getEdgeFunctionHttpErrorDetail } from '@/lib/edgeInvoke'
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 
 const DISCLAIMER =
   'هذا التحليل بالذكاء الاصطناعي تقديري للعناية والجمال فقط، وليس تشخيصاً طبياً ولا يغني عن استشارة طبيبة جلدية.'
@@ -40,14 +41,42 @@ export default function SkinAnalysis() {
   const [lastProfile, setLastProfile] = useState<UserSkinProfile | null>(null)
   const [svcPreview, setSvcPreview] = useState<ScoredItem<ServiceForRank>[]>([])
   const [error, setError] = useState<string | null>(null)
+  /** idle → live stream → preview file set → processing via runAnalyze → result */
+  const [capturePhase, setCapturePhase] = useState<'idle' | 'capturing' | 'preview' | 'processing' | 'result'>(
+    'idle'
+  )
+  const [cameraOpen, setCameraOpen] = useState(false)
+  const videoRef = useRef<HTMLVideoElement>(null)
+  const streamRef = useRef<MediaStream | null>(null)
+  const mountedRef = useRef(true)
+
+  const stopCamera = useCallback(() => {
+    streamRef.current?.getTracks().forEach((t) => t.stop())
+    streamRef.current = null
+    if (videoRef.current) videoRef.current.srcObject = null
+  }, [])
+
+  useEffect(() => {
+    mountedRef.current = true
+    return () => {
+      mountedRef.current = false
+      stopCamera()
+    }
+  }, [stopCamera])
+
+  useEffect(() => {
+    if (result) setCapturePhase('result')
+  }, [result])
 
   const loadProfile = useCallback(async () => {
     if (!user?.id) return
     const p = await getUserSkinProfile(user.id)
+    if (!mountedRef.current) return
     setLastProfile(p)
     if (p?.analysis_result && typeof p.analysis_result === 'object') {
       setResult(p.analysis_result as SkinAnalysisResultPayload)
       const svcs = await getRecommendedServices(p, user.id, 6)
+      if (!mountedRef.current) return
       setSvcPreview(svcs)
     }
   }, [user?.id])
@@ -79,11 +108,66 @@ export default function SkinAnalysis() {
     setFile(f)
     setPreviewUrl(URL.createObjectURL(f))
     setError(null)
+    setCapturePhase('preview')
+  }
+
+  const openCamera = async () => {
+    setError(null)
+    setCapturePhase('capturing')
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: 'user' },
+        audio: false,
+      })
+      streamRef.current = stream
+      setCameraOpen(true)
+      queueMicrotask(() => {
+        const v = videoRef.current
+        if (v) {
+          v.srcObject = stream
+          void v.play().catch(() => {})
+        }
+      })
+    } catch {
+      setCapturePhase('idle')
+      toast.error('تعذر فتح الكاميرا — جرّبي رفع صورة من المعرض')
+    }
+  }
+
+  const snapFromCamera = async () => {
+    const v = videoRef.current
+    if (!v || v.videoWidth === 0) {
+      toast.error('الكاميرا غير جاهزة بعد')
+      return
+    }
+    const canvas = document.createElement('canvas')
+    canvas.width = v.videoWidth
+    canvas.height = v.videoHeight
+    const ctx = canvas.getContext('2d')
+    if (!ctx) return
+    ctx.drawImage(v, 0, 0)
+    const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/jpeg', 0.92))
+    if (!blob) {
+      toast.error('تعذر حفظ اللقطة — أعيدي المحاولة')
+      return
+    }
+    const f = new File([blob], 'skin-capture.jpg', { type: 'image/jpeg' })
+    if (previewUrl) URL.revokeObjectURL(previewUrl)
+    setFile(f)
+    setPreviewUrl(URL.createObjectURL(f))
+    setError(null)
+    setCapturePhase('preview')
+    setCameraOpen(false)
+    stopCamera()
   }
 
   const runAnalyze = async () => {
-    if (!user || !file) return
+    if (!user || !file) {
+      toast.error('اختيار أو التقاط صورة لوجهك أولاً')
+      return
+    }
     setError(null)
+    setCapturePhase('processing')
     setUploading(true)
     try {
       const extRaw = (file.name.split('.').pop() || 'jpg').toLowerCase()
@@ -100,6 +184,7 @@ export default function SkinAnalysis() {
       const imageUrl = pub.publicUrl
       if (!imageUrl) throw new Error('تعذر الحصول على رابط الصورة')
 
+      if (!mountedRef.current) return
       setUploading(false)
       setAnalyzing(true)
 
@@ -121,18 +206,25 @@ export default function SkinAnalysis() {
       if (payload?.error) throw new Error(payload.error)
       if (!payload?.result) throw new Error('لا نتيجة من الخادم')
 
+      if (!mountedRef.current) return
       setResult(payload.result)
       await loadProfile()
+      if (!mountedRef.current) return
       const fresh = await getUserSkinProfile(user.id)
-      if (fresh) setSvcPreview(await getRecommendedServices(fresh, user.id, 6))
-      toast.success('تم تحليل الصورة وحفظ النتيجة')
+      if (fresh && mountedRef.current) setSvcPreview(await getRecommendedServices(fresh, user.id, 6))
+      if (mountedRef.current) toast.success('تم تحليل الصورة وحفظ النتيجة')
     } catch (e) {
       const msg = e instanceof Error ? e.message : 'فشل التحليل'
-      setError(msg)
-      toast.error(msg)
+      if (mountedRef.current) {
+        setError(msg)
+        toast.error(msg)
+        setCapturePhase(file ? 'preview' : 'idle')
+      }
     } finally {
-      setUploading(false)
-      setAnalyzing(false)
+      if (mountedRef.current) {
+        setUploading(false)
+        setAnalyzing(false)
+      }
     }
   }
 
@@ -144,7 +236,7 @@ export default function SkinAnalysis() {
   const recServices = result?.recommended_services ?? []
 
   return (
-    <div className="min-h-dvh bg-rosera-light px-4 py-8 pb-28 dark:bg-rosera-dark">
+    <div className="min-h-dvh bg-rosera-light px-4 py-8 pb-[calc(7rem+env(safe-area-inset-bottom,0px)+4rem)] dark:bg-rosera-dark">
       <div className="mx-auto max-w-md">
         <button
           type="button"
@@ -175,14 +267,33 @@ export default function SkinAnalysis() {
           )}
         </label>
 
+        <Button
+          type="button"
+          variant="outline"
+          className="mt-4 w-full min-h-[44px] touch-manipulation gap-2"
+          disabled={busy}
+          onClick={() => void openCamera()}
+        >
+          <Camera className="h-4 w-4 shrink-0" aria-hidden />
+          التقاط من الكاميرا
+        </Button>
+
+        {capturePhase === 'capturing' && !cameraOpen ? (
+          <p className="mt-2 text-center text-sm font-medium text-primary">جاري تجهيز الكاميرا…</p>
+        ) : null}
+
         {error && (
           <p className="mt-3 rounded-xl border border-destructive/30 bg-destructive/10 p-3 text-center text-sm text-destructive">
             {error}
           </p>
         )}
 
-        <Button className="mt-6 w-full" disabled={!file || busy} onClick={() => void runAnalyze()}>
-          {uploading ? 'جاري الرفع…' : analyzing ? 'جاري التحليل…' : 'تحليل'}
+        <Button
+          className="mt-6 w-full min-h-[44px] touch-manipulation"
+          disabled={!file || busy}
+          onClick={() => void runAnalyze()}
+        >
+          {uploading ? 'جاري الرفع…' : analyzing ? 'جاري تحليل البشرة…' : 'تحليل'}
         </Button>
 
         {result && (
@@ -326,6 +437,43 @@ export default function SkinAnalysis() {
           </motion.div>
         )}
       </div>
+
+      <Dialog
+        open={cameraOpen}
+        onOpenChange={(open) => {
+          setCameraOpen(open)
+          if (!open) {
+            stopCamera()
+            setCapturePhase((p) => (p === 'capturing' ? 'idle' : p))
+          }
+        }}
+      >
+        <DialogContent className="max-w-md" dir="rtl">
+          <DialogHeader>
+            <DialogTitle>التقاط صورة للوجه</DialogTitle>
+          </DialogHeader>
+          <div className="relative aspect-[3/4] w-full overflow-hidden rounded-2xl bg-black">
+            <video ref={videoRef} className="h-full w-full object-cover" playsInline muted autoPlay />
+          </div>
+          <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+            <Button
+              type="button"
+              variant="outline"
+              className="min-h-[44px] touch-manipulation"
+              onClick={() => {
+                setCameraOpen(false)
+                stopCamera()
+                setCapturePhase('idle')
+              }}
+            >
+              إلغاء
+            </Button>
+            <Button type="button" className="min-h-[44px] touch-manipulation" onClick={() => void snapFromCamera()}>
+              التقاط ومعاينة
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

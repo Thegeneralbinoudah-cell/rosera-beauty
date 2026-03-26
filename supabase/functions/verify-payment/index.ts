@@ -16,8 +16,13 @@ const FEATURED_AD_DAILY_SAR = 50
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: cors })
   try {
-    const { type, ref, payment_id } = await req.json()
+    const { type, ref, payment_id: paymentIdRaw } = await req.json()
+    const payment_id =
+      paymentIdRaw == null ? '' : typeof paymentIdRaw === 'string' ? paymentIdRaw.trim() : String(paymentIdRaw).trim()
     if (!type || !ref || !payment_id) {
+      if (type && ref && !payment_id) {
+        console.error('[verify-payment] rejected: payment_id missing or blank after trim', { type, ref })
+      }
       return new Response(JSON.stringify({ error: 'معطيات ناقصة' }), {
         status: 400,
         headers: { ...cors, 'Content-Type': 'application/json' },

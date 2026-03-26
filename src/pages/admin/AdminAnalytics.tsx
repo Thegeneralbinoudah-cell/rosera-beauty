@@ -49,17 +49,41 @@ export default function AdminAnalytics() {
       setLoading(true)
       setErr(null)
       try {
+        const since90 = new Date()
+        since90.setDate(since90.getDate() - 90)
+        const sinceIso = since90.toISOString()
+
         const [r1, r2, r3, perfRes, paidBookingsRes] = await Promise.all([
-          supabase.from('user_events').select('*', { count: 'exact', head: true }).eq('event_type', 'view_salon'),
-          supabase.from('user_events').select('*', { count: 'exact', head: true }).eq('event_type', 'booking_click'),
-          supabase.from('user_events').select('*', { count: 'exact', head: true }).eq('event_type', 'ai_recommended_view'),
+          supabase
+            .from('user_events')
+            .select('id', { count: 'exact', head: true })
+            .eq('event_type', 'view_salon')
+            .gte('created_at', sinceIso),
+          supabase
+            .from('user_events')
+            .select('id', { count: 'exact', head: true })
+            .eq('event_type', 'booking_click')
+            .gte('created_at', sinceIso),
+          supabase
+            .from('user_events')
+            .select('id', { count: 'exact', head: true })
+            .eq('event_type', 'ai_recommended_view')
+            .gte('created_at', sinceIso),
           supabase
             .from('user_events')
             .select('entity_id, event_type')
             .eq('entity_type', 'business')
             .in('event_type', [...PERF_TYPES])
-            .limit(20000),
-          supabase.from('bookings').select('business_id, total_price').eq('payment_status', 'paid'),
+            .gte('created_at', sinceIso)
+            .order('created_at', { ascending: false })
+            .limit(5000),
+          supabase
+            .from('bookings')
+            .select('business_id, total_price')
+            .eq('payment_status', 'paid')
+            .gte('created_at', sinceIso)
+            .order('created_at', { ascending: false })
+            .limit(8000),
         ])
 
         if (cancelled) return

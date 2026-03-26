@@ -26,7 +26,7 @@ export function StoreProductCard({ product, sponsored, onAddToCart, className }:
   return (
     <article
       className={cn(
-        'group flex flex-col overflow-hidden rounded-3xl border border-[#F9A8C9]/20 bg-white shadow-[0_8px_32px_-12px_rgba(249,168,201,0.25)] transition-shadow duration-300 hover:border-[#F9A8C9]/40 hover:shadow-[0_16px_40px_-12px_rgba(190,24,93,0.12)] dark:border-border dark:bg-card',
+        'group flex flex-col overflow-hidden rounded-2xl border border-border/55 bg-card shadow-elevated transition-all duration-300 sm:rounded-3xl hover:border-primary/20 hover:shadow-floating dark:border-border/70 dark:bg-card',
         className
       )}
     >

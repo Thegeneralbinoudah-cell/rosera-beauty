@@ -9,19 +9,24 @@ import { Label } from '@/components/ui/label'
 import { toast } from 'sonner'
 import { useI18n } from '@/hooks/useI18n'
 import PreferencesToggle from '@/components/PreferencesToggle'
+import { OAuthSocialButtons } from '@/components/auth/OAuthSocialButtons'
 import { consumePostAuthPath } from '@/lib/salonAcquisition'
+import { isPrivilegedStaffClient } from '@/lib/privilegedStaff'
 
-/** بعد تسجيل الدخول بالإيميل: توجيه حسب الدور من profiles */
+/** بعد تسجيل الدخول بالإيميل: توجيه — يطابق public.is_privileged_staff() */
 async function redirectAfterEmailLogin(nav: (path: string, opts?: { replace: boolean }) => void, uid: string) {
-  const { data: prof } = await supabase.from('profiles').select('role, full_name').eq('id', uid).single()
-  const p = prof as { role?: string; full_name?: string } | null
+  const [{ data: adm }, { data: prof }] = await Promise.all([
+    supabase.from('admins').select('id').eq('user_id', uid).maybeSingle(),
+    supabase.from('profiles').select('role, full_name, email').eq('id', uid).single(),
+  ])
+  const p = prof as { role?: string; full_name?: string; email?: string } | null
   const role = (p?.role ?? 'user').toLowerCase()
 
   if (role === 'owner') {
     nav('/salon/dashboard', { replace: true })
     return
   }
-  if (role === 'admin' || role === 'supervisor') {
+  if (isPrivilegedStaffClient({ isAdminFromAdminsTable: !!adm, profile: p })) {
     nav('/admin', { replace: true })
     return
   }
@@ -145,8 +150,23 @@ export default function AuthEmail() {
             </div>
           ) : (
             <>
+              <div className="mt-8">
+                <OAuthSocialButtons disabled={loading} />
+              </div>
+
+              <div className="relative mt-8">
+                <div className="absolute inset-0 flex items-center">
+                  <span className="w-full border-t border-primary/15" />
+                </div>
+                <div className="relative flex justify-center text-xs uppercase">
+                  <span className="bg-white px-3 text-rosera-gray dark:bg-card">
+                    {t('auth.orDivider')}
+                  </span>
+                </div>
+              </div>
+
               <form
-                className="mt-10 space-y-4"
+                className="mt-8 space-y-4"
                 autoComplete="on"
                 onSubmit={(e) => {
                   e.preventDefault()

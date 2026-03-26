@@ -15,9 +15,29 @@ export type MapMarkerRow = {
   pinRatingLabel: string
   /** أعلى 3 صالونات حسب التقييم ضمن النتائج الظاهرة */
   tier?: 'top' | 'default'
+  /**
+   * يُعرض دائماً كدبوس فردي (لا يُدخل التجميع) — أعلى التقييم، مميز، أو اشتراك بريميوم.
+   */
+  priority?: boolean
+  /** تمييز خفيف لاقتراح روزي النشط (لا يغيّر التجميع) */
+  suggestionBoost?: boolean
 }
 
 /** أقرب N علامة إلى مرجع الخريطة (Google Maps) */
+/** Same string as MapPage `mapMarkersSignature` — used by mapMarkerStore.applyMarkerRows */
+export function buildMapMarkersSignature(markers: MapMarkerRow[]): string {
+  return markers
+    .map((m) => {
+      const la = m.position[0]
+      const ln = m.position[1]
+      if (!Number.isFinite(la) || !Number.isFinite(ln)) return ''
+      const r = typeof m.rating === 'number' && Number.isFinite(m.rating) ? m.rating : 0
+      return `${m.id}:${la.toFixed(5)},${ln.toFixed(5)}:${m.pinRatingLabel}:${r.toFixed(2)}:${m.tier ?? 'default'}:${m.priority ? 'p' : 'n'}:${m.suggestionBoost ? 's' : 'n'}`
+    })
+    .filter(Boolean)
+    .join('|')
+}
+
 export function limitMarkersNearest(
   markers: MapMarkerRow[],
   refLat: number,

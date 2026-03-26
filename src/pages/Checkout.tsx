@@ -10,6 +10,7 @@ import { formatPrice } from '@/lib/utils'
 import { toast } from 'sonner'
 import PaymentForm, { type PaymentResult } from '@/components/payment/PaymentForm'
 import { useI18n } from '@/hooks/useI18n'
+import { trackRosyHesitationCheckoutIfAttributed } from '@/lib/roseyHesitationAnalytics'
 
 const SHIPPING = 30
 const PAYMENT_OPTIONS: { id: string; labelKey: string; icon: string }[] = [
@@ -46,6 +47,12 @@ export default function Checkout() {
   if (items.length === 0 && !orderId) return null
 
   const createOrder = async (paymentStatus: string, paymentId?: string | null) => {
+    if (paymentStatus === 'paid' && !(paymentId && String(paymentId).trim())) {
+      console.error('[Checkout] blocked: payment_status=paid requires non-empty payment_id', {
+        userId: user!.id,
+      })
+      throw new Error(t('checkout.confirmFail'))
+    }
     const addr = address.trim()
     if (!addr) throw new Error(t('checkout.addressError'))
     const { data: order, error: orderErr } = await supabase
@@ -82,6 +89,7 @@ export default function Checkout() {
     setLoading(true)
     try {
       const oid = await createOrder('free', null)
+      trackRosyHesitationCheckoutIfAttributed(user!.id)
       clear()
       setOrderId(oid)
       toast.success(t('checkout.success'))

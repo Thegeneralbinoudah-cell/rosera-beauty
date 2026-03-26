@@ -1,4 +1,17 @@
 import { supabase } from '@/lib/supabase'
+import { insertUserEventRow } from '@/lib/insertUserEvent'
+import { captureProductEvent, initPostHog } from '@/lib/posthog'
+
+export {
+  initPostHog,
+  captureProductEvent,
+  syncPostHogIdentity,
+  PRODUCT_ANALYTICS_EVENTS,
+  trackCategoryFilterSelected,
+} from '@/lib/posthog'
+
+export { insertUserEventRow } from '@/lib/insertUserEvent'
+export type { UserEventInsertResult } from '@/lib/insertUserEvent'
 import type { UserPreferenceSource } from '@/lib/roseyUserPreference'
 
 const UUID_RE =
@@ -19,6 +32,15 @@ export type RosyBookingClickPayload = {
   source: string
   quick?: boolean
   rosyNegotiationPct?: number
+  /** من روزي: حجز مباشر أو فتح صفحة الصالون أو روزي فيجن */
+  cta?:
+    | 'book_now'
+    | 'view_details'
+    | 'book_look'
+    | 'hair_consult'
+    | 'book_look_footer'
+    | 'hair_consult_footer'
+  serviceId?: string
 }
 
 /** Saved to user_events (event_type user_preference) for Rosy ranking + memory */
@@ -29,6 +51,13 @@ export type UserPreferenceTrackPayload = {
   salon_id?: string | null
   price_range?: string | null
   location?: string | null
+}
+
+export type PwaInstalledPayload = {
+  /** عند وصول الحدث غالباً ما يزال التبويب في المتصفح */
+  display_mode_hint: 'standalone' | 'browser_tab'
+  language: string
+  origin: string
 }
 
 function pushStructuredAnalyticsEvent(name: string, payload: Record<string, unknown>): void {
@@ -48,6 +77,25 @@ function pushStructuredAnalyticsEvent(name: string, payload: Record<string, unkn
   } catch {
     /* ignore */
   }
+}
+
+/** Rosy Vision — dataLayer + PostHog (no image data). */
+export function trackRosyVisionProductEvent(
+  name:
+    | 'rosy_hand_analysis_started'
+    | 'rosy_hand_analysis_completed'
+    | 'rosy_hair_analysis_completed',
+  payload?: { quality_ok?: boolean; confidence?: string },
+): void {
+  const safe: Record<string, unknown> = {
+    ...(payload?.quality_ok !== undefined ? { quality_ok: payload.quality_ok } : {}),
+    ...(payload?.confidence ? { confidence: payload.confidence.slice(0, 24) } : {}),
+  }
+  pushStructuredAnalyticsEvent(name, safe)
+  captureProductEvent(name, {
+    ...(payload?.quality_ok !== undefined ? { quality_ok: payload.quality_ok } : {}),
+    ...(payload?.confidence ? { confidence: payload.confidence.slice(0, 24) } : {}),
+  })
 }
 
 function pushCtaClick(source: string, type: string): void {
@@ -98,6 +146,8 @@ export function trackEvent(
         ...(typeof p.rosyNegotiationPct === 'number' && Number.isFinite(p.rosyNegotiationPct)
           ? { rosyNegotiationPct: p.rosyNegotiationPct }
           : {}),
+        ...(p.cta ? { cta: p.cta } : {}),
+        ...(typeof p.serviceId === 'string' && p.serviceId.trim() ? { serviceId: p.serviceId.trim() } : {}),
       })
     }
     return
@@ -128,16 +178,13 @@ export function trackEvent(
         price_range: typeof p.price_range === 'string' ? p.price_range.trim() || null : null,
         location: typeof p.location === 'string' ? p.location.trim() || null : null,
       }
-      void supabase
-        .from('user_events')
-        .insert({
-          user_id: uid,
-          event_type: 'user_preference',
-          entity_type: useBusiness ? 'business' : 'preference',
-          entity_id: useBusiness ? sid : uid,
-          metadata,
-        })
-        .then(() => {})
+      await insertUserEventRow({
+        user_id: uid,
+        event_type: 'user_preference',
+        entity_type: useBusiness ? 'business' : 'preference',
+        entity_id: useBusiness ? sid : uid,
+        metadata,
+      })
     })()
     return
   }
@@ -172,16 +219,59 @@ export function trackEvent(
   const meta =
     args.metadata && typeof args.metadata === 'object' && !Array.isArray(args.metadata) ? args.metadata : undefined
 
-  void supabase
-    .from('user_events')
-    .insert({
-      user_id,
-      event_type,
-      entity_type,
-      entity_id,
-      ...(meta && Object.keys(meta).length ? { metadata: meta } : {}),
+  void insertUserEventRow({
+    user_id,
+    event_type,
+    entity_type,
+    entity_id,
+    ...(meta && Object.keys(meta).length ? { metadata: meta } : {}),
+  })
+}
+
+/** تهيئة PostHog عند تحميل الوحدة — يستوردها `main.tsx` */
+initPostHog()
+
+/**
+ * يُستدعى عند `appinstalled` (Chrome / Edge / Android WebView المدعوم).
+ * ملاحظة: «إضافة إلى الشاشة الرئيسية» في Safari على iOS لا يُطلق هذا الحدث عادةً.
+ *
+ * يُرسل إلى dataLayer + حدث `rosera:analytics`؛ ويُسجَّل في `user_events` عند وجود جلسة مسجّلة.
+ */
+export function trackPwaInstalled(): void {
+  if (typeof window === 'undefined') return
+
+  const payload: PwaInstalledPayload = {
+    display_mode_hint: window.matchMedia('(display-mode: standalone)').matches
+      ? 'standalone'
+      : 'browser_tab',
+    language: typeof navigator !== 'undefined' ? navigator.language : '',
+    origin: window.location?.origin ?? '',
+  }
+
+  pushStructuredAnalyticsEvent('pwa_installed', {
+    display_mode_hint: payload.display_mode_hint,
+    language: payload.language,
+    origin: payload.origin,
+  })
+
+  captureProductEvent('install_success', {
+    display_mode_hint: payload.display_mode_hint,
+  })
+
+  if (import.meta.env.DEV) {
+    console.info('[Rosera PWA] appinstalled', payload)
+  }
+
+  void (async () => {
+    const { data } = await supabase.auth.getUser()
+    const uid = data.user?.id?.trim() ?? ''
+    if (!uid || !UUID_RE.test(uid)) return
+    await insertUserEventRow({
+      user_id: uid,
+      event_type: 'pwa_installed',
+      entity_type: 'preference',
+      entity_id: uid,
+      metadata: { ...payload, ts: Date.now() },
     })
-    .then(() => {
-      /* insert errors ignored — لا نكسر مسار المستخدم */
-    })
+  })()
 }

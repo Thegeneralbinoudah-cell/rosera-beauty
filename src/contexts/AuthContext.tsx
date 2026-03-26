@@ -8,7 +8,9 @@ import {
 } from 'react'
 import type { User, Session } from '@supabase/supabase-js'
 import { supabase, type Profile } from '@/lib/supabase'
+import { isPrivilegedStaffClient } from '@/lib/privilegedStaff'
 import { toast } from 'sonner'
+import { syncPostHogIdentity } from '@/lib/posthog'
 
 type AuthContextType = {
   user: User | null
@@ -19,7 +21,7 @@ type AuthContextType = {
   signOut: () => Promise<void>
   isAdmin: boolean
   isBusinessOwner: boolean
-  /** صف admins أو دور admin */
+  /** Row exists in public.admins for this user (feeds is_privileged_staff / isAdmin). */
   isPlatformAdmin: boolean
   /** مالك صالون مسجّل في salon_owners أو owner_id */
   isSalonPortal: boolean
@@ -73,6 +75,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [fetchProfile])
 
   useEffect(() => {
+    syncPostHogIdentity(user, profile)
+  }, [user, profile])
+
+  useEffect(() => {
     if (!user?.id) {
       setIsPlatformAdmin(false)
       setIsSalonPortal(false)
@@ -117,7 +123,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [user?.id])
 
   const refreshProfile = useCallback(async () => {
-    if (user) await fetchProfile(user.id)
+    let uid = user?.id
+    if (!uid) {
+      const { data: { session: s } } = await supabase.auth.getSession()
+      uid = s?.user?.id
+    }
+    if (uid) await fetchProfile(uid)
   }, [user, fetchProfile])
 
   const signOut = async () => {
@@ -131,7 +142,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   const email = profile?.email ?? user?.email ?? ''
-  const isAdmin = isPlatformAdmin || profile?.role === 'admin' || email === 'admin@rosera.com'
+  /** Privileged staff (same as DB `is_privileged_staff()`): admins row or role admin|supervisor|owner or legacy email. */
+  const isAdmin = isPrivilegedStaffClient({
+    isAdminFromAdminsTable: isPlatformAdmin,
+    profile: profile ?? { email: email || undefined },
+  })
   const isBusinessOwner = profile?.role === 'business_owner' || isSalonPortal
 
   return (

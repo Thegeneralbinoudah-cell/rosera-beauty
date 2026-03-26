@@ -12,6 +12,12 @@ export const STORAGE_KEYS = {
   city: 'rosera_city',
   dark: 'rosera_dark',
   lang: 'rosera_lang',
+  /** لا تُعرَض نافذة «ثبّتي التطبيق» التلقائية حتى يُعاد الضغط من الإعدادات */
+  pwaNudgeDismissed: 'rosera_pwa_nudge_dismissed',
+  /** نافذة التحميل الأولى — مرة واحدة فقط */
+  pwaFirstVisitDone: 'rosera_pwa_first_visit_done',
+  /** أول رسالة ترحيب من روزي في الدردشة — مرة واحدة لكل متصفح */
+  roseraRosyFirstWelcomeShown: 'rosera_rosy_first_welcome_v1',
 } as const
 
 export function formatPrice(n: number) {

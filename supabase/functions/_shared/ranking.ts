@@ -20,6 +20,7 @@ type Product = {
   price: number
   rating?: number
   review_count?: number
+  image_url?: string | null
 }
 
 export type SkinPayloadForRank = {

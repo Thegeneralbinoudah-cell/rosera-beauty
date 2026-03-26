@@ -13,6 +13,9 @@ export default function AdminDashboard() {
     businesses: 0,
     bookings: 0,
     revenue: 0,
+    platformCommission: 0,
+    featuredSalons: 0,
+    activeSubscriptions: 0,
     newBizWeek: 0,
     newUsersWeek: 0,
     realBusinesses: 0,
@@ -35,11 +38,14 @@ export default function AdminDashboard() {
     const iso = weekAgo.toISOString()
     async function load() {
       try {
-        const [p, b, bk, rev, nb, nu, rec, rb, db, rp, dp, orderShipRes] = await Promise.all([
+        const [p, b, bk, rev, comm, feat, subs, nb, nu, rec, rb, db, rp, dp, orderShipRes] = await Promise.all([
           supabase.from('profiles').select('id', { count: 'exact', head: true }),
           supabase.from('businesses').select('id', { count: 'exact', head: true }),
           supabase.from('bookings').select('id', { count: 'exact', head: true }),
-          supabase.from('bookings').select('total_price').eq('status', 'completed'),
+          supabase.from('bookings').select('total_price').in('status', ['completed', 'confirmed']),
+          supabase.from('bookings').select('commission_amount').in('status', ['completed', 'confirmed']),
+          supabase.from('businesses').select('id', { count: 'exact', head: true }).eq('is_active', true).eq('is_featured', true),
+          supabase.from('salon_subscriptions').select('id', { count: 'exact', head: true }).eq('status', 'active'),
           supabase.from('businesses').select('id', { count: 'exact', head: true }).gte('created_at', iso),
           supabase.from('profiles').select('id', { count: 'exact', head: true }).gte('created_at', iso),
           supabase
@@ -58,6 +64,10 @@ export default function AdminDashboard() {
             .limit(500),
         ])
         const revenue = (rev.data ?? []).reduce((a, x: { total_price: number | null }) => a + Number(x.total_price || 0), 0)
+        const platformCommission = (comm.data ?? []).reduce(
+          (a, x: { commission_amount: number | null }) => a + Number(x.commission_amount || 0),
+          0
+        )
         const orderRows = (orderShipRes.data ?? []) as {
           id: string
           shipments:
@@ -102,6 +112,9 @@ export default function AdminDashboard() {
             businesses: b.count ?? 0,
             bookings: bk.count ?? 0,
             revenue,
+            platformCommission,
+            featuredSalons: feat.count ?? 0,
+            activeSubscriptions: subs.count ?? 0,
             newBizWeek: nb.count ?? 0,
             newUsersWeek: nu.count ?? 0,
             realBusinesses: rb.count ?? 0,
@@ -149,6 +162,24 @@ export default function AdminDashboard() {
     },
   ]
 
+  const monetizationItems = [
+    {
+      id: 'commission',
+      titleKey: 'admin.dashboard.platformCommission',
+      v: `${Math.round(stats.platformCommission).toLocaleString(locale)} ${t('common.sar')}`,
+    },
+    {
+      id: 'featured',
+      titleKey: 'admin.dashboard.featuredSalons',
+      v: stats.featuredSalons.toLocaleString(locale),
+    },
+    {
+      id: 'subs',
+      titleKey: 'admin.dashboard.activeSubscriptions',
+      v: stats.activeSubscriptions.toLocaleString(locale),
+    },
+  ]
+
   return (
     <div>
       <h1 className="text-2xl font-bold">{t('admin.dashboard.title')}</h1>
@@ -163,6 +194,30 @@ export default function AdminDashboard() {
           </Card>
         ))}
       </div>
+
+      <div className="mt-10">
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+          <h2 className="text-lg font-bold text-foreground">{t('admin.dashboard.monetizationHub')}</h2>
+          <div className="flex flex-wrap gap-2 text-sm font-semibold">
+            <Link to="/admin/monetization" className="text-primary underline">
+              {t('admin.dashboard.openMonetization')}
+            </Link>
+            <span className="text-muted-foreground">·</span>
+            <Link to="/admin/revenue" className="text-primary underline">
+              {t('admin.dashboard.openRevenue')}
+            </Link>
+          </div>
+        </div>
+        <div className="grid gap-4 sm:grid-cols-3">
+          {monetizationItems.map((x) => (
+            <Card key={x.id} className="border-primary/15 bg-gradient-to-br from-primary/[0.06] to-card p-5">
+              <p className="text-xs font-semibold text-muted-foreground">{t(x.titleKey)}</p>
+              <p className="mt-2 text-2xl font-extrabold tabular-nums text-primary">{x.v}</p>
+            </Card>
+          ))}
+        </div>
+      </div>
+
       <div className="mt-6 grid gap-4 sm:grid-cols-2">
         <Card className="p-6">
           <p className="font-bold text-primary">{t('admin.dashboard.newBizWeek')}</p>

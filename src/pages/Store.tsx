@@ -1,23 +1,12 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
-import {
-  Search,
-  ShoppingCart,
-  LayoutGrid,
-  Bath,
-  Sparkles,
-  Cpu,
-  Droplets,
-  Palette,
-  Wind,
-  Flower2,
-  Sparkle,
-} from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
+import { Search, LayoutGrid, Bath, Sparkles, Cpu, Droplets, Palette, Wind, Flower2, Sparkle } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { supabase, type Product } from '@/lib/supabase'
 import { fetchSponsoredProductIds } from '@/lib/boosts'
 import { useCartStore } from '@/stores/cartStore'
 import { StoreProductCard } from '@/components/store/StoreProductCard'
+import { CartHeaderButton } from '@/components/store/CartHeaderButton'
 import { EmptyState } from '@/components/ui/empty-state'
 import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -25,6 +14,7 @@ import { toast } from 'sonner'
 import { useI18n } from '@/hooks/useI18n'
 import { cn } from '@/lib/utils'
 import { buildMapExploreUrl } from '@/lib/mapExploreUrl'
+import { trackCategoryFilterSelected } from '@/lib/analytics'
 
 type CatDef = { key: string; tKey: string; Icon: LucideIcon }
 
@@ -49,7 +39,7 @@ export default function Store() {
   const [q, setQ] = useState('')
   const [cat, setCat] = useState('')
   const [loading, setLoading] = useState(true)
-  const { add, count } = useCartStore()
+  const { add } = useCartStore()
 
   useEffect(() => {
     let c = true
@@ -102,7 +92,7 @@ export default function Store() {
   const emptyFilter = !loading && products.length > 0 && filtered.length === 0
 
   return (
-    <div className="min-h-dvh bg-[#FFFBFC] pb-28 dark:bg-rosera-dark">
+    <div className="min-h-dvh bg-background pb-28">
       {/* Hero */}
       <div className="relative overflow-hidden border-b border-[#F9A8C9]/20 bg-gradient-to-b from-[#FDF2F8] via-white to-[#FFFBFC] px-4 pb-6 pt-4 dark:from-card dark:via-rosera-dark dark:to-rosera-dark dark:border-border">
         <div
@@ -127,18 +117,7 @@ export default function Store() {
                 {t('store.subtitle')}
               </p>
             </div>
-            <Link
-              to="/cart"
-              className="relative flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-[#F9A8C9]/35 bg-white/90 text-[#BE185D] shadow-sm backdrop-blur-sm transition-all hover:border-[#F9A8C9]/60 hover:shadow-md active:scale-95 dark:border-border dark:bg-card dark:text-primary"
-              aria-label={t('store.cart')}
-            >
-              <ShoppingCart className="h-5 w-5" strokeWidth={2.25} />
-              {count() > 0 && (
-                <span className="absolute -top-1 -end-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-gradient-to-br from-[#F9A8C9] to-[#EC4899] px-1 text-[10px] font-extrabold text-[#374151] shadow-sm">
-                  {count()}
-                </span>
-              )}
-            </Link>
+            <CartHeaderButton />
           </div>
 
           <div className="relative mt-5">
@@ -165,7 +144,10 @@ export default function Store() {
               <button
                 key={key || 'all'}
                 type="button"
-                onClick={() => setCat(key)}
+                onClick={() => {
+                  trackCategoryFilterSelected('store', key || 'all')
+                  setCat(key)
+                }}
                 className={cn(
                   'flex shrink-0 items-center gap-2 rounded-2xl border px-3.5 py-2.5 font-cairo text-sm font-bold transition-all duration-200 active:scale-[0.98]',
                   active

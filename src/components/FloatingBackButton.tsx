@@ -1,24 +1,29 @@
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useLocation } from 'react-router-dom'
 import { ArrowLeft } from 'lucide-react'
+import { useI18n } from '@/hooks/useI18n'
 
-/** Above bottom nav (~6rem) + sticky booking CTA (~2.75rem) + safe area */
-const FAB_BOTTOM = 'calc(8.85rem + env(safe-area-inset-bottom, 0px) + 4px)'
-const FAB_LEFT = 'max(0.75rem, env(safe-area-inset-left, 0px))'
+const FAB_TOP = 'calc(12px + env(safe-area-inset-top, 0px))'
+const FAB_START = 'max(16px, env(safe-area-inset-inline-start, 0px))'
 
-/** زر عائم للرجوع — يسار الشاشة ثابتاً، فوق شريط التنقل */
+/** زر عائم للرجوع — أعلى يسار الشاشة (لا يتداخل مع FAB روزي السفلي) */
 export function FloatingBackButton() {
   const navigate = useNavigate()
+  const { pathname } = useLocation()
+  const { t } = useI18n()
+
+  /** الصفحة فيها زر رجوع مضمّن — نتجنّب زرّين */
+  if (pathname === '/rosy-vision' || pathname === '/skin-analysis') return null
 
   return (
     <button
       type="button"
       onClick={() => navigate(-1)}
-      className="fixed z-[650] flex h-14 w-14 items-center justify-center rounded-full bg-gradient-to-br from-[#fce4ec] via-[#f8bbd9] to-[#e91e8c] text-[#9B2257] shadow-[0_8px_32px_rgba(233,30,140,0.45)] ring-2 ring-white/90 transition hover:scale-105 active:scale-95 dark:from-[#4a148c] dark:via-[#ad1457] dark:to-[#e91e8c] dark:text-white dark:ring-white/25"
+      className="fixed z-40 flex h-14 w-14 min-h-[44px] min-w-[44px] touch-manipulation items-center justify-center rounded-full bg-gradient-to-br from-primary/25 via-accent to-primary/90 text-rosera-strong shadow-floating ring-2 ring-card transition hover:scale-105 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring active:scale-95 dark:from-primary/35 dark:via-primary/50 dark:to-primary dark:text-primary-foreground dark:ring-border"
       style={{
-        bottom: FAB_BOTTOM,
-        left: FAB_LEFT,
+        top: FAB_TOP,
+        insetInlineStart: FAB_START,
       }}
-      aria-label="رجوع"
+      aria-label={t('common.back')}
     >
       <ArrowLeft className="h-7 w-7 rtl:scale-x-[-1]" strokeWidth={2} aria-hidden />
     </button>

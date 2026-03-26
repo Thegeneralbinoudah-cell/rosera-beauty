@@ -1,9 +1,11 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { supabase } from '@/lib/supabase'
+import { supabase, type Business } from '@/lib/supabase'
+import { businessMatchesOffersVenueTab } from '@/lib/searchCategoryFilter'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { toast } from 'sonner'
+import { cn } from '@/lib/utils'
 
 type Offer = {
   id: string
@@ -14,7 +16,7 @@ type Offer = {
   offer_price: number
   end_date: string
   image?: string
-  businesses: { id: string; name_ar: string; cover_image?: string }
+  businesses: Pick<Business, 'id' | 'name_ar' | 'cover_image' | 'category' | 'category_label'>
 }
 
 export default function OffersPage() {
@@ -29,14 +31,20 @@ export default function OffersPage() {
       try {
         const { data, error } = await supabase
           .from('offers')
-          .select('*, businesses(id, name_ar, cover_image, category)')
+          .select('*, businesses(id, name_ar, cover_image, category, category_label)')
           .eq('is_active', true)
         if (error) throw error
-        let o = (data ?? []) as Offer[]
-        if (filter === 'salon') o = o.filter((x) => (x.businesses as { category?: string }).category === 'salon')
-        if (filter === 'clinic') o = o.filter((x) => (x.businesses as { category?: string }).category === 'clinic')
-        if (filter === 'spa') o = o.filter((x) => (x.businesses as { category?: string }).category === 'spa')
-        if (c) setList(filter === 'all' ? ((data ?? []) as Offer[]) : o)
+        const raw = (data ?? []) as Offer[]
+        const tab = filter as 'all' | 'salon' | 'clinic' | 'spa'
+        const o =
+          tab === 'all'
+            ? raw
+            : raw.filter((x) => {
+                const b = x.businesses
+                if (!b) return false
+                return businessMatchesOffersVenueTab(tab, b)
+              })
+        if (c) setList(o)
       } catch {
         toast.error('تعذر التحميل')
       } finally {
@@ -66,7 +74,12 @@ export default function OffersPage() {
               setLoading(true)
               setFilter(x.k)
             }}
-            className={`shrink-0 rounded-2xl px-4 py-2.5 text-sm font-semibold transition-all duration-200 active:scale-95 ${filter === x.k ? 'gradient-rosera shadow-sm' : 'bg-white text-[#374151] ring-1 ring-[#E5E7EB] dark:bg-card dark:text-foreground'}`}
+            className={cn(
+              'shrink-0 rounded-full border-2 px-4 py-2.5 text-sm font-bold transition-all duration-200 active:scale-95',
+              filter === x.k
+                ? 'border-foreground bg-foreground text-background shadow-sm'
+                : 'border-foreground/20 bg-transparent text-foreground hover:border-foreground/35'
+            )}
           >
             {x.l}
           </button>
@@ -85,7 +98,7 @@ export default function OffersPage() {
                 <div className="flex flex-1 flex-col justify-center py-3 pe-3">
                   <p className="text-xs text-rosera-gray">{o.businesses?.name_ar}</p>
                   <h3 className="font-bold">{o.title?.trim() || o.title_ar || 'عرض خاص'}</h3>
-                  <span className="mt-1 w-fit rounded-full bg-accent/15 px-2 py-0.5 text-xs font-bold text-accent">
+                  <span className="mt-1 w-fit rounded-full bg-gold-subtle px-2 py-0.5 text-xs font-bold text-gold">
                     {o.discount_percentage}% خصم
                   </span>
                   <div className="mt-2 flex items-center gap-2">

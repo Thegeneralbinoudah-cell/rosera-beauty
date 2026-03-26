@@ -6,6 +6,7 @@ import { useAuth } from '@/contexts/AuthContext'
 import { trackEvent } from '@/lib/analytics'
 import { useCartStore } from '@/stores/cartStore'
 import { Button } from '@/components/ui/button'
+import { LazyImage } from '@/components/ui/lazy-image'
 import { toast } from 'sonner'
 import { fetchActiveProductBoostMeta } from '@/lib/boosts'
 
@@ -93,7 +94,12 @@ export default function ProductDetail() {
   return (
     <div className="min-h-dvh bg-rosera-light pb-28 dark:bg-rosera-dark">
       <div className="relative aspect-square w-full overflow-hidden bg-white dark:bg-card">
-        <img src={product.image_url || ''} alt="" className="h-full w-full object-cover" />
+        <LazyImage
+          src={product.image_url || ''}
+          alt=""
+          className="h-full w-full object-cover"
+          priority
+        />
         {productBoost && (
           <span className="absolute bottom-3 start-3 rounded-full bg-white/90 px-2.5 py-1 text-[10px] font-extrabold text-[#9B2257] shadow dark:bg-black/70 dark:text-primary">
             {productBoost.boost_type === 'featured' ? 'Featured' : 'مُموَّل'}
@@ -143,7 +149,7 @@ export default function ProductDetail() {
               {similar.map((p) => (
                 <Link key={p.id} to={`/product/${p.id}`} className="rounded-2xl border bg-white overflow-hidden dark:bg-card">
                   <div className="aspect-square">
-                    <img src={p.image_url || ''} alt="" className="h-full w-full object-cover" />
+                    <LazyImage src={p.image_url || ''} alt="" className="h-full w-full object-cover" />
                   </div>
                   <div className="p-2">
                     <p className="line-clamp-2 text-sm font-bold">{p.name_ar ?? ''}</p>

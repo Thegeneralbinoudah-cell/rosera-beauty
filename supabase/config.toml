@@ -1,8 +1,32 @@
+# --- OAuth (Google / Apple) — hosted Supabase project ---
+# Dashboard → Authentication → Providers: enable Google + Apple, paste Client ID / Secret from
+# Google Cloud Console (OAuth client) and Apple Developer (Services ID + key).
+# URL configuration: Site URL = production origin; Redirect URLs must include
+#   http://localhost:5173/auth/callback
+#   https://<your-domain>/auth/callback
+# Local CLI (`supabase start`): set [auth.external.google] / [auth.external.apple] below or use secrets.
+#
+# [auth.external.google]
+# enabled = true
+# client_id = "env(SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_ID)"
+# secret = "env(SUPABASE_AUTH_EXTERNAL_GOOGLE_SECRET)"
+#
+# [auth.external.apple]
+# enabled = true
+# client_id = "env(SUPABASE_AUTH_EXTERNAL_APPLE_CLIENT_ID)"
+# secret = "env(SUPABASE_AUTH_EXTERNAL_APPLE_SECRET)"
+
 # Gateway JWT check can reject valid browser tokens; rozi-chat verifies via auth.getUser(jwt).
 [functions.rozi-chat]
 verify_jwt = false
 
 [functions.skin-analysis]
+verify_jwt = false
+
+[functions.rozy-vision]
+verify_jwt = false
+
+[functions.rozi-vision]
 verify_jwt = false
 
 [functions.growth-pipeline]

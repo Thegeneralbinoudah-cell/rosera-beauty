@@ -42,15 +42,15 @@ export function EmptyState({
   return (
     <div
       className={cn(
-        'mx-auto flex w-full max-w-md flex-col items-center gap-5 rounded-2xl border border-primary/20 bg-gradient-to-b from-white via-luxury-blush/40 to-primary/10 px-6 py-12 text-center shadow-luxury-sm transition-all duration-200 hover:border-primary/30 hover:shadow-luxury-md dark:border-border dark:from-card dark:via-card dark:to-card dark:hover:shadow-none',
+        'mx-auto flex w-full max-w-md flex-col items-center gap-6 rounded-3xl border border-border/45 bg-gradient-to-b from-card via-accent/25 to-primary/[0.09] px-8 py-12 text-center shadow-floating backdrop-blur-sm ring-1 ring-gold/10 transition-all duration-200 ease-out hover:border-primary/28 hover:shadow-floating dark:border-border/70 dark:from-card dark:via-card/95 dark:to-card dark:ring-gold/5',
         animate && 'animate-premium-in',
         className
       )}
     >
       <IconCircle size="md">
-        <Icon strokeWidth={1.65} />
+        <Icon strokeWidth={1.5} />
       </IconCircle>
-      <h2 className="text-xl font-bold tracking-luxury-tight text-luxury-ink sm:text-2xl dark:text-foreground">
+      <h2 className="text-heading-2 font-semibold tracking-luxury-tight text-foreground">
         {title}
       </h2>
       <p className="max-w-[22rem] text-body font-medium leading-relaxed tracking-luxury text-muted-foreground">
@@ -59,7 +59,7 @@ export function EmptyState({
       <Button
         type="button"
         variant={ctaVariant}
-        className="mt-2 w-full max-w-sm"
+        className="mt-0 w-full max-w-sm"
         onClick={handleClick}
       >
         {ctaLabel}

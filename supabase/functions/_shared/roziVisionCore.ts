@@ -1,0 +1,613 @@
+/**
+ * Shared Rosi/Rozy vision pipeline: validate → gate → AI JSON → normalize.
+ * No HTTP, no storage. Callers must not log image payloads.
+ */
+
+export function readOpenAiApiKey(): string {
+  const raw = Deno.env.get('OPENAI_API_KEY')?.trim() || ''
+  let k = raw
+  if ((k.startsWith('"') && k.endsWith('"')) || (k.startsWith("'") && k.endsWith("'"))) {
+    k = k.slice(1, -1).trim()
+  }
+  return k.replace(/\r?\n/g, '').replace(/\s+/g, '')
+}
+
+export type VisionMode = 'hand' | 'face'
+
+type RawVision = {
+  mode?: string
+  confidence?: string
+  qualityOk?: boolean
+  summaryAr?: string
+  undertone?: string
+  faceShape?: string
+  recommendedColors?: unknown
+  colorsToAvoid?: unknown
+  recommendedHairColors?: unknown
+  recommendedHaircuts?: unknown
+  cautionNotes?: unknown
+  retryTips?: unknown
+  nextActions?: unknown
+}
+
+export type RozyVisionResult = {
+  mode: VisionMode
+  confidence: 'high' | 'medium' | 'low'
+  qualityOk: boolean
+  summaryAr: string
+  undertone: 'warm' | 'cool' | 'neutral' | 'uncertain'
+  faceShape: 'oval' | 'round' | 'square' | 'heart' | 'uncertain'
+  recommendedColors: string[]
+  colorsToAvoid: string[]
+  recommendedHairColors: string[]
+  recommendedHaircuts: string[]
+  cautionNotes: string[]
+  retryTips: string[]
+  nextActions: string[]
+}
+
+const OPENAI_MODEL = 'gpt-4o'
+
+/** Hard cap on list lengths — keeps UI stable and reduces prompt injection surface. */
+const MAX_COLOR_ITEMS = 16
+const MAX_AVOID_ITEMS = 10
+const MAX_HAIR_COLOR_ITEMS = 12
+const MAX_HAIRCUT_ITEMS = 12
+const MAX_NOTE_ITEMS = 6
+const MAX_RETRY_ITEMS = 8
+const MAX_NEXT_ITEMS = 6
+const MAX_SUMMARY_CHARS = 1400
+
+function strArr(x: unknown, maxLen: number): string[] {
+  if (!Array.isArray(x)) return []
+  return x
+    .map((v) => (typeof v === 'string' ? v.trim().slice(0, 160) : ''))
+    .filter(Boolean)
+    .slice(0, maxLen)
+}
+
+const NEUTRAL_SAFE_NAIL_PALETTE = [
+  'وردي ترابي (#D8A5A5)',
+  'نود ناعم (#E8D4C4)',
+  'موف رمادي (#9B8B9E)',
+  'توبي ناعم (#A89080)',
+]
+
+export const QUALITY_REJECT_SUMMARY_AR = 'الصورة غير واضحة للتحليل'
+const QUALITY_RETRY_TIPS_FIXED = ['إضاءة طبيعية', 'بدون فلتر', 'قريبة وواضحة'] as const
+
+const DEFAULT_AVOID_WHEN_UNCERTAIN = [
+  'برتقالي نيون صارخ (#FF6B35) — قد يزيد التباين غير المرغوب',
+  'أزرق سماوي بارد (#87CEEB) — قد يبرز بشكل غير متوازن تحت إضاءة غير محايدة',
+]
+
+function defaultAvoidForHandUndertone(u: RozyVisionResult['undertone']): string[] {
+  switch (u) {
+    case 'warm':
+      return [
+        'موف بارد (#8B7B9E) — قد يبرز برداً على إنديرتون دافئ',
+        'أزرق ثلجي (#B0E0E6) — قد يتعارض مع دفء الجلد الظاهر',
+      ]
+    case 'cool':
+      return [
+        'كراميل برتقالي (#D2691E) — قد يصطدم مع برودة الإنديرتون',
+        'ذهبي برتقالي قوي (#DAA520) — قد يزيد الدفء بشكل غير متوازن',
+      ]
+    case 'neutral':
+      return [
+        'نيون فاقع — قد يكسر التوازن مع الإنديرتون المتوازن',
+        'أسود مطفي كامل (#1A1A1A) — قد يحجب نعومة الإطلالة اليومية',
+      ]
+    default:
+      return []
+  }
+}
+
+function clampConfidence(x: unknown): 'high' | 'medium' | 'low' {
+  const s = typeof x === 'string' ? x.toLowerCase().trim() : ''
+  if (s === 'high' || s === 'medium' || s === 'low') return s
+  return 'low'
+}
+
+function clampUndertone(x: unknown): RozyVisionResult['undertone'] {
+  const s = typeof x === 'string' ? x.toLowerCase().trim() : ''
+  if (s === 'warm' || s === 'cool' || s === 'neutral' || s === 'uncertain') return s
+  return 'uncertain'
+}
+
+function clampFaceShape(x: unknown): RozyVisionResult['faceShape'] {
+  const s = typeof x === 'string' ? x.toLowerCase().trim() : ''
+  if (s === 'oval' || s === 'round' || s === 'square' || s === 'heart' || s === 'uncertain') return s
+  return 'uncertain'
+}
+
+export function buildQualityRejectedResult(mode: VisionMode): RozyVisionResult {
+  return {
+    mode,
+    confidence: 'low',
+    qualityOk: false,
+    summaryAr: QUALITY_REJECT_SUMMARY_AR,
+    undertone: 'uncertain',
+    faceShape: 'uncertain',
+    recommendedColors: [],
+    colorsToAvoid: [],
+    recommendedHairColors: [],
+    recommendedHaircuts: [],
+    cautionNotes: [],
+    retryTips: [...QUALITY_RETRY_TIPS_FIXED],
+    nextActions: [],
+  }
+}
+
+/** Safe JSON when OpenAI/network/parse fails — no sensitive data. */
+export function safeFallbackResult(mode: VisionMode): RozyVisionResult {
+  return {
+    mode,
+    confidence: 'low',
+    qualityOk: false,
+    summaryAr:
+      mode === 'hand'
+        ? 'لم أتلقَّ صورة كافية للمقاربة بأمان — أعيدي المحاولة بيدك قرب نافذة نهارية، بدون فلتر قوي.'
+        : 'لم أتلقَّ صورة كافية للمقاربة بأمان — أعيدي المحاولة بوجهك أمام الكاميرا وإضاءة نهارية ناعمة.',
+    undertone: 'uncertain',
+    faceShape: 'uncertain',
+    recommendedColors: [],
+    colorsToAvoid: [],
+    recommendedHairColors: [],
+    recommendedHaircuts: [],
+    cautionNotes: [],
+    retryTips: [...QUALITY_RETRY_TIPS_FIXED],
+    nextActions: [
+      mode === 'hand'
+        ? 'التقطي صورة جديدة ثم اضغطي «تحليل مع روزي».'
+        : 'أعيدي التقاط الوجه من الأمام، ثم شغّلي التحليل مرة ثانية.',
+    ],
+  }
+}
+
+function stripOverApologyArabic(s: string): string {
+  return s
+    .replace(
+      /عذراً|آسفة|آسف|معذرة|اسف|اعتذر|أعتذر|لسوء الحظ|للأسف|آسفين|نأسف|نأسف لك|يؤسفني/gi,
+      '',
+    )
+    .replace(/\s{2,}/g, ' ')
+    .trim()
+}
+
+function normalizeResult(raw: RawVision, mode: VisionMode): RozyVisionResult {
+  /** صريح false فقط يرفض؛ غياب الحقل يُعامل كمقبول بعد نجاح بوابة الجودة (توافق مع مخرجات سابقة). */
+  const qualityOk = raw.qualityOk !== false
+  let summaryAr =
+    typeof raw.summaryAr === 'string' && raw.summaryAr.trim()
+      ? stripOverApologyArabic(raw.summaryAr.trim())
+      : mode === 'hand'
+        ? 'يبدو أن الصورة تحتاج إضاءة أوضح لأقرأ الإنديرتون بدقة — أعيدي التقاط يدك قرب النافذة بنهار هادئ.'
+        : 'يبدو أن الصورة تحتاج زاوية أوضح لوجهكِ — أعيدي التقاط أمام الكاميرا بإضاءة نهارية ناعمة.'
+
+  let confidence = clampConfidence(raw.confidence)
+  let undertone = clampUndertone(raw.undertone)
+  let faceShape = clampFaceShape(raw.faceShape)
+  let recommendedColors = strArr(raw.recommendedColors, MAX_COLOR_ITEMS)
+  let colorsToAvoid = strArr(raw.colorsToAvoid, MAX_AVOID_ITEMS)
+  let recommendedHairColors = strArr(raw.recommendedHairColors, MAX_HAIR_COLOR_ITEMS)
+  let recommendedHaircuts = strArr(raw.recommendedHaircuts, MAX_HAIRCUT_ITEMS)
+  let cautionNotes = strArr(raw.cautionNotes, MAX_NOTE_ITEMS)
+  let retryTips = strArr(raw.retryTips, MAX_RETRY_ITEMS)
+  let nextActions = strArr(raw.nextActions, MAX_NEXT_ITEMS)
+
+  if (!qualityOk) {
+    confidence = confidence === 'high' ? 'low' : confidence
+    undertone = 'uncertain'
+    faceShape = 'uncertain'
+    recommendedColors = []
+    colorsToAvoid = []
+    recommendedHairColors = []
+    recommendedHaircuts = []
+    cautionNotes = []
+    summaryAr = QUALITY_REJECT_SUMMARY_AR
+    retryTips = [...QUALITY_RETRY_TIPS_FIXED]
+    nextActions = []
+  }
+
+  if (mode === 'hand') {
+    faceShape = 'uncertain'
+    recommendedHairColors = []
+    recommendedHaircuts = []
+    cautionNotes = []
+    if (undertone === 'uncertain' && qualityOk) {
+      if (recommendedColors.length === 0) {
+        recommendedColors = [...NEUTRAL_SAFE_NAIL_PALETTE]
+      }
+      if (colorsToAvoid.length === 0) {
+        colorsToAvoid = [...DEFAULT_AVOID_WHEN_UNCERTAIN]
+      }
+    } else if (qualityOk && undertone !== 'uncertain' && colorsToAvoid.length === 0) {
+      colorsToAvoid = defaultAvoidForHandUndertone(undertone)
+    }
+  } else {
+    recommendedColors = []
+    colorsToAvoid = []
+    if (qualityOk && cautionNotes.length === 0) {
+      cautionNotes = [
+        'الاقتراحات تقريبية وتعتمد على الزاوية والإضاءة — استشيري كوافيرتكِ للقرار النهائي.',
+        'لا توجد قراءة مثالية من صورة واحدة؛ جرّبي الاستشارة عند الصالون لأدق قرار.',
+        'في الخليج والسعودية غالباً ما تهمّ الرطوبة ومظهر اللون تحت الإضاءات المحلية — جرّبي المعاينة الطبيعية قبل الصبغة.',
+      ]
+    }
+  }
+
+  if (qualityOk) {
+    retryTips = []
+  }
+
+  /** لا نمنح «ثقة عالية» مع أدلة ضعيفة — يقلل الهلوسة الظاهرة. */
+  if (qualityOk) {
+    if (mode === 'hand' && undertone === 'uncertain' && confidence === 'high') {
+      confidence = 'medium'
+    }
+    if (mode === 'face' && faceShape === 'uncertain' && confidence === 'high') {
+      confidence = 'medium'
+    }
+    if (mode === 'face' && undertone === 'uncertain' && confidence === 'high') {
+      confidence = 'medium'
+    }
+    if (mode === 'face' && (recommendedHairColors.length === 0 || recommendedHaircuts.length === 0)) {
+      if (confidence === 'high') confidence = 'medium'
+    }
+  }
+
+  if (summaryAr.length > MAX_SUMMARY_CHARS) {
+    summaryAr = `${summaryAr.slice(0, MAX_SUMMARY_CHARS - 1)}…`
+  }
+
+  if (!summaryAr || summaryAr.length < 8) {
+    summaryAr =
+      qualityOk && mode === 'hand'
+        ? 'الأقرب لإطلالة يدكِ: ألوان طلاء تتماشى مع إنديرتونكِ — راجعي القائمة أدناه.'
+        : qualityOk && mode === 'face'
+          ? 'أنصحكِ بدرجات لون الشعر والقصات التالية لتناسب ملامحكِ — التفاصيل بالأسفل.'
+          : QUALITY_REJECT_SUMMARY_AR
+  }
+
+  if (qualityOk && nextActions.length === 0) {
+    nextActions =
+      mode === 'hand'
+        ? ['جرّبي درجتين من طلاء الأظافر من القائمة.', 'أرسلي صورة بإضاءة نهارية لدقة أعلى.']
+        : [
+            'احفظي لقطة شعركِ من الأمام والجانب لاقتراح أدق.',
+            'جرّبي البحث عن صالون قريب لحجز استشارة صبغ أو قصّ.',
+          ]
+  }
+
+  if (qualityOk && /حتماً|أكيدًا|أكيدة|بكل تأكيد|قطعاً|لا\s*شك|مضمون|مؤكد/i.test(summaryAr)) {
+    if (confidence === 'high') confidence = 'medium'
+  }
+
+  if (qualityOk && summaryAr.replace(/[\s\u200c\u200f]/g, '').length < 90 && confidence === 'high') {
+    confidence = 'medium'
+  }
+
+  return {
+    mode,
+    confidence,
+    qualityOk,
+    summaryAr,
+    undertone,
+    faceShape,
+    recommendedColors,
+    colorsToAvoid,
+    recommendedHairColors,
+    recommendedHaircuts,
+    cautionNotes,
+    retryTips,
+    nextActions,
+  }
+}
+
+function buildHandUndertonePrompt(): string {
+  return `أنتِ «روزي»، مساعدة تجميل بالعربية لمستخدمات في **السعودية ودول الخليج**. مهمتكِ: قراءة **صورة يد** لتقدير **اتجاه إنديرتون الجلد** واقتراح **ألوان طلاء أظافر** — للإلهام فقط، **ليس تشخيصاً طبياً**.
+
+## الصدق أهم من الإبهام
+- إن لم تكوني واثقة من الإضاءة أو الزاوية: undertone = "uncertain" وخفّضي confidence — **لا حكماً قاطعاً**.
+- صوغي: يبدو، غالباً، الأقرب، قد يناسبكِ — وليس: أكيد، حتماً، بدون منازعة.
+- **لا تنتقدي** شكل اليد أو الأظافر — ركّزي على الإرشاد التجميلي.
+
+## ماذا تنظرين (بدون اختلاق)
+- دفء/برودة لون الجلد كنمط عام.
+- أوردة ظاهرة: **لا تبنين الإنديرتون على لون الوريد وحده** — ادمجيه مع البشرة والظلال والإضاءة.
+- إضاءة صفراء قوية، فلتر ثقيل، أو ضبابية → اذكري ذلك في summaryAr وخفّضي confidence.
+
+## سياق خليجي (جملة واحدة عند الحاجة)
+- الرطوبة والحر قد يغيّران إدراك اللمعان على الطلاء — بدون مبالغة.
+- أسماء ألوان **بالعربية** كما في الصالونات المحليّة.
+
+## undertone (واحدة)
+warm | cool | neutral | uncertain
+
+## ألوان الطلاء
+- 4–8 عناصر "اسم عربي (#RRGGBB)" عند qualityOk=true؛ **uncertain** → لوحة آمنة هادئة فقط.
+- colorsToAvoid: 2–6 عناصر + سبب قصير عربي — ألوان تزيد تعارضاً محتملاً مع القراءة.
+
+## JSON فقط — جميع المفاتيح التالية دائماً (مصفوفات قد تكون فارغة):
+{"mode":"hand","confidence":"high|medium|low","qualityOk":true|false,"summaryAr":"…","undertone":"…","faceShape":"uncertain","recommendedColors":[],"colorsToAvoid":[],"recommendedHairColors":[],"recommendedHaircuts":[],"cautionNotes":[],"retryTips":[],"nextActions":[]}
+
+- qualityOk=true: املئي الألوان وnextActions؛ retryTips=[]؛ cautionNotes=[].
+- qualityOk=false: افرغي الألوان وnextActions؛ املئي retryTips (≥3)؛ شرح لطيف في summaryAr.
+
+## ممنوع
+- اعتذار مفرط (عذراً، آسفة، للأسف، نأسف…).
+- إحراج المستخدم أو تقييم مظهرها كشخص.`
+}
+
+function buildFaceSystemPrompt(): string {
+  return `أنتِ «روزي»، مساعدة جمال بالعربية لمستخدمات في **السعودية ودول الخليج** — **اقتراح ألوان شعر وقصّات** يتوافق مع **ملامح الوجه** من صورة أمامية تقريبية. هذا **رأي تجميلي تقريبي** وليس قراراً طبياً أو نهائياً.
+
+## الصدق
+- غياب اليقين أفضل من الاختلاق: faceShape أو undertone = "uncertain" عند ضعف الأدلة، وخفّضي confidence.
+- صيغة ملاحظة: يبدو، قد يناسبكِ، الأقرب — دون «حتماً» أو «الأفضل دائماً».
+- لا تنتقدي ملامح الوجه؛ لا تقارنين بمعايير جمال قاسية.
+
+## ما تفحصينه (ما يظهر فقط)
+- خط الفك والزوايا؛ عرض/طول الوجه كنسبة تقريبية؛ توازن الجبهة والوجنتين والذقن حسب الوضوح.
+- إضاءة قوية من جهة، ظلال ثقيلة، زاوية جانبية فقط → qualityOk=false أو faceShape=uncertain مع تنبيه في summaryAr.
+
+## سياق صالون الخليج
+- اذكري عند الحاجة: صبغة، هايلايت، بالياج، سموكي، ويفي، طبقات — بمفردات **عربية عادية** في الصالونات.
+- الرطوبة ونوعية المياه قد تؤثر على مظهر الصبغة — جملة حذرة واحدة في cautionNotes عند المناسبة، دون تخويف.
+
+## faceShape (واحدة)
+oval | round | square | heart | uncertain
+
+## undertone بشرة الوجه (تقريبي)
+warm | cool | neutral | uncertain — للإشارة فقط؛ لا تُجبري تخميناً قوياً من صورة سيئة.
+
+## JSON فقط — المفاتيح كاملة دائماً:
+{"mode":"face","confidence":"high|medium|low","qualityOk":true|false,"summaryAr":"…","undertone":"…","faceShape":"…","recommendedColors":[],"colorsToAvoid":[],"recommendedHairColors":[],"recommendedHaircuts":[],"cautionNotes":[],"retryTips":[],"nextActions":[]}
+
+- recommendedColors و colorsToAvoid دائماً [].
+- qualityOk=true: 3–10 عناصر في recommendedHairColors؛ 3–10 في recommendedHaircuts؛ 2–5 cautionNotes واقعية؛ nextActions عملية (حجز، صور إضافية).
+- qualityOk=false: افرغي الشعر والقصات وcautionNotes وnextActions؛ املئي retryTips (≥3).
+- retryTips دائماً [] عندما qualityOk=true.
+
+## قصّات (أمثلة اتجاهات — بلطف)
+- round / square / oval / heart / uncertain — اربطي الاقتراح بالشكل المقدَّر مع صيغة «قد يناسبكِ».
+
+## ممنوع
+- اعتذار مفرط.
+- وعود نتيجة مضمونة من صورة واحدة.`
+}
+
+function buildSystemPrompt(mode: VisionMode): string {
+  return mode === 'hand' ? buildHandUndertonePrompt() : buildFaceSystemPrompt()
+}
+
+/** Structured output (strict:false) — يوجّه النموذج دون رفض صارم عند انحراف بسيط. */
+function rozyVisionResponseFormat(mode: VisionMode): {
+  type: 'json_schema'
+  json_schema: {
+    name: string
+    strict: boolean
+    schema: Record<string, unknown>
+  }
+} {
+  const strList = (maxItems: number) => ({
+    type: 'array',
+    items: { type: 'string', maxLength: 200 },
+    maxItems,
+  })
+  return {
+    type: 'json_schema',
+    json_schema: {
+      name: mode === 'hand' ? 'rozy_vision_hand' : 'rozy_vision_face',
+      strict: false,
+      schema: {
+        type: 'object',
+        additionalProperties: false,
+        required: [
+          'mode',
+          'confidence',
+          'qualityOk',
+          'summaryAr',
+          'undertone',
+          'faceShape',
+          'recommendedColors',
+          'colorsToAvoid',
+          'recommendedHairColors',
+          'recommendedHaircuts',
+          'cautionNotes',
+          'retryTips',
+          'nextActions',
+        ],
+        properties: {
+          mode: { type: 'string', enum: mode === 'hand' ? ['hand'] : ['face'] },
+          confidence: { type: 'string', enum: ['high', 'medium', 'low'] },
+          qualityOk: { type: 'boolean' },
+          summaryAr: { type: 'string', maxLength: MAX_SUMMARY_CHARS + 400 },
+          undertone: { type: 'string', enum: ['warm', 'cool', 'neutral', 'uncertain'] },
+          faceShape: {
+            type: 'string',
+            enum:
+              mode === 'hand'
+                ? ['uncertain']
+                : ['oval', 'round', 'square', 'heart', 'uncertain'],
+          },
+          recommendedColors: strList(MAX_COLOR_ITEMS),
+          colorsToAvoid: strList(MAX_AVOID_ITEMS),
+          recommendedHairColors: strList(MAX_HAIR_COLOR_ITEMS),
+          recommendedHaircuts: strList(MAX_HAIRCUT_ITEMS),
+          cautionNotes: strList(MAX_NOTE_ITEMS),
+          retryTips: strList(MAX_RETRY_ITEMS),
+          nextActions: strList(MAX_NEXT_ITEMS),
+        },
+      },
+    },
+  }
+}
+
+const QUALITY_GATE_SYSTEM = `أنتِ فاحصة صور صارمة قبل تحليل تجميلي.
+قيمي الصورة فقط من ناحية الجودة — **بدون** تحليل ألوان بشرة أو شعر.
+
+المعايير (يجب أن تمرّ جميعها ليعتبر passes=true):
+1) **السطوع / الإضاءة**: ليست مظلمة جداً أو محروقة بالكامل؛ يُفضّل إضاءة نهارية معقولة (ليس شرطاً مثالية).
+2) **الضبابية**: الصورة ليست ضبابية بشكل يمنع رؤية التفاصيل (حركة شديدة أو عدم تركيز واضح = فشل).
+3) **ظهور الموضوع**: HAND_OR_FACE يظهر بوضوح معقول في الإطار (ليست صورة بعيدة جداً أو مقطوعة بحيث لا يُرى الجزء المطلوب).
+
+إن شككتِ أو كان أي معيار غير مستوفٍ: passes=false.
+
+أرجعي **JSON فقط** بهذا الشكل بالضبط:
+{"passes":true}
+أو
+{"passes":false}`
+
+function qualityGateSystemForMode(mode: VisionMode): string {
+  const subj = mode === 'hand' ? 'اليد' : 'الوجه'
+  return QUALITY_GATE_SYSTEM.replace('HAND_OR_FACE', subj)
+}
+
+async function openaiVisionQualityGate(apiKey: string, mode: VisionMode, dataUrl: string): Promise<boolean> {
+  const res = await fetch('https://api.openai.com/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${apiKey}`,
+    },
+    body: JSON.stringify({
+      model: OPENAI_MODEL,
+      messages: [
+        { role: 'system', content: qualityGateSystemForMode(mode) },
+        {
+          role: 'user',
+          content: [
+            {
+              type: 'text',
+              text:
+                mode === 'hand'
+                  ? 'هل هذه الصورة مناسبة لتحليل اليد؟ أرجعي {"passes":true} أو {"passes":false} فقط.'
+                  : 'هل هذه الصورة مناسبة لتحليل الوجه؟ أرجعي {"passes":true} أو {"passes":false} فقط.',
+            },
+            { type: 'image_url', image_url: { url: dataUrl } },
+          ],
+        },
+      ],
+      response_format: { type: 'json_object' },
+      temperature: 0.1,
+      max_tokens: 80,
+    }),
+  })
+
+  const data = (await res.json()) as {
+    error?: { message?: string }
+    choices?: { message?: { content?: string | null } }[]
+  }
+
+  if (!res.ok) {
+    return false
+  }
+
+  const raw = data.choices?.[0]?.message?.content
+  if (typeof raw !== 'string' || !raw.trim()) {
+    return false
+  }
+  try {
+    const parsed = JSON.parse(raw) as { passes?: boolean }
+    return parsed.passes === true
+  } catch {
+    return false
+  }
+}
+
+function clampPersonalizationHint(raw: string | undefined): string | undefined {
+  if (typeof raw !== 'string') return undefined
+  const t = raw.trim()
+  if (!t) return undefined
+  return t.length > 900 ? `${t.slice(0, 897)}…` : t
+}
+
+async function openaiVisionJsonStrict(
+  apiKey: string,
+  mode: VisionMode,
+  dataUrl: string,
+  personalizationHint?: string,
+): Promise<RawVision> {
+  const baseUserText =
+    mode === 'hand'
+      ? 'حلّلي صورة اليد: إنديرتون الجلد (توازن بصري، لا تعتمدي على لون الوريد وحده) + جودة الإضاءة + ألوان طلاء بصيغة عربية + (#HEX). أرجعي JSON فقط.'
+      : 'حلّلي صورة الوجه: خط الفك، عرض/طول الوجه، توازن الوجنتين، ثم faceShape + ألوان شعر + قصات بصيغة توصية لطيفة (بدون ادعاءات مطلقة) + cautionNotes. أرجعي JSON فقط.'
+  const hint = clampPersonalizationHint(personalizationHint)
+  const userText = hint ? `${baseUserText}\n\n---\n${hint}` : baseUserText
+
+  const res = await fetch('https://api.openai.com/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${apiKey}`,
+    },
+    body: JSON.stringify({
+      model: OPENAI_MODEL,
+      messages: [
+        { role: 'system', content: buildSystemPrompt(mode) },
+        {
+          role: 'user',
+          content: [
+            {
+              type: 'text',
+              text: userText,
+            },
+            { type: 'image_url', image_url: { url: dataUrl } },
+          ],
+        },
+      ],
+      response_format: rozyVisionResponseFormat(mode),
+      temperature: 0.12,
+      max_tokens: mode === 'hand' ? 1800 : 1900,
+    }),
+  })
+
+  const data = (await res.json()) as {
+    error?: { message?: string }
+    choices?: { message?: { content?: string | null } }[]
+  }
+
+  if (!res.ok) {
+    throw new Error(data.error?.message || `OpenAI ${res.status}`)
+  }
+
+  const raw = data.choices?.[0]?.message?.content
+  if (typeof raw !== 'string' || !raw.trim()) {
+    throw new Error('Empty vision JSON')
+  }
+  try {
+    return JSON.parse(raw) as RawVision
+  } catch {
+    throw new Error('Vision model returned non-JSON')
+  }
+}
+
+export type VisionAnalysisOptions = {
+  /** Short Arabic context from saved undertone/styles — never include PII or raw images */
+  personalizationHint?: string
+}
+
+/**
+ * 1) Quality gate 2) mode-specific prompt + vision JSON 3) normalize/sanitize.
+ */
+export async function runVisionAnalysis(
+  mode: VisionMode,
+  dataUrl: string,
+  apiKey: string,
+  opts?: VisionAnalysisOptions,
+): Promise<RozyVisionResult> {
+  try {
+    const passesGate = await openaiVisionQualityGate(apiKey, mode, dataUrl)
+    if (!passesGate) {
+      return buildQualityRejectedResult(mode)
+    }
+    const raw = await openaiVisionJsonStrict(apiKey, mode, dataUrl, opts?.personalizationHint)
+    return normalizeResult(raw, mode)
+  } catch (e) {
+    const m = e instanceof Error ? e.message : String(e)
+    console.error('[runVisionAnalysis]', m)
+    return safeFallbackResult(mode)
+  }
+}

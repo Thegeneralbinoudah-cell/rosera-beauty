@@ -9,7 +9,12 @@ export function StickyBookingCta() {
   const { pathname } = useLocation()
   const { t } = useI18n()
 
-  if (pathname.startsWith('/map') || pathname.startsWith('/booking') || pathname.startsWith('/for-salons'))
+  if (
+    pathname.startsWith('/map') ||
+    pathname.startsWith('/booking') ||
+    pathname.startsWith('/for-salons') ||
+    pathname.startsWith('/rosy-vision')
+  )
     return null
 
   return (
@@ -35,9 +40,9 @@ export function StickyBookingCta() {
         <Link
           to="/map"
           className={cn(
-            'gradient-rosera shrink-0 rounded-xl px-3 py-1.5 text-xs font-bold text-[#374151]',
-            'shadow-sm transition-all duration-200 hover:opacity-95 active:scale-95',
-            'dark:text-[#1f2937] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F9A8C9] focus-visible:ring-offset-2'
+            'gradient-rosera shrink-0 rounded-2xl px-4 py-2 text-xs font-bold text-white',
+            'shadow-md transition-all duration-200 hover:scale-[1.02] active:scale-[0.98]',
+            'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-2'
           )}
         >
           {t('cta.startNow')}

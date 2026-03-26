@@ -1,3 +1,4 @@
+import { memo, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { Bell, Search } from 'lucide-react'
@@ -7,17 +8,20 @@ import { usePreferences } from '@/contexts/PreferencesContext'
 import { useI18n } from '@/hooks/useI18n'
 import { useRegions } from '@/hooks/useRegions'
 import PreferencesToggle from '@/components/PreferencesToggle'
+import { RosyHomeFirstIntro } from '@/components/RosyHomeFirstIntro'
+import { InstallAppButton } from '@/components/InstallAppButton'
 import { ROSERA_LOGO_SRC } from '@/lib/branding'
+import { captureProductEvent, trackCategoryFilterSelected } from '@/lib/analytics'
 
-const CATEGORY_CHIPS: { label: string; q: string }[] = [
-  { label: 'صالون نسائي', q: 'صالون نسائي' },
-  { label: 'سبا ومساج', q: 'سبا ومساج' },
-  { label: 'مكياج', q: 'مكياج' },
-  { label: 'عناية بالبشرة', q: 'عناية بالبشرة' },
-  { label: 'عيادة تجميل', q: 'عيادة تجميل' },
-  { label: 'عيادة جلدية', q: 'عيادة جلدية' },
-  { label: 'عيادة ليزر', q: 'عيادة ليزر' },
-  { label: 'حقن وفيلر', q: 'عيادة حقن' },
+const CATEGORY_CHIPS: { label: string; categoryLabel: string }[] = [
+  { label: 'صالون نسائي', categoryLabel: 'صالون نسائي' },
+  { label: 'سبا ومساج', categoryLabel: 'سبا ومساج' },
+  { label: 'مكياج', categoryLabel: 'مكياج' },
+  { label: 'عناية بالبشرة', categoryLabel: 'عناية بالبشرة' },
+  { label: 'عيادة تجميل', categoryLabel: 'عيادة تجميل' },
+  { label: 'عيادة جلدية', categoryLabel: 'عيادة جلدية' },
+  { label: 'عيادة ليزر', categoryLabel: 'عيادة ليزر' },
+  { label: 'حقن وفيلر', categoryLabel: 'عيادة حقن وفيلر' },
 ]
 
 const REGION_CIRCLE_GRADIENTS = [
@@ -36,12 +40,16 @@ const REGION_CIRCLE_GRADIENTS = [
   'from-[#fce4ec] via-[#ff80ab] to-[#c51162]',
 ]
 
-export default function Home() {
+function Home() {
   const { profile, user } = useAuth()
   const { lang } = usePreferences()
   const { t } = useI18n()
   const nav = useNavigate()
   const { regions, loading } = useRegions(lang)
+
+  useEffect(() => {
+    captureProductEvent('home_open', {})
+  }, [])
 
   const name = profile?.full_name?.split(' ')[0] || (user ? 'جميلتي' : 'ضيفتنا')
   /** نصوص الواجهة المحلية — لا تُسمّى `t` لتعارضها مع مترجم useI18n (`tr`) */
@@ -63,69 +71,113 @@ export default function Home() {
     recommended: lang === 'ar' ? '✨ مقترحات ذكية' : '✨ Smart picks',
     recommendedHint:
       lang === 'ar' ? 'ترتيب مخصص حسب ذوقكِ' : 'Personalized ranking for you',
+    tagline:
+      lang === 'ar'
+        ? 'مساعدك الذكي لإكتشاف أفضل الصالونات والعيادات بسهولة 💖'
+        : 'Your smart assistant to discover the best salons and clinics with ease 💖',
   }
 
   return (
-    <div className="min-h-dvh bg-white pb-28 dark:bg-rosera-dark">
-      <header className="sticky top-0 z-30 border-b border-[#F9A8C9]/25 bg-white px-4 py-4 shadow-sm backdrop-blur-md dark:border-border dark:bg-card">
+    <div className="luxury-page-canvas pb-28">
+      <header className="luxury-screen-header z-30">
         <div className="mx-auto flex max-w-lg items-center justify-between gap-2">
           <div className="flex min-w-0 items-center gap-3">
-            <img src={ROSERA_LOGO_SRC} alt="" className="w-18 h-18 shrink-0 rounded-2xl object-contain" />
+            <img
+              src={ROSERA_LOGO_SRC}
+              alt={lang === 'ar' ? 'شعار روزيرا' : 'Rosera logo'}
+              width={72}
+              height={72}
+              decoding="async"
+              fetchPriority="high"
+              className="h-18 w-18 shrink-0 rounded-2xl object-contain"
+            />
             <div className="min-w-0">
-              <p className="text-sm font-medium text-[#6B7280] dark:text-[#D1D5DB]">{ui.hello}</p>
-              <h1 className="truncate text-xl font-extrabold text-[#374151] dark:text-foreground">{ui.title}</h1>
+              <p className="text-body-sm font-medium text-muted-foreground">{ui.hello}</p>
+              <h1 className="truncate text-title font-extrabold text-foreground">{ui.title}</h1>
             </div>
           </div>
           <div className="flex items-center gap-2">
             <PreferencesToggle />
             <Link
               to="/notifications"
+              aria-label={t('profile.notifications')}
               className="relative flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-primary/15 to-[#9C27B0]/15 shadow-sm"
             >
-              <Bell className="h-5 w-5 text-primary" />
-              <span className="absolute top-1.5 end-1.5 h-2 w-2 rounded-full bg-[#BE185D]" />
+              <Bell className="h-5 w-5 text-primary" aria-hidden />
+              <span className="absolute top-1.5 end-1.5 h-2 w-2 rounded-full bg-[#BE185D]" aria-hidden />
             </Link>
           </div>
         </div>
       </header>
 
+      <section className="mx-auto max-w-lg px-4 pt-3" aria-label={lang === 'ar' ? 'عن التطبيق' : 'About the app'}>
+        <div className="relative overflow-hidden rounded-3xl border border-pink-200/60 bg-gradient-to-br from-[#fff5fb] via-white to-[#fff9f0] px-5 py-4 shadow-floating dark:border-rose-900/45 dark:from-rose-950/45 dark:via-card dark:to-amber-950/18">
+          <div
+            className="pointer-events-none absolute -end-10 -top-12 h-32 w-32 rounded-full bg-gradient-to-br from-pink-300/35 to-amber-200/25 blur-3xl"
+            aria-hidden
+          />
+          <div
+            className="pointer-events-none absolute -bottom-8 -start-8 h-24 w-24 rounded-full bg-gradient-to-tr from-amber-200/20 to-pink-200/15 blur-2xl"
+            aria-hidden
+          />
+          <p className="relative text-center text-base font-extrabold leading-relaxed tracking-tight text-transparent bg-gradient-to-r from-[#9d174d] via-[#db2777] to-[#b45309] bg-clip-text dark:from-rose-200 dark:via-pink-200 dark:to-amber-200">
+            {ui.tagline}
+          </p>
+        </div>
+      </section>
+
+      <div className="mx-auto max-w-lg space-y-3 px-4 pt-4">
+        <RosyHomeFirstIntro />
+        <div className="flex justify-center">
+          <InstallAppButton
+            variant="premium"
+            labelKey="pwa.installCtaStrong"
+            className="h-12 min-h-[3rem] w-full max-w-md px-6 text-base"
+          />
+        </div>
+      </div>
+
       <section className="mx-auto max-w-lg px-4 pt-4">
-        <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-[#F9A8C9] via-[#fbcfe8] to-[#fce7f3] px-6 py-8 text-center text-[#374151] shadow-[0_16px_48px_-12px_rgba(249,168,201,0.35)]">
+        <div className="relative overflow-hidden rounded-3xl border border-white/40 bg-gradient-to-br from-[#F9A8C9] via-[#fbcfe8] to-[#fce7f3] px-6 py-8 text-center text-[#374151] shadow-floating ring-1 ring-pink-200/30">
           <div className="absolute inset-0 bg-[url('data:image/svg+xml,%3Csvg width=\'60\' height=\'60\' viewBox=\'0 0 60 60\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cg fill=\'none\' fill-rule=\'evenodd\'%3E%3Cg fill=\'%23ffffff\' fill-opacity=\'0.06\'%3E%3Cpath d=\'M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z\'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E')] opacity-50" />
           <p className="relative text-sm font-medium text-[#6B7280]">{ui.heroSub}</p>
           <h2 className="relative mt-2 text-2xl font-extrabold leading-tight text-[#374151]">{ui.heroTitle}</h2>
           <button
             type="button"
             onClick={() => nav('/search')}
-            className="relative mt-6 flex w-full items-center gap-3 rounded-2xl bg-white px-4 py-4 text-start shadow-md ring-1 ring-[#F9A8C9]/40 transition-all duration-200 hover:shadow-lg active:scale-[0.99]"
+            aria-label={ui.searchPlaceholder}
+            className="luxury-hero-search relative mt-6"
           >
-            <Search className="h-6 w-6 shrink-0 text-[#BE185D]" />
+            <Search className="h-6 w-6 shrink-0 text-[#BE185D]" aria-hidden />
             <span className="text-[#6B7280]">{ui.searchPlaceholder}</span>
           </button>
         </div>
       </section>
 
       <div className="mx-auto max-w-lg px-4 py-6">
-        <h2 className="mb-4 text-lg font-extrabold text-foreground">{ui.categories}</h2>
+        <h2 className="luxury-section-heading mb-5">{ui.categories}</h2>
         <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide">
-          {CATEGORY_CHIPS.map(({ label, q }) => (
+          {CATEGORY_CHIPS.map(({ label, categoryLabel }) => (
             <motion.button
               key={label}
               type="button"
               whileTap={{ scale: 0.97 }}
-              onClick={() => nav(`/search?categoryLabel=${encodeURIComponent(q)}`)}
-              className="shrink-0 rounded-2xl border border-[#F9A8C9]/35 bg-white px-5 py-2.5 text-sm font-semibold text-[#374151] shadow-sm transition-all duration-200 hover:bg-[#FDF2F8] active:scale-95 dark:border-border dark:bg-card dark:text-foreground"
+              onClick={() => {
+                trackCategoryFilterSelected('home_chip', categoryLabel)
+                nav(`/search?categoryLabel=${encodeURIComponent(categoryLabel)}`)
+              }}
+              className="category-chip shrink-0 px-5 py-2.5 text-sm dark:bg-card/90 dark:text-foreground"
             >
               {label}
             </motion.button>
           ))}
         </div>
 
-        <section className="mt-8 grid gap-3">
+        <section className="motion-stagger mt-8 grid gap-3">
           <button
             type="button"
             onClick={() => nav('/top-salons')}
-            className="flex w-full items-center justify-between gap-3 rounded-2xl border border-amber-200/80 bg-gradient-to-l from-amber-50 via-white to-[#fff8f0] p-4 text-start shadow-sm dark:border-amber-900/40 dark:from-card dark:via-card dark:to-card"
+            className="flex w-full items-center justify-between gap-3 rounded-3xl border border-amber-200/75 bg-gradient-to-l from-amber-50 via-white to-[#fff8f0] p-5 text-start shadow-elevated transition-all hover:shadow-floating dark:border-amber-900/40 dark:from-card dark:via-card dark:to-card"
           >
             <div className="min-w-0">
               <span className="block text-lg font-extrabold text-[#1F1F1F] dark:text-foreground">
@@ -140,7 +192,7 @@ export default function Home() {
           <button
             type="button"
             onClick={() => nav('/recommended-salons')}
-            className="flex w-full items-center justify-between gap-3 rounded-2xl border border-primary/20 bg-gradient-to-l from-[#f3e5f5] via-white to-[#fce4ec]/80 p-4 text-start shadow-sm dark:from-card dark:via-card dark:to-card"
+            className="flex w-full items-center justify-between gap-3 rounded-3xl border border-primary/20 bg-gradient-to-l from-[#f3e5f5] via-white to-[#fce4ec]/85 p-5 text-start shadow-elevated transition-all hover:shadow-floating dark:from-card dark:via-card dark:to-card"
           >
             <div className="min-w-0">
               <span className="block text-lg font-extrabold text-[#1F1F1F] dark:text-foreground">
@@ -157,14 +209,14 @@ export default function Home() {
         <section className="mt-10">
           <Link
             to="/store"
-            className="flex items-center justify-between rounded-2xl border border-primary/15 bg-gradient-to-l from-white to-[#fce4ec]/50 p-4 shadow-sm dark:from-card dark:to-card"
+            className="flex items-center justify-between rounded-3xl border border-primary/18 bg-gradient-to-l from-white to-[#fce4ec]/55 p-5 shadow-elevated transition-all hover:shadow-floating dark:from-card dark:to-card"
           >
             <span className="text-lg font-extrabold">{ui.store}</span>
             <span className="text-primary font-bold">{ui.shopNow}</span>
           </Link>
         </section>
 
-        <h2 className="mb-6 mt-10 text-lg font-extrabold">{ui.regions}</h2>
+        <h2 className="luxury-section-heading mb-6 mt-12">{ui.regions}</h2>
         {loading ? (
           <div className="flex flex-wrap justify-center gap-5">
             {[1, 2, 3, 4, 5, 6].map((i) => (
@@ -174,19 +226,13 @@ export default function Home() {
         ) : regions.length === 0 ? (
           <p className="py-10 text-center text-sm text-rosera-gray">{t('home.regionsEmpty')}</p>
         ) : (
-          <div className="flex flex-wrap justify-center gap-x-5 gap-y-8 px-1">
+          <div className="motion-stagger flex flex-wrap justify-center gap-x-5 gap-y-8 px-1">
             {regions.map((reg, i) => {
               const grad = REGION_CIRCLE_GRADIENTS[i % REGION_CIRCLE_GRADIENTS.length]
               const cityLabel =
                 reg.totalCities === 1 ? ui.citiesCount : ui.citiesCountMany
               return (
-                <motion.div
-                  key={reg.id}
-                  initial={{ opacity: 0, scale: 0.85 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  transition={{ type: 'spring', stiffness: 260, damping: 20, delay: i * 0.04 }}
-                  className="flex flex-col items-center"
-                >
+                <div key={reg.id} className="flex flex-col items-center">
                   <Link
                     to={`/region/${reg.id}`}
                     className="group relative flex h-[9.25rem] w-[9.25rem] sm:h-40 sm:w-40 flex-col items-center justify-center overflow-hidden rounded-full bg-gradient-to-br shadow-[0_14px_40px_-10px_rgba(194,24,91,0.35)] ring-4 ring-white/90 transition duration-300 hover:scale-[1.06] hover:shadow-[0_20px_48px_-8px_rgba(156,39,176,0.45)] dark:ring-white/10"
@@ -206,7 +252,7 @@ export default function Home() {
                       </p>
                     </div>
                   </Link>
-                </motion.div>
+                </div>
               )
             })}
           </div>
@@ -215,3 +261,5 @@ export default function Home() {
     </div>
   )
 }
+
+export default memo(Home)

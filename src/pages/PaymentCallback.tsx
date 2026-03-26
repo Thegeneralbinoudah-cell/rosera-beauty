@@ -3,6 +3,7 @@ import { formatPrice } from '@/lib/utils'
 import { useSearchParams, Link } from 'react-router-dom'
 import { supabase } from '@/lib/supabase'
 import { trackEvent } from '@/lib/analytics'
+import { trackRosyHesitationCheckoutIfAttributed } from '@/lib/roseyHesitationAnalytics'
 import { Button } from '@/components/ui/button'
 import { Loader2, CheckCircle, XCircle } from 'lucide-react'
 
@@ -33,7 +34,7 @@ export default function PaymentCallback() {
 
     const type = typeRaw as PayKind
     const ref = searchParams.get('ref')
-    const paymentId = searchParams.get('id') || searchParams.get('payment_id')
+    const paymentId = (searchParams.get('id') || searchParams.get('payment_id') || '').trim()
 
     if (payStatus === 'failed' || payStatus === 'failure') {
       setStatus('fail')
@@ -61,6 +62,7 @@ export default function PaymentCallback() {
     setKind(type)
 
     if (!paymentId) {
+      console.error('[PaymentCallback] missing payment id in callback URL', { type, ref })
       setStatus('fail')
       setMessage('لم يتم استلام معرّف الدفع من Moyasar')
       return
@@ -130,6 +132,10 @@ export default function PaymentCallback() {
               },
             })
           }
+        }
+
+        if (type === 'order' && user?.id) {
+          trackRosyHesitationCheckoutIfAttributed(user.id)
         }
 
         setStatus('success')
@@ -215,6 +221,8 @@ export default function PaymentCallback() {
     )
   }
 
+  const salonRetryId = kind === 'booking' ? (searchParams.get('salon') || '').trim() : ''
+
   return (
     <div className="flex min-h-dvh flex-col items-center justify-center gap-6 px-6">
       <div className="flex h-20 w-20 items-center justify-center rounded-full bg-destructive/10">
@@ -222,12 +230,17 @@ export default function PaymentCallback() {
       </div>
       <h1 className="text-2xl font-extrabold text-foreground">فشل الدفع</h1>
       <p className="max-w-sm text-center text-muted-foreground">{message}</p>
-      <div className="flex flex-wrap justify-center gap-3">
+      <div className="flex max-w-md flex-wrap justify-center gap-3">
+        {kind === 'booking' && salonRetryId ? (
+          <Button asChild className="rounded-2xl">
+            <Link to={`/booking/${salonRetryId}`}>إعادة محاولة الدفع</Link>
+          </Button>
+        ) : null}
         <Button asChild variant="outline" className="rounded-2xl">
           <Link to="/home">الرئيسية</Link>
         </Button>
         {kind === 'booking' ? (
-          <Button asChild className="rounded-2xl bg-gradient-to-l from-[#9C27B0] to-[#E91E8C]">
+          <Button asChild variant="outline" className="rounded-2xl">
             <Link to="/bookings">حجوزاتي</Link>
           </Button>
         ) : kind === 'order' ? (

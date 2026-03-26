@@ -3,7 +3,7 @@ import type { PostgrestError, User } from '@supabase/supabase-js'
 import { supabase } from '@/lib/supabase'
 import { toast } from 'sonner'
 import { getEdgeFunctionErrorMessage, getEdgeFunctionHttpErrorDetail } from '@/lib/edgeInvoke'
-import type { RozyChatAction, RozySalonCard } from '@/lib/roseyChatTypes'
+import type { RozyChatAction, RozyProductCard, RozySalonCard } from '@/lib/roseyChatTypes'
 import {
   buildRosyWelcomeFromMemoryAndSignals,
   fetchRosyWelcomeContext,
@@ -14,15 +14,35 @@ import {
 } from '@/lib/aiRanking'
 import {
   ROSY_BOOKING_ASSISTANT_WELCOME,
+  ROSY_FIRST_VISIT_WELCOME,
   ROSY_OWNER_SALES_CHAT_WELCOME,
   ROSY_OWNER_VOICE_SALES_INTRO,
   ROSY_OWNER_VOICE_SUBSCRIPTION_NAV,
 } from '@/lib/roseyChatCopy'
 import { requestBrowserGeolocation, type RosyServiceType } from '@/lib/roseySalonSuggestions'
 import { normalizeArabic } from '@/lib/normalizeArabic'
-import { speak } from '@/lib/voice'
+import { playRosyVoice, stopRosyVoicePlayback } from '@/lib/voice'
+import { trackEvent } from '@/lib/analytics'
+import { captureProductEvent } from '@/lib/posthog'
+import { rememberRosyHesitationToneForCheckout } from '@/lib/roseyHesitationAnalytics'
+import { useCartStore } from '@/stores/cartStore'
+import { ensureUserProfile } from '@/lib/ensureUserProfile'
+import { STORAGE_KEYS } from '@/lib/utils'
+import { fetchRosySalonBookingPreview } from '@/lib/roseySalonBookingPreview'
 
 const ROSY_PREMIUM_TOP_LINE = 'هذا من أفضل الصالونات المميزة ⭐\n'
+
+/** رد مساعد — بدون نص الرسالة؛ source يحدد المسار (نموذج/حافة/صوت). */
+function captureRosyReplyGenerated(
+  source: string,
+  extra?: { intent?: string | null; had_error?: boolean }
+) {
+  captureProductEvent('rosy_reply_generated', {
+    source: source.slice(0, 64),
+    ...(extra?.intent ? { intent: String(extra.intent).slice(0, 80) } : {}),
+    ...(typeof extra?.had_error === 'boolean' ? { had_error: extra.had_error } : {}),
+  })
+}
 
 function logChatInsertError(label: string, err: PostgrestError) {
   console.error(`Chat insert error (${label}):`, {
@@ -33,55 +53,9 @@ function logChatInsertError(label: string, err: PostgrestError) {
   })
 }
 
-function randomInviteCode(): string {
-  const buf = new Uint8Array(8)
-  crypto.getRandomValues(buf)
-  return [...buf].map((b) => b.toString(16).padStart(2, '0')).join('').slice(0, 12).toUpperCase()
-}
-
 /** يضمن وجود صف في profiles قبل chat_messages (FK). يتطلب سياسة INSERT في migration 051. */
-async function ensureProfileRow(uid: string, user: User): Promise<boolean> {
-  const { data: existing, error: selErr } = await supabase.from('profiles').select('id').eq('id', uid).maybeSingle()
-
-  if (selErr) {
-    console.error('Profile lookup failed:', {
-      message: selErr.message,
-      details: selErr.details,
-      code: selErr.code,
-    })
-    return false
-  }
-  if (existing?.id) return true
-
-  const email = user.email ?? ''
-  const meta = user.user_metadata ?? {}
-  const fullName =
-    (typeof meta.full_name === 'string' && meta.full_name.trim()) ||
-    (typeof meta.name === 'string' && meta.name.trim()) ||
-    (email ? email.split('@')[0] : '') ||
-    null
-
-  const { error: insErr } = await supabase.from('profiles').insert({
-    id: uid,
-    email: email || null,
-    full_name: fullName,
-    invite_code: randomInviteCode(),
-    role: 'user',
-    created_at: new Date().toISOString(),
-  })
-
-  if (insErr) {
-    if (insErr.code === '23505') return true
-    console.error('Profile insert failed:', {
-      message: insErr.message,
-      details: insErr.details,
-      code: insErr.code,
-    })
-    return false
-  }
-
-  console.warn('Created missing profile for user:', uid)
-  return true
+async function ensureProfileRow(user: User): Promise<boolean> {
+  return ensureUserProfile(user)
 }
 
 /** Shown before capture, after results, and appended to stored assistant text for image analysis. */
@@ -104,6 +78,7 @@ export type ChatRow = {
   is_user: boolean
   created_at: string
   salons?: RozySalonCard[]
+  products?: RozyProductCard[]
   actions?: RozyChatAction[]
 }
 
@@ -127,7 +102,39 @@ export type RoziBrainPayload = {
   }
   action?: RoziBookingAction | null
   salons?: RozySalonCard[]
+  products?: RozyProductCard[]
   actions?: RozyChatAction[]
+}
+
+function parseProductCards(raw: unknown): RozyProductCard[] | undefined {
+  if (!Array.isArray(raw) || raw.length === 0) return undefined
+  const out: RozyProductCard[] = []
+  for (const x of raw) {
+    if (!x || typeof x !== 'object') continue
+    const o = x as Record<string, unknown>
+    const id = typeof o.id === 'string' ? o.id : ''
+    if (!id) continue
+    const priceRaw = o.price
+    const price =
+      typeof priceRaw === 'number' && Number.isFinite(priceRaw)
+        ? priceRaw
+        : typeof priceRaw === 'string' && priceRaw.trim()
+          ? Number(priceRaw)
+          : NaN
+    if (!Number.isFinite(price)) continue
+    const name_ar = typeof o.name_ar === 'string' ? o.name_ar : ''
+    const benefit = typeof o.benefit === 'string' ? o.benefit : 'منتج من متجر روزيرا.'
+    out.push({
+      id,
+      name_ar: name_ar || 'منتج',
+      price,
+      benefit,
+      image_url: typeof o.image_url === 'string' ? o.image_url : null,
+      brand_ar: typeof o.brand_ar === 'string' ? o.brand_ar : null,
+      category: typeof o.category === 'string' ? o.category : null,
+    })
+  }
+  return out.length ? out : undefined
 }
 
 function parseSalonCards(raw: unknown): RozySalonCard[] | undefined {
@@ -165,6 +172,13 @@ function parseChatActions(raw: unknown): RozyChatAction[] | undefined {
     const dp = o.discount_percent
     const discount_percent =
       typeof dp === 'number' && Number.isFinite(dp) ? dp : typeof dp === 'string' && dp.trim() ? Number(dp) : null
+    const product_id = typeof o.product_id === 'string' ? o.product_id : null
+    const product_name_ar = typeof o.product_name_ar === 'string' ? o.product_name_ar : null
+    const product_image_url = typeof o.product_image_url === 'string' ? o.product_image_url : null
+    const product_brand_ar = typeof o.product_brand_ar === 'string' ? o.product_brand_ar : null
+    const pp = o.product_price
+    const product_price =
+      typeof pp === 'number' && Number.isFinite(pp) ? pp : typeof pp === 'string' && pp.trim() ? Number(pp) : null
     out.push({
       id,
       label,
@@ -172,6 +186,11 @@ function parseChatActions(raw: unknown): RozyChatAction[] | undefined {
       kind,
       service_id,
       discount_percent: discount_percent != null && Number.isFinite(discount_percent) ? discount_percent : null,
+      product_id,
+      product_name_ar,
+      product_price: product_price != null && Number.isFinite(product_price) ? product_price : null,
+      product_image_url,
+      product_brand_ar,
     })
   }
   return out.length ? out : undefined
@@ -180,7 +199,7 @@ function parseChatActions(raw: unknown): RozyChatAction[] | undefined {
 export type UseChatOptions = {
   /** When Edge returns a structured booking action, e.g. navigate to `/booking/:salonId`. */
   onBookingAction?: (action: RoziBookingAction) => void
-  /** مالكة صالون (portal أو دور owner/salon_owner): وضع مبيعات + صوت Bella الناعم + «اي/تمام» → اشتراك */
+  /** مالكة صالون (portal أو دور owner/salon_owner): وضع مبيعات + صوت روزي الناعم + «اي/تمام» → اشتراك */
   salonOwnerSalesMode?: boolean
   /** بعد تأكيد صوتي للاشتراك — يُستدعى من AiChat للتوجيه */
   onSalonOwnerSubscriptionIntent?: () => void
@@ -191,6 +210,23 @@ type ApiMsg = { role: 'user' | 'assistant'; content: string }
 export type RozySendMessageOptions = {
   /** رد صوتي عبر ElevenLabs/المتصفح بعد رد المساعد */
   fromVoice?: boolean
+}
+
+/** رسائل قصيرة توافق على إضافة أول منتج مُقترَح من آخر رد لروزي */
+function isRosyAffirmTopProductPhrase(normalized: string): boolean {
+  const t = normalized.trim()
+  if (!t) return false
+  if (/^ضيفي[هة]?\s*$/i.test(t)) return true
+  if (/^خلاص\s*خذي[هة]?\s*$/i.test(t)) return true
+  if (/^تمام\s*$/i.test(t)) return true
+  return false
+}
+
+/** ردود قصيرة تُستخدم مع سلة غير فارغة لدفع نحو checkout */
+function isRosyCheckoutShortAffirm(normalized: string): boolean {
+  const t = normalized.trim()
+  if (!t || t.length > 18) return false
+  return /^(تمام|تم|اوكي|اوك|اوكيه|ايه|اي|نعم|طيب|يس|زين|ok|yes)\s*$/i.test(t)
 }
 
 function isVoiceBookingKickoff(normalized: string): boolean {
@@ -218,17 +254,26 @@ function isVoiceSalonSubscriptionAffirm(normalized: string): boolean {
   return false
 }
 
-async function speakAssistantIfVoice(
-  fromVoice: boolean | undefined,
-  botText: string,
-  voiceMode?: 'salon_owner_sales'
-) {
-  if (!fromVoice) return
-  try {
-    await speak(botText, voiceMode ? { mode: voiceMode } : undefined)
-  } catch {
-    /* يبقى النص في الشات */
-  }
+/**
+ * TTS بعد كل رد مساعد — تأخير بسيط حتى يجهز الواجهة.
+ * لا يعتمد على `fromVoice`: الصوت يُشغَّل دائماً عند وجود نص كافٍ.
+ */
+function scheduleAssistantTts(responseText: string, voiceMode?: 'salon_owner_sales') {
+  setTimeout(() => {
+    void (async () => {
+      const text = responseText
+      if (!text || text.trim().length < 2) {
+        console.warn('⚠️ Empty or short text, skipping TTS')
+        return
+      }
+      try {
+        const r = await playRosyVoice(text, voiceMode ? { mode: voiceMode } : undefined)
+        if (!r.ok && r.error) console.warn('[Rosy voice TTS]', r.error)
+      } catch (e) {
+        console.error('[Rosy voice]', e)
+      }
+    })()
+  }, 100)
 }
 
 /** أسطر الترحيب — تُصدَّر من `roseyChatCopy` للتوافق مع الاستيرادات القديمة */
@@ -255,6 +300,12 @@ function detectRosyRankFromMessage(
     /أبغى\s*أحجز|ابغى\s*احجز|ابغا\s*احجز|أحجز|احجزي|نحجز|ابي\s*احجز|ابغى\s*موعد|موعد\s*عند/i.test(t)
   const browsing = /وش\s*الأفضل|وش\s*احسن|وش\s*تنصح|شنو\s*الأفضل|مين\s*أحسن|أفضل\s*صالون|نصايح/i.test(t)
 
+  /** طلب صريح لصالون بدون ذكر خدمة — يشغّل الاقتراح حتى من غير ذاكرة تفضيل */
+  const genericSalonAsk =
+    /ابي\s*صالون|أبي\s*صالون|ابغى\s*صالون|أبغى\s*صالون|ابغي\s*صالون|أبغي\s*صالون|دلّيني\s*صالون|دليني\s*صالون|ورّيني\s*صالون|وريني\s*صالون/i.test(
+      t
+    )
+
   const hasNear = t.includes('قريب') || urgent
   const explicitBest = t.includes('أفضل') || t.includes('أحسن') || browsing
   const hasNails = t.includes('أظافر')
@@ -269,7 +320,16 @@ function detectRosyRankFromMessage(
     !hasHair &&
     !hasLaser
 
-  if (!hasNear && !explicitBest && !cheap && !hasNails && !hasHair && !hasLaser && !(vagueSalon && memoryService))
+  if (
+    !hasNear &&
+    !explicitBest &&
+    !cheap &&
+    !hasNails &&
+    !hasHair &&
+    !hasLaser &&
+    !(vagueSalon && memoryService) &&
+    !genericSalonAsk
+  )
     return null
 
   let sort: RecommendSort = 'ai'
@@ -297,6 +357,81 @@ function salonMetaToCard(s: SalonWithRecommendMeta): RozySalonCard {
   }
 }
 
+/** When Edge returns no reply — always actionable (salons / map / more), never empty apology. */
+async function buildActionableFallbackRow(
+  uid: string,
+  clientGeo: { lat: number; lng: number } | null | undefined
+): Promise<ChatRow> {
+  try {
+    const allSalons = await getRecommendedSalons(uid, {
+      sort: 'rating',
+      serviceType: null,
+      userLocation: clientGeo ?? null,
+      limit: 3,
+    })
+    const salons = allSalons.slice(0, 3)
+    const previewBySalon = await fetchRosySalonBookingPreview(salons.map((s) => s.id))
+    const topFirst = salons[0] != null ? previewBySalon.get(salons[0].id) : null
+    const topServiceId = topFirst?.firstServiceId ?? null
+
+    if (salons.length === 0) {
+      return {
+        id: crypto.randomUUID(),
+        message:
+          'اختاري من الخريطة أو البحث، أو اكتبي لي المدينة ونوع الخدمة — أنا أرشّح لكِ الأنسب ✨',
+        is_user: false,
+        created_at: new Date().toISOString(),
+        actions: [
+          { id: 'fb-map', label: 'خريطة الصالونات', kind: 'map' },
+          { id: 'fb-more', label: 'اقتراحات أخرى', kind: 'more' },
+        ],
+      }
+    }
+    if (salons.length === 1) {
+      return {
+        id: crypto.randomUUID(),
+        message: `${salons[0].subscription_plan === 'premium' ? ROSY_PREMIUM_TOP_LINE : ''}هذا خيار قوي الآن ✨\nتحبي نكمّل الحجز؟`,
+        is_user: false,
+        created_at: new Date().toISOString(),
+        actions: [
+          { id: 'fb-b1', label: 'احجز الآن', kind: 'book', salon_id: salons[0].id, service_id: topServiceId },
+          {
+            id: 'fb-d1',
+            label: 'عرض التفاصيل',
+            kind: 'salon_detail',
+            salon_id: salons[0].id,
+            service_id: topServiceId,
+          },
+          { id: 'fb-map', label: 'الخريطة', kind: 'map' },
+        ],
+      }
+    }
+    const cards = salons.map(salonMetaToCard)
+    return {
+      id: crypto.randomUUID(),
+      message: `${salons[0].subscription_plan === 'premium' ? ROSY_PREMIUM_TOP_LINE : ''}هذي صالونات مقترحة حسب توفرنا الآن ✨ اختاري واحد أو صفّي طلبك أكثر.`,
+      is_user: false,
+      created_at: new Date().toISOString(),
+      salons: cards,
+      actions: [
+        { id: 'fb-b2', label: 'احجز الآن', kind: 'book', salon_id: salons[0].id, service_id: topServiceId },
+        { id: 'fb-map2', label: 'الخريطة', kind: 'map' },
+      ],
+    }
+  } catch {
+    return {
+      id: crypto.randomUUID(),
+      message: 'اكتبي لي مدينتك أو «صالون شعر/أظافر» وأنا أرشّح لكِ خيارات قريبة ✨',
+      is_user: false,
+      created_at: new Date().toISOString(),
+      actions: [
+        { id: 'fb-map3', label: 'الخريطة', kind: 'map' },
+        { id: 'fb-more2', label: 'اقتراحات أخرى', kind: 'more' },
+      ],
+    }
+  }
+}
+
 const WELCOME_ROW: ChatRow = {
   id: 'welcome',
   message: ROSY_BOOKING_ASSISTANT_WELCOME,
@@ -311,6 +446,7 @@ type ChatRowDb = {
   is_user?: boolean
   created_at: string
   rosey_salons?: unknown
+  rosey_products?: unknown
   rosey_actions?: unknown
 }
 
@@ -318,6 +454,7 @@ function mapRowsFromDb(data: ChatRowDb[] | null): ChatRow[] {
   return (data ?? []).map((r) => {
     const isUser = r.is_user ?? true
     const salons = !isUser ? parseSalonCards(r.rosey_salons) : undefined
+    const products = !isUser ? parseProductCards(r.rosey_products) : undefined
     const actions = !isUser ? parseChatActions(r.rosey_actions) : undefined
     return {
       id: r.id,
@@ -325,6 +462,7 @@ function mapRowsFromDb(data: ChatRowDb[] | null): ChatRow[] {
       is_user: isUser,
       created_at: r.created_at,
       salons,
+      products,
       actions,
     }
   })
@@ -339,6 +477,7 @@ type ChatMessageInsert = {
   rosey_entities?: Record<string, unknown>
   rosey_action?: RoziBookingAction | null
   rosey_salons?: RozySalonCard[] | null
+  rosey_products?: RozyProductCard[] | null
   rosey_actions?: RozyChatAction[] | null
 }
 
@@ -351,10 +490,17 @@ export function useChat(userId: string | undefined, options?: UseChatOptions) {
   const [loading, setLoading] = useState(true)
   const [historyError, setHistoryError] = useState<string | null>(null)
   const [sending, setSending] = useState(false)
+  /** True while a message with an image is being processed (skin / face analysis copy). */
+  const [sendingImage, setSendingImage] = useState(false)
   const messagesRef = useRef<ChatRow[]>([])
   const prefServiceRef = useRef<RosyServiceType | null>(null)
   const voiceBookingAwaitingChoiceRef = useRef(false)
   const voiceOwnerSalesAwaitingAffirmRef = useRef(false)
+  /** عدد رسائل المستخدم إلى rozi-chat والسلة غير فارغة (للجولة 2+ → دفع checkout) */
+  const userEdgeTurnsWhileCartRef = useRef(0)
+  /** منع الإرسال المزدوج + حد أدنى 150ms بين محاولات الإرسال */
+  const sendBusyRef = useRef(false)
+  const lastUserSendAtRef = useRef(0)
 
   useEffect(() => {
     messagesRef.current = messages
@@ -372,9 +518,10 @@ export function useChat(userId: string | undefined, options?: UseChatOptions) {
     setHistoryError(null)
     voiceBookingAwaitingChoiceRef.current = false
     voiceOwnerSalesAwaitingAffirmRef.current = false
+    userEdgeTurnsWhileCartRef.current = 0
     const { data, error } = await supabase
       .from('chat_messages')
-      .select('id, message, response, is_user, created_at, rosey_salons, rosey_actions')
+      .select('id, message, response, is_user, created_at, rosey_salons, rosey_products, rosey_actions')
       .eq('user_id', userId)
       .order('created_at', { ascending: true })
 
@@ -400,12 +547,31 @@ export function useChat(userId: string | undefined, options?: UseChatOptions) {
     prefServiceRef.current =
       memory?.lastBooking?.rosyServiceType ??
       (sig ? topRosyServiceFromPreferenceSignals(sig) : null)
-    const welcomeMsg =
-      rows.length === 0 && salonOwnerSalesMode
-        ? ROSY_OWNER_SALES_CHAT_WELCOME
-        : rows.length === 0 && sig && memory
-          ? buildRosyWelcomeFromMemoryAndSignals(memory, sig)
-          : ROSY_BOOKING_ASSISTANT_WELCOME
+
+    let welcomeMsg = ROSY_BOOKING_ASSISTANT_WELCOME
+    if (rows.length === 0 && salonOwnerSalesMode) {
+      welcomeMsg = ROSY_OWNER_SALES_CHAT_WELCOME
+    } else if (rows.length === 0 && !salonOwnerSalesMode) {
+      let firstVisit = false
+      try {
+        firstVisit =
+          typeof localStorage !== 'undefined' &&
+          localStorage.getItem(STORAGE_KEYS.roseraRosyFirstWelcomeShown) !== '1'
+      } catch {
+        firstVisit = true
+      }
+      if (firstVisit) {
+        welcomeMsg = ROSY_FIRST_VISIT_WELCOME
+        try {
+          localStorage.setItem(STORAGE_KEYS.roseraRosyFirstWelcomeShown, '1')
+        } catch {
+          /* ignore */
+        }
+      } else if (sig && memory) {
+        welcomeMsg = buildRosyWelcomeFromMemoryAndSignals(memory, sig)
+      }
+    }
+
     setMessages(rows.length === 0 ? [{ ...WELCOME_ROW, message: welcomeMsg }] : rows)
     setLoading(false)
   }, [userId, salonOwnerSalesMode])
@@ -413,6 +579,19 @@ export function useChat(userId: string | undefined, options?: UseChatOptions) {
   useEffect(() => {
     void reloadHistory()
   }, [reloadHistory])
+
+  const clearChatHistory = useCallback(async () => {
+    if (!userId) return
+    stopRosyVoicePlayback()
+    const { error } = await supabase.from('chat_messages').delete().eq('user_id', userId)
+    if (error) {
+      console.error('clearChatHistory:', error)
+      toast.error('تعذر مسح المحادثة.')
+      return
+    }
+    toast.success('تم مسح المحادثة ✨')
+    await reloadHistory()
+  }, [userId, reloadHistory])
 
   const kickoffSalonOwnerVoiceSales = useCallback(async () => {
     if (!userId || !salonOwnerSalesMode) return
@@ -427,6 +606,9 @@ export function useChat(userId: string | undefined, options?: UseChatOptions) {
       created_at: new Date().toISOString(),
     }
     setMessages((m) => [...m.filter((x) => x.id !== 'welcome'), botRow])
+    captureRosyReplyGenerated('owner_voice_intro')
+    voiceOwnerSalesAwaitingAffirmRef.current = true
+    scheduleAssistantTts(intro, 'salon_owner_sales')
     try {
       const { error: insBotErr } = await supabase.from('chat_messages').insert({
         user_id: uid,
@@ -441,12 +623,6 @@ export function useChat(userId: string | undefined, options?: UseChatOptions) {
     } catch (e) {
       console.error('Chat insert exception (salon owner voice intro):', e)
     }
-    voiceOwnerSalesAwaitingAffirmRef.current = true
-    try {
-      await speak(intro, { mode: 'salon_owner_sales' })
-    } catch {
-      /* يبقى النص */
-    }
   }, [userId, salonOwnerSalesMode])
 
   const sendMessage = useCallback(
@@ -460,6 +636,12 @@ export function useChat(userId: string | undefined, options?: UseChatOptions) {
       const normalizedText = rawTrim ? normalizeArabic(rawTrim) : ''
       if (!normalizedText && !image) return
 
+      if (sendBusyRef.current) return
+      const sendNow = Date.now()
+      if (sendNow - lastUserSendAtRef.current < 150) return
+      lastUserSendAtRef.current = sendNow
+      sendBusyRef.current = true
+      try {
       const { data: authData, error: authGetErr } = await supabase.auth.getUser()
       if (authGetErr || !authData?.user) {
         if (authGetErr) {
@@ -473,8 +655,11 @@ export function useChat(userId: string | undefined, options?: UseChatOptions) {
       }
       const uid = authData.user.id
 
-      const profileReady = await ensureProfileRow(uid, authData.user)
+      const profileReady = await ensureProfileRow(authData.user)
       if (!profileReady) {
+        console.error('Chat blocked — ensureUserProfile failed or profiles row missing (FK on chat_messages.user_id)', {
+          userId: uid,
+        })
         toast.error('تعذر تجهيز حسابكِ لحفظ المحادثة. حاولي مرة أخرى.')
         return
       }
@@ -502,6 +687,16 @@ export function useChat(userId: string | undefined, options?: UseChatOptions) {
           setMessages((m) => m.filter((x) => x.id !== userRow.id))
           return
         }
+        {
+          const textLen = normalizedText.length
+          const charBucket =
+            textLen === 0 ? 'empty' : textLen <= 80 ? 'short' : textLen <= 400 ? 'medium' : 'long'
+          captureProductEvent('chat_message_sent', {
+            has_image: Boolean(image),
+            input_source: opts?.fromVoice ? 'voice' : 'text',
+            char_bucket: charBucket,
+          })
+        }
       } catch (e) {
         console.error('Chat insert exception (user message):', e)
         toast.error('تعذر حفظ رسالتكِ. حاولي مرة أخرى.')
@@ -510,8 +705,9 @@ export function useChat(userId: string | undefined, options?: UseChatOptions) {
       }
 
       setSending(true)
+      setSendingImage(!!image)
       try {
-        const ttsOwner = opts?.fromVoice && salonOwnerSalesMode ? ('salon_owner_sales' as const) : undefined
+        const ttsOwner = salonOwnerSalesMode ? ('salon_owner_sales' as const) : undefined
 
         const apiHistory: ApiMsg[] = priorRows.map((m) => ({
           role: m.is_user ? 'user' : 'assistant',
@@ -525,6 +721,60 @@ export function useChat(userId: string | undefined, options?: UseChatOptions) {
         }
 
         if (!image) {
+          const lastAssistantWithProducts = [...priorRows]
+            .reverse()
+            .find((m) => !m.is_user && m.products && m.products.length > 0)
+          const topPick = lastAssistantWithProducts?.products?.[0]
+          if (topPick && isRosyAffirmTopProductPhrase(normalizedText)) {
+            const cart = useCartStore.getState()
+            const hadBefore = cart.items.some((i) => i.productId === topPick.id)
+            cart.add({
+              productId: topPick.id,
+              name_ar: topPick.name_ar,
+              brand_ar: topPick.brand_ar ?? undefined,
+              image_url: topPick.image_url ?? undefined,
+              price: topPick.price,
+              quantity: 1,
+            })
+            if (hadBefore) cart.bumpCartUiPulse()
+            const n = useCartStore.getState().items.length
+            const lineSummary = n === 1 ? 'سلتك فيها منتج واحد 🛍️' : `سلتك فيها ${n} منتجات 🛍️`
+            const botText = `تمام ✨ أضفت لك ${topPick.name_ar} للسلة 🛍️\n\n${lineSummary}\n\nتبين نكمل الطلب الحين؟ ✨`
+            const checkoutAction: RozyChatAction = {
+              id: 'rozy-go-checkout',
+              label: 'إتمام الطلب',
+              kind: 'go_to_checkout',
+            }
+            const botRow: ChatRow = {
+              id: crypto.randomUUID(),
+              message: botText,
+              is_user: false,
+              created_at: new Date().toISOString(),
+              actions: [checkoutAction],
+            }
+            setMessages((m) => [...m, botRow])
+            captureRosyReplyGenerated('affirm_cart_product')
+            scheduleAssistantTts(botText, ttsOwner)
+            try {
+              const { error: insBotErr } = await supabase.from('chat_messages').insert({
+                user_id: uid,
+                message: String(botText),
+                response: String(botText),
+                is_user: false,
+                rosey_intent: 'rosey_affirm_add_top_product',
+                rosey_entities: { product_id: topPick.id },
+                rosey_action: null,
+                rosey_products: null,
+                rosey_salons: null,
+                rosey_actions: [checkoutAction],
+              } as never)
+              if (insBotErr) logChatInsertError('assistant message (affirm add product)', insBotErr)
+            } catch (e) {
+              console.error('Chat insert exception (affirm add product):', e)
+            }
+            return
+          }
+
           if (
             opts?.fromVoice &&
             salonOwnerSalesMode &&
@@ -540,6 +790,8 @@ export function useChat(userId: string | undefined, options?: UseChatOptions) {
               created_at: new Date().toISOString(),
             }
             setMessages((m) => [...m, affirmRow])
+            captureRosyReplyGenerated('owner_subscription_nav')
+            scheduleAssistantTts(botText, ttsOwner)
             try {
               const { error: insBotErr } = await supabase.from('chat_messages').insert({
                 user_id: uid,
@@ -554,7 +806,6 @@ export function useChat(userId: string | undefined, options?: UseChatOptions) {
             } catch (e) {
               console.error('Chat insert exception (salon owner sub nav):', e)
             }
-            await speakAssistantIfVoice(true, botText, ttsOwner)
             onSalonOwnerSubscriptionIntent?.()
             return
           }
@@ -587,6 +838,8 @@ export function useChat(userId: string | undefined, options?: UseChatOptions) {
                   created_at: new Date().toISOString(),
                 }
                 setMessages((m) => [...m, botRow])
+                captureRosyReplyGenerated('voice_booking_pick')
+                scheduleAssistantTts(botText, ttsOwner)
                 try {
                   const { error: insBotErr } = await supabase.from('chat_messages').insert({
                     user_id: uid,
@@ -604,7 +857,6 @@ export function useChat(userId: string | undefined, options?: UseChatOptions) {
                 if (top) {
                   onBookingAction?.({ action: 'booking', salon_id: top.id })
                 }
-                await speakAssistantIfVoice(opts?.fromVoice, botText, ttsOwner)
                 return
               } catch (e) {
                 console.error('Voice booking pick failed:', e)
@@ -625,6 +877,8 @@ export function useChat(userId: string | undefined, options?: UseChatOptions) {
               created_at: new Date().toISOString(),
             }
             setMessages((m) => [...m, botRow])
+            captureRosyReplyGenerated('voice_booking_prompt')
+            scheduleAssistantTts(botText, ttsOwner)
             try {
               const { error: insBotErr } = await supabase.from('chat_messages').insert({
                 user_id: uid,
@@ -639,14 +893,13 @@ export function useChat(userId: string | undefined, options?: UseChatOptions) {
             } catch (e) {
               console.error('Chat insert exception (voice booking prompt):', e)
             }
-            await speakAssistantIfVoice(true, botText, ttsOwner)
             return
           }
 
           const rankIntent = detectRosyRankFromMessage(normalizedText, prefServiceRef.current)
           if (rankIntent) {
             try {
-              let { sort, serviceType } = rankIntent
+              const { sort, serviceType } = rankIntent
               let userLocation = clientGeo ?? null
               let sortUsed = sort
               if (sort === 'distance' && !userLocation) {
@@ -663,27 +916,65 @@ export function useChat(userId: string | undefined, options?: UseChatOptions) {
                 limit: 12,
               })
               const salons = allSalons.slice(0, 3)
-              console.log('[Rosy smart suggest] salons', salons)
+              const previewBySalon = await fetchRosySalonBookingPreview(salons.map((s) => s.id))
+              const topFirst =
+                salons[0] != null ? previewBySalon.get(salons[0].id) : null
+              const topServiceId = topFirst?.firstServiceId ?? null
 
-              const emptyText = 'ما لقيت شيء مناسب 😢\nخليني أوريك الأقرب لك'
+              const emptyText =
+                'ما لقيت مطابقة فورية — جرّبي الخريطة أو اختاري من الاقتراحات أدناه ✨'
               let botText: string
               let salonsCards: RozySalonCard[] | undefined
               let uiActions: RozyChatAction[] | undefined
 
               if (salons.length === 0) {
                 botText = emptyText
+                uiActions = [
+                  { id: 'rosy-empty-map', label: 'خريطة الصالونات', kind: 'map' },
+                  { id: 'rosy-empty-more', label: 'اقتراحات أخرى', kind: 'more' },
+                ]
               } else if (salons.length === 1) {
-                botText = `${salons[0].subscription_plan === 'premium' ? ROSY_PREMIUM_TOP_LINE : ''}أكيد حبيبتي 💖\nهذا أنسب خيار لكِ الآن ✨\nتحبي نكمّل الحجز؟`
+                const svcHint =
+                  topFirst?.firstServiceNameAr != null
+                    ? `\n✨ خدمة مقترحة: ${topFirst.firstServiceNameAr}`
+                    : ''
+                botText = `${salons[0].subscription_plan === 'premium' ? ROSY_PREMIUM_TOP_LINE : ''}أكيد حبيبتي 💖\nهذا أنسب خيار لكِ الآن ✨${svcHint}\nتحبي نكمّل الحجز؟`
                 salonsCards = undefined
                 uiActions = [
-                  { id: 'rosy-direct-book', label: 'احجزي الآن', kind: 'book', salon_id: salons[0].id },
+                  {
+                    id: 'rosy-direct-book',
+                    label: 'احجز الآن',
+                    kind: 'book',
+                    salon_id: salons[0].id,
+                    service_id: topServiceId,
+                  },
+                  {
+                    id: 'rosy-direct-detail',
+                    label: 'عرض التفاصيل',
+                    kind: 'salon_detail',
+                    salon_id: salons[0].id,
+                    service_id: topServiceId,
+                  },
                   { id: 'rosy-see-other', label: 'شوفي خيارات ثانية', kind: 'more' },
                 ]
               } else {
                 botText = `${salons[0].subscription_plan === 'premium' ? ROSY_PREMIUM_TOP_LINE : ''}أكيد حبيبتي 💖\nلقيت لك أفضل الخيارات 👇✨`
                 salonsCards = salons.map(salonMetaToCard)
                 uiActions = [
-                  { id: 'rosy-book-top', label: 'احجزي الأنسب', kind: 'book', salon_id: salons[0].id },
+                  {
+                    id: 'rosy-book-top',
+                    label: 'احجز الآن',
+                    kind: 'book',
+                    salon_id: salons[0].id,
+                    service_id: topServiceId,
+                  },
+                  {
+                    id: 'rosy-detail-top',
+                    label: 'عرض التفاصيل',
+                    kind: 'salon_detail',
+                    salon_id: salons[0].id,
+                    service_id: topServiceId,
+                  },
                   { id: 'rosy-map-near', label: 'شوفي على الخريطة', kind: 'map' },
                 ]
               }
@@ -697,6 +988,8 @@ export function useChat(userId: string | undefined, options?: UseChatOptions) {
                 actions: uiActions,
               }
               setMessages((m) => [...m, botRow])
+              captureRosyReplyGenerated('smart_rank')
+              scheduleAssistantTts(botText, ttsOwner)
 
               const insertPayload: ChatMessageInsert = {
                 user_id: uid,
@@ -724,7 +1017,6 @@ export function useChat(userId: string | undefined, options?: UseChatOptions) {
                 console.error('Chat insert exception (assistant rosey smart):', e)
                 toast.error('تم استلام الرد لكن تعذر حفظه في السجل.')
               }
-              await speakAssistantIfVoice(opts?.fromVoice, botText, ttsOwner)
               return
             } catch (e) {
               console.error('Rosy smart rank failed, falling back to rozi-chat:', e)
@@ -744,6 +1036,30 @@ export function useChat(userId: string | undefined, options?: UseChatOptions) {
           return
         }
 
+        let cartLineCount = 0
+        let cartTotalQty = 0
+        let checkoutUserTurnsWithCart = 0
+        let checkoutShortAffirm = false
+        let checkoutRecentCartAdd = false
+
+        let checkoutClickedFromRosy = false
+        if (!image && !salonOwnerSalesMode) {
+          const cartState = useCartStore.getState()
+          cartLineCount = cartState.items.length
+          cartTotalQty = cartState.count()
+          checkoutClickedFromRosy = cartState.rosyCheckoutCtaClicked
+          if (cartLineCount === 0) {
+            userEdgeTurnsWhileCartRef.current = 0
+          } else {
+            userEdgeTurnsWhileCartRef.current += 1
+            checkoutUserTurnsWithCart = userEdgeTurnsWhileCartRef.current
+          }
+          checkoutShortAffirm = isRosyCheckoutShortAffirm(normalizedText)
+          if (cartLineCount > 0) {
+            checkoutRecentCartAdd = cartState.consumeCheckoutNudgePending()
+          }
+        }
+
         const { data, error, response: fnResponse } = await supabase.functions.invoke('rozi-chat', {
           body: {
             messages: apiHistory,
@@ -751,32 +1067,78 @@ export function useChat(userId: string | undefined, options?: UseChatOptions) {
             imageMimeType: image?.mime,
             userLat: clientGeo?.lat,
             userLng: clientGeo?.lng,
+            cartLineCount,
+            cartTotalQty,
+            checkoutRecentCartAdd,
+            checkoutShortAffirm,
+            checkoutUserTurnsWithCart,
+            checkoutClickedFromRosy,
+            salonOwnerSalesMode,
           },
           headers: { Authorization: `Bearer ${accessToken}` },
         })
 
         const payload = data as RoziBrainPayload | null
-        let botText: string
-        if (payload && typeof payload.reply === 'string' && payload.reply.trim()) {
-          botText = payload.reply
-        } else if (payload && typeof payload.error === 'string' && payload.error.trim()) {
-          botText =
-            'ياليت نتأكد من الإعدادات لاحقاً 💕 الآن جرّبي تكتبين طلبك بطريقة ثانية، أو استكشفي الخريطة من التطبيق.'
-        } else if (error) {
-          const fromBody = await getEdgeFunctionHttpErrorDetail(error, fnResponse ?? null)
-          const hint = fromBody ?? getEdgeFunctionErrorMessage(error as Error, data)
-          const generic =
-            hint === 'Edge Function returned a non-2xx status code' || hint === 'حدث خطأ في الخادم'
-          const jwtHint = /invalid\s*jwt/i.test(hint)
-          botText = jwtHint
-            ? 'انتهت الجلسة يا حلوة — سجّلي دخولكِ مرة ثانية وأكملي مع روزي 💖'
-            : generic
-              ? 'روزي تعطلت لحظة من غير ما ندري ليش 💕 جرّبي بعد شوي، أو افتحي خريطة الصالونات من الأسفل.'
-              : 'صار عندي تعثر بسيط — جرّبي مرة ثانية، وإن ما ضبط رجعي بعد دقايق.'
-        } else {
-          botText = 'ما لقيت رد واضح — جرّبي جملة أبسط، وأنا هنا أعدّل لك 💕'
+        const gotReply = Boolean(payload && typeof payload.reply === 'string' && payload.reply.trim())
+
+        if (!gotReply) {
+          if (error) {
+            const fromBody = await getEdgeFunctionHttpErrorDetail(error, fnResponse ?? null)
+            const hint = fromBody ?? getEdgeFunctionErrorMessage(error as Error, data)
+            if (/invalid\s*jwt/i.test(hint)) {
+              const sessionRow: ChatRow = {
+                id: crypto.randomUUID(),
+                message: 'انتهت الجلسة يا حلوة — سجّلي دخولكِ مرة ثانية وأكملي مع روزي 💖',
+                is_user: false,
+                created_at: new Date().toISOString(),
+              }
+              setMessages((m) => [...m, sessionRow])
+              scheduleAssistantTts(sessionRow.message, ttsOwner)
+              captureRosyReplyGenerated('rozi_chat', { intent: null, had_error: true })
+              try {
+                await supabase.from('chat_messages').insert({
+                  user_id: uid,
+                  message: sessionRow.message,
+                  response: sessionRow.message,
+                  is_user: false,
+                  rosey_intent: 'session_expired_hint',
+                  rosey_entities: {},
+                  rosey_action: null,
+                } as never)
+              } catch (insErr) {
+                console.error('Chat insert exception (session hint):', insErr)
+              }
+              return
+            }
+          }
+
+          const fb = await buildActionableFallbackRow(uid, clientGeo)
+          const messageToStore = image ? appendMedicalDisclaimerToReply(fb.message) : fb.message
+          const botRow: ChatRow = { ...fb, message: messageToStore }
+          setMessages((m) => [...m, botRow])
+          scheduleAssistantTts(messageToStore, ttsOwner)
+          captureRosyReplyGenerated('rozi_chat_fallback', { intent: null, had_error: true })
+          try {
+            const { error: insBotErr } = await supabase.from('chat_messages').insert({
+              user_id: uid,
+              message: String(messageToStore),
+              response: String(messageToStore),
+              is_user: false,
+              rosey_intent: 'rosey_actionable_fallback',
+              rosey_entities: {},
+              rosey_action: null,
+              rosey_salons: botRow.salons ?? null,
+              rosey_products: null,
+              rosey_actions: botRow.actions ?? null,
+            } as never)
+            if (insBotErr) logChatInsertError('assistant message (actionable fallback)', insBotErr)
+          } catch (insEx) {
+            console.error('Chat insert exception (assistant fallback):', insEx)
+          }
+          return
         }
 
+        const botText = payload!.reply as string
         const messageToStore = image ? appendMedicalDisclaimerToReply(botText) : botText
         const brain = payload?.brain
         const rawAction = payload?.action
@@ -800,7 +1162,23 @@ export function useChat(userId: string | undefined, options?: UseChatOptions) {
         }
 
         const salonsCards = parseSalonCards(payload?.salons)
+        const productCards = parseProductCards(payload?.products)
         const uiActions = parseChatActions(payload?.actions)
+
+        const roseyEnt = brain?.entities as Record<string, unknown> | undefined
+        if (roseyEnt?.checkout_hesitation === true) {
+          const toneRaw = roseyEnt.checkout_hesitation_tone
+          if (typeof toneRaw === 'string' && /^(direct|soft|choice)$/.test(toneRaw)) {
+            rememberRosyHesitationToneForCheckout(toneRaw)
+            trackEvent({
+              user_id: uid,
+              event_type: 'rosy_hesitation_tone_shown',
+              entity_type: 'preference',
+              entity_id: uid,
+              metadata: { tone: toneRaw, checkout_hesitation_tone: toneRaw },
+            })
+          }
+        }
 
         const botRow: ChatRow = {
           id: crypto.randomUUID(),
@@ -808,9 +1186,15 @@ export function useChat(userId: string | undefined, options?: UseChatOptions) {
           is_user: false,
           created_at: new Date().toISOString(),
           salons: salonsCards,
+          products: productCards,
           actions: uiActions,
         }
         setMessages((m) => [...m, botRow])
+        scheduleAssistantTts(messageToStore, ttsOwner)
+        captureRosyReplyGenerated('rozi_chat', {
+          intent: typeof brain?.intent === 'string' ? brain.intent : null,
+          had_error: false,
+        })
 
         const insertPayload: ChatMessageInsert = {
           user_id: uid,
@@ -821,6 +1205,7 @@ export function useChat(userId: string | undefined, options?: UseChatOptions) {
           rosey_entities: brain?.entities ?? {},
           rosey_action: bookingAction,
           rosey_salons: salonsCards ?? null,
+          rosey_products: productCards ?? null,
           rosey_actions: uiActions ?? null,
         }
 
@@ -841,19 +1226,53 @@ export function useChat(userId: string | undefined, options?: UseChatOptions) {
         ) {
           voiceOwnerSalesAwaitingAffirmRef.current = true
         }
-        await speakAssistantIfVoice(opts?.fromVoice, messageToStore, ttsOwner)
-      } catch {
-        const botRow: ChatRow = {
-          id: crypto.randomUUID(),
-          message: 'صار شيء مو متوقع من جهتي 💕 جرّبي تكتبين مرة ثانية.',
-          is_user: false,
-          created_at: new Date().toISOString(),
+      } catch (e) {
+        console.error('rozi-chat pipeline failed:', e)
+        const ttsOwnerErr = salonOwnerSalesMode ? ('salon_owner_sales' as const) : undefined
+        try {
+          const fb = await buildActionableFallbackRow(uid, clientGeo)
+          const messageToStore = image ? appendMedicalDisclaimerToReply(fb.message) : fb.message
+          const botRow: ChatRow = { ...fb, message: messageToStore }
+          setMessages((m) => [...m, botRow])
+          scheduleAssistantTts(messageToStore, ttsOwnerErr)
+          captureRosyReplyGenerated('send_exception')
+          try {
+            await supabase.from('chat_messages').insert({
+              user_id: uid,
+              message: String(messageToStore),
+              response: String(messageToStore),
+              is_user: false,
+              rosey_intent: 'rosey_actionable_fallback',
+              rosey_entities: { source: 'send_exception' },
+              rosey_action: null,
+              rosey_salons: botRow.salons ?? null,
+              rosey_products: null,
+              rosey_actions: botRow.actions ?? null,
+            } as never)
+          } catch (insEx) {
+            console.error('Chat insert exception (exception fallback):', insEx)
+          }
+        } catch {
+          const botRow: ChatRow = {
+            id: crypto.randomUUID(),
+            message: 'اكتبي لي مدينتك أو نوع الخدمة — أو افتحي الخريطة من الأسفل ✨',
+            is_user: false,
+            created_at: new Date().toISOString(),
+            actions: [
+              { id: 'fb-map-x', label: 'الخريطة', kind: 'map' },
+              { id: 'fb-more-x', label: 'اقتراحات أخرى', kind: 'more' },
+            ],
+          }
+          setMessages((m) => [...m, botRow])
+          captureRosyReplyGenerated('send_exception')
+          scheduleAssistantTts(botRow.message, ttsOwnerErr)
         }
-        setMessages((m) => [...m, botRow])
-        const ttsOwnerErr = opts?.fromVoice && salonOwnerSalesMode ? ('salon_owner_sales' as const) : undefined
-        await speakAssistantIfVoice(opts?.fromVoice, botRow.message, ttsOwnerErr)
       } finally {
         setSending(false)
+        setSendingImage(false)
+      }
+      } finally {
+        sendBusyRef.current = false
       }
     },
     [onBookingAction, salonOwnerSalesMode, onSalonOwnerSubscriptionIntent]
@@ -864,8 +1283,10 @@ export function useChat(userId: string | undefined, options?: UseChatOptions) {
     loading,
     historyError,
     sending,
+    sendingImage,
     sendMessage,
     reloadHistory,
+    clearChatHistory,
     kickoffSalonOwnerVoiceSales,
   }
 }

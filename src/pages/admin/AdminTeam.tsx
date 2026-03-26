@@ -18,6 +18,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { toast } from 'sonner'
+import { isPlatformOwner } from '@/lib/platformOwner'
 
 type AdminRow = {
   id: string
@@ -30,7 +31,7 @@ type AdminRow = {
 
 export default function AdminTeam() {
   const { profile } = useAuth()
-  const isOwner = (profile?.role ?? '').toLowerCase() === 'owner'
+  const isOwner = isPlatformOwner(profile)
   const [rows, setRows] = useState<AdminRow[]>([])
   const [addOpen, setAddOpen] = useState(false)
   const [addEmail, setAddEmail] = useState('')

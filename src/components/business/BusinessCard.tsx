@@ -13,6 +13,8 @@ import { openNativeMapsDirections } from '@/lib/openNativeMapsDirections'
 import { useI18n } from '@/hooks/useI18n'
 import { usePreferences } from '@/contexts/PreferencesContext'
 import { Button } from '@/components/ui/button'
+import { LazyImage } from '@/components/ui/lazy-image'
+import { formatDistrictCityLine } from '@/lib/locationFormat'
 
 export function BusinessCard({
   b,
@@ -39,6 +41,7 @@ export function BusinessCard({
   const nav = useNavigate()
   const img = resolveBusinessCoverImage(b)
   const label = b.category_label || b.category
+  const locationLine = formatDistrictCityLine(b.address_ar, b.city)
   const [fav, setFav] = useState(false)
 
   useEffect(() => {
@@ -92,13 +95,13 @@ export function BusinessCard({
         }
       }}
       className={cn(
-        'cursor-pointer overflow-hidden transition-shadow hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary',
+        'cursor-pointer overflow-hidden ring-1 ring-gold/10 transition-shadow duration-200 hover:shadow-floating focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/45 focus-visible:ring-offset-2',
         isFeaturedAd && 'ring-2 ring-fuchsia-500/55 ring-offset-2 ring-offset-background',
         className
       )}
     >
       <div className="relative aspect-[4/3] w-full overflow-hidden">
-        <img src={img} alt="" className="h-full w-full object-cover" />
+        <LazyImage src={img} alt="" className="h-full w-full object-cover" />
         <Badge className="absolute top-2 start-2 max-w-[85%] truncate text-[10px] font-semibold shadow-md">
           {label}
         </Badge>
@@ -136,10 +139,10 @@ export function BusinessCard({
           </button>
         )}
       </div>
-      <div className="p-3">
+      <div className="p-4">
         <h3
           dir="auto"
-          className="line-clamp-2 text-start text-base font-semibold text-[#1F1F1F] dark:text-foreground"
+          className="line-clamp-2 text-start text-base font-semibold leading-snug text-foreground"
         >
           {b.name_ar}
         </h3>
@@ -158,17 +161,19 @@ export function BusinessCard({
           <span dir="ltr" className="tabular-nums">
             ({b.total_reviews ?? 0})
           </span>
-          <span className="flex items-center gap-1">
-            <MapPin className="h-3.5 w-3.5" />
-            {b.city}
+          <span className="flex min-w-0 items-start gap-1">
+            <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden />
+            <span className="min-w-0 whitespace-normal text-[15px] font-medium leading-snug text-gray-700 dark:text-gray-300">
+              {locationLine || b.city}
+            </span>
           </span>
           {distanceKm != null && <span>{distanceKm.toFixed(1)} كم</span>}
         </div>
-        <div className="mt-2 grid gap-2" onClick={(e) => e.stopPropagation()}>
+        <div className="mt-3 grid gap-2.5" onClick={(e) => e.stopPropagation()}>
           <Button
             type="button"
             size="sm"
-            className="w-full gap-1.5 rounded-xl bg-gradient-to-r from-[#E91E8C] to-[#9C27B0] text-xs font-extrabold text-white shadow-sm hover:opacity-95"
+            className="w-full gap-1.5 text-xs font-extrabold"
             onClick={(e) => {
               e.stopPropagation()
               e.preventDefault()
@@ -203,18 +208,21 @@ export function BusinessRow({ b }: { b: Business }) {
   const nav = useNavigate()
   const { lang } = usePreferences()
   const img = resolveBusinessCoverImage(b)
+  const locationLine = formatDistrictCityLine(b.address_ar, b.city)
   return (
     <button
       type="button"
       onClick={() => nav(`/salon/${b.id}`)}
-      className="flex w-full gap-3 rounded-2xl border border-primary/10 bg-white p-3 text-start shadow-sm dark:bg-card"
+      className="flex w-full gap-3 rounded-2xl border border-border/60 bg-card p-4 text-start shadow-elevated transition-shadow hover:shadow-floating dark:bg-card"
     >
-      <img src={img} alt="" className="h-20 w-20 shrink-0 rounded-xl object-cover" />
+      <LazyImage src={img} alt="" className="h-20 w-20 shrink-0 rounded-xl object-cover" />
       <div className="min-w-0 flex-1">
         <h3 dir="auto" className="line-clamp-2 text-start font-semibold text-[#1F1F1F] dark:text-foreground">
           {b.name_ar}
         </h3>
-        <p className="text-sm font-medium text-[#374151] dark:text-rosera-gray">{b.city}</p>
+        <p className="whitespace-normal text-[15px] font-medium leading-snug text-gray-700 dark:text-gray-300">
+          {locationLine || b.city}
+        </p>
         <div
           dir="ltr"
           style={{ unicodeBidi: 'isolate' }}
