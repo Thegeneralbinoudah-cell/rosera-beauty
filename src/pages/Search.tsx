@@ -22,7 +22,7 @@ import {
 } from '@/components/ui/select'
 import { SortPills } from '@/components/ui/sort-pills'
 import { EmptyState } from '@/components/ui/empty-state'
-import { haversineKm } from '@/lib/utils'
+import { haversineKm, cn } from '@/lib/utils'
 import { toast } from 'sonner'
 import { useI18n } from '@/hooks/useI18n'
 import { usePreferences } from '@/contexts/PreferencesContext'
@@ -38,7 +38,12 @@ import {
   legacyCategoryLabelToCategoryValue,
   normalizeArabicLabel,
 } from '@/lib/searchCategoryFilter'
-import { arabicLabelForCategoryValue, isHomeCategoryValue } from '@/lib/homeCategories'
+import {
+  arabicLabelForCategoryValue,
+  HOME_CATEGORY_CHIPS,
+  isHomeCategoryValue,
+} from '@/lib/homeCategories'
+import { attachRipple } from '@/lib/ripple'
 import { trackCategoryFilterSelected } from '@/lib/analytics'
 
 type BizRow = Business & {
@@ -229,7 +234,7 @@ export default function SearchPage() {
     }
   }, [t])
 
-  const filtered = useMemo(() => {
+  const filteredWithoutCategory = useMemo(() => {
     let r = list
     const qq = q.trim()
     if (qq) {
@@ -241,12 +246,7 @@ export default function SearchPage() {
       })
     }
     if (cityF.trim()) {
-      r = r.filter((b) => (b.city === cityF || b.sa_cities?.name_ar === cityF))
-    }
-    if (effectiveCategoryValue) {
-      r = r.filter((b) => businessMatchesCategoryValue(b, effectiveCategoryValue))
-    } else if (legacyGranularCategory) {
-      r = r.filter((b) => businessMatchesSearchCategory(b, legacyGranularCategory))
+      r = r.filter((b) => b.city === cityF || b.sa_cities?.name_ar === cityF)
     }
     const mr = parseFloat(minRating)
     if (mr > 0) r = r.filter((b) => (b.average_rating ?? 0) >= mr)
@@ -282,16 +282,24 @@ export default function SearchPage() {
       }
     }
     return r
-  }, [
-    list,
-    q,
-    cityF,
-    effectiveCategoryValue,
-    legacyGranularCategory,
-    minRating,
-    sortBy,
-    userPos,
-  ])
+  }, [list, q, cityF, minRating, sortBy, userPos])
+
+  const filtered = useMemo(() => {
+    let r = filteredWithoutCategory
+    if (effectiveCategoryValue) {
+      r = r.filter((b) => businessMatchesCategoryValue(b, effectiveCategoryValue))
+    } else if (legacyGranularCategory) {
+      r = r.filter((b) => businessMatchesSearchCategory(b, legacyGranularCategory))
+    }
+    return r
+  }, [filteredWithoutCategory, effectiveCategoryValue, legacyGranularCategory])
+
+  const showCategoryFallback =
+    filtered.length === 0 &&
+    Boolean(effectiveCategoryValue || legacyGranularCategory) &&
+    filteredWithoutCategory.length > 0
+
+  const displayRows = showCategoryFallback ? filteredWithoutCategory : filtered
 
   const categoryBannerLabel = useMemo(() => {
     if (effectiveCategoryValue) return arabicLabelForCategoryValue(effectiveCategoryValue)
@@ -300,29 +308,29 @@ export default function SearchPage() {
   }, [effectiveCategoryValue, legacyGranularCategory])
 
   const withDist = useMemo(() => {
-    if (!userPos) return filtered.map((b) => ({ b, km: undefined as number | undefined }))
-    return filtered.map((b) => ({
+    if (!userPos) return displayRows.map((b) => ({ b, km: undefined as number | undefined }))
+    return displayRows.map((b) => ({
       b,
       km:
         b.latitude && b.longitude
           ? haversineKm(userPos.lat, userPos.lng, b.latitude, b.longitude)
           : undefined,
     }))
-  }, [filtered, userPos])
+  }, [displayRows, userPos])
 
   useEffect(() => {
-    if (!filtered.length) {
+    if (!displayRows.length) {
       setFeaturedAdIds(new Set())
       return
     }
     let c = true
-    void fetchActiveSalonFeaturedAdSalonIds(filtered.map((b) => b.id)).then((s) => {
+    void fetchActiveSalonFeaturedAdSalonIds(displayRows.map((b) => b.id)).then((s) => {
       if (c) setFeaturedAdIds(s)
     })
     return () => {
       c = false
     }
-  }, [filtered])
+  }, [displayRows])
 
   const withDistOrdered = useMemo(() => {
     const ad = withDist.filter(({ b }) => featuredAdIds.has(b.id))
@@ -355,7 +363,7 @@ export default function SearchPage() {
 
   return (
     <div className="min-h-dvh bg-background pb-28 dark:bg-rosera-dark">
-      <div className="sticky top-0 z-20 border-b border-primary/25 bg-card px-4 py-3 shadow-sm dark:border-border dark:bg-card">
+      <div className="sticky top-0 z-20 border-b border-primary/25 bg-card px-4 py-4 shadow-sm dark:border-border dark:bg-card">
         <div className="relative mx-auto max-w-lg">
           <SearchIcon className="absolute start-3 top-1/2 h-5 w-5 -translate-y-1/2 text-primary" />
           <Input
@@ -365,23 +373,72 @@ export default function SearchPage() {
             onChange={(e) => setQ(e.target.value)}
           />
         </div>
-        <div className="mx-auto mt-3 max-w-lg space-y-3">
+        <div className="mx-auto mt-4 max-w-lg space-y-4">
           <SortPills
             value={sortBy}
             onChange={(v) => setSortBy(v)}
             ariaLabel={t('a11y.sortResults')}
+            nowrap
+            className="min-h-12 flex-nowrap gap-2 overflow-x-auto pb-2 scrollbar-hide"
             options={[
               { value: 'rating', label: t('city.sort.rating') },
               { value: 'booked', label: t('city.sort.booked') },
               { value: 'nearest', label: t('search.sortNearest') },
             ]}
           />
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <Button variant="secondary" size="sm" className="gap-1" onClick={() => setFilterOpen(true)}>
+          <div
+            className="flex min-h-12 flex-nowrap gap-2 overflow-x-auto pb-2 scrollbar-hide"
+            role="group"
+            aria-label={t('search.categoryLabel')}
+          >
+            {HOME_CATEGORY_CHIPS.map(({ id, label, icon, categoryValue }) => {
+              const active = effectiveCategoryValue === categoryValue
+              return (
+                <button
+                  key={id}
+                  type="button"
+                  onClick={(e) => {
+                    attachRipple(e)
+                    const p = new URLSearchParams(params)
+                    p.set('categoryValue', categoryValue)
+                    p.delete('categoryLabel')
+                    setParams(p)
+                    setCatValueLocal(categoryValue)
+                    trackCategoryFilterSelected('search_chip', categoryValue)
+                  }}
+                  className={cn(
+                    'category-chip inline-flex items-center justify-center gap-2 whitespace-nowrap',
+                    active && 'category-chip--selected'
+                  )}
+                >
+                  <span aria-hidden>{icon}</span>
+                  {label}
+                </button>
+              )
+            })}
+          </div>
+          <div className="flex min-h-12 flex-wrap items-center justify-between gap-2">
+            <Button
+              variant="secondary"
+              size="sm"
+              className="ripple relative gap-1 overflow-hidden"
+              onClick={(e) => {
+                attachRipple(e)
+                setFilterOpen(true)
+              }}
+            >
               <SlidersHorizontal className="h-4 w-4" />
               {t('search.filter')}
             </Button>
-            <Button variant="ghost" size="sm" className="gap-1" onClick={resetSearchFilters}>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="ripple relative gap-1 overflow-hidden"
+              onClick={(e) => {
+                attachRipple(e)
+                resetSearchFilters()
+              }}
+            >
               {t('common.reset')}
               {activeFiltersCount > 0 && (
                 <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-primary/35 px-1 text-[10px] font-extrabold text-foreground">
@@ -391,7 +448,8 @@ export default function SearchPage() {
             </Button>
             <Link
               to="/"
-              className="text-sm font-semibold text-primary transition-colors hover:text-primary dark:text-primary"
+              className="ripple relative inline-flex items-center overflow-hidden text-sm font-semibold text-primary transition-colors hover:text-primary dark:text-primary"
+              onClick={(e) => attachRipple(e)}
             >
               {t('search.regionsLink')}
             </Link>
@@ -399,11 +457,21 @@ export default function SearchPage() {
         </div>
       </div>
 
-      <div className="mx-auto max-w-lg px-4 py-4">
+      <div className="mx-auto max-w-lg space-y-6 px-4 py-4">
         {categoryBannerLabel && (
-          <p className="mb-3 text-sm text-rosera-gray">
+          <p className="mb-3 text-sm text-foreground">
             {t('search.categoryChip')}{' '}
-            <strong className="text-foreground">{categoryBannerLabel}</strong>
+            <strong className="font-semibold text-foreground">{categoryBannerLabel}</strong>
+          </p>
+        )}
+        {showCategoryFallback && (
+          <p
+            role="status"
+            className="mb-3 rounded-xl border border-primary/25 bg-muted/60 px-3 py-2.5 text-sm font-medium text-foreground"
+          >
+            {lang === 'ar'
+              ? 'لا توجد مطابقة كاملة لهذا التصنيف — نعرض أقرب النتائج المتاحة.'
+              : 'No exact category match — showing the closest available venues.'}
           </p>
         )}
         {loading ? (
@@ -412,7 +480,7 @@ export default function SearchPage() {
               <Skeleton key={i} className="h-64 w-full rounded-2xl" />
             ))}
           </div>
-        ) : filtered.length === 0 ? (
+        ) : displayRows.length === 0 ? (
           <div className="py-10">
             {effectiveCategoryValue || legacyGranularCategory ? (
               <EmptyState
@@ -525,7 +593,14 @@ export default function SearchPage() {
                 </SelectContent>
               </Select>
             </div>
-            <Button className="w-full" variant="default" onClick={applyCategoryFromHome}>
+            <Button
+              className="ripple relative w-full overflow-hidden"
+              variant="default"
+              onClick={(e) => {
+                attachRipple(e)
+                applyCategoryFromHome()
+              }}
+            >
               {t('common.apply')}
             </Button>
           </div>

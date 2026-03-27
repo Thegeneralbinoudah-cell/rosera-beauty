@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Almarai:wght@300;400;500;700&family=Cormorant+Garamond:ital,wght@0,400;0,500;1,400&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Almarai:wght@300;400;500;700&family=Cormorant+Garamond:ital,wght@0,400;0,500;1,400&family=Playfair+Display:ital,wght@0,400;0,500;0,600;1,400&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -9,7 +9,7 @@
 }
 
 /**
- * ROSERA Premium UI — original beauty theme (soft blush · pink #f472b6 · gold #fbbf24)
+ * ROSERA Luxury Pro — blush/rose identity + champagne gold (#C5A059)
  * Tailwind: HSL via `hsl(var(--*))`; hex aliases: `--color-*` for inline / map / FAB.
  */
 
@@ -37,56 +37,60 @@
     --space-7: 2rem;
     --space-8: 2.5rem;
 
-    --rose-rgb: 244 114 182;
-    --gold-rgb: 251 191 36;
+    --rose-rgb: 210 162 162;
+    --gold-rgb: 197 160 89;
+    /* Deep rose + soft blush (Luxury Pro) */
+    --rose-deep: 0 45% 55%;
+    --blush-soft: 20 40% 96%;
 
     /* Hex aliases — FAB, calendar, gradients using var(--color-*) */
-    --color-primary: #f472b6;
-    --color-primary-hover: #ec4899;
-    --color-secondary: #fdf2f8;
-    --color-accent: #fbbf24;
-    --color-accent-light: #fcd34d;
-    --color-background: #fff8fb;
+    --color-primary: #d2a2a2;
+    --color-primary-hover: #b86b6b;
+    --color-secondary: hsl(20 45% 97%);
+    --color-accent: #c5a059;
+    --color-accent-light: #e6c77a;
+    --color-background: hsl(20 40% 98%);
     --color-surface: #ffffff;
-    --color-surface-2: #fdf2f8;
-    --color-text-primary: #3f2d36;
-    --color-text-secondary: #6b5a63;
-    --color-border: rgba(244, 114, 182, 0.22);
-    --color-glow: rgba(251, 191, 36, 0.28);
+    --color-surface-2: hsl(20 40% 96%);
+    --color-text-primary: #3d2e28;
+    --color-text-secondary: #7a6a62;
+    --color-border: rgba(197 160 89 / 0.18);
+    --color-glow: rgba(197 160 89 / 0.22);
     --bg-primary: var(--color-background);
     --bg-card: var(--color-surface);
     --gold-light: var(--color-accent-light);
     --rose-gold: #f9a8d4;
     --text-dark: var(--color-text-primary);
     --text-muted: var(--color-text-secondary);
-    --chip-bg: rgba(244, 114, 182, 0.12);
+    --chip-bg: rgba(210 162 162 / 0.14);
     --border-brand: var(--color-border);
-    --luxury-rose-wash: rgba(244, 114, 182, 0.08);
-    --luxury-muted-wash: rgba(251, 191, 36, 0.06);
+    --luxury-rose-wash: rgba(210 162 162 / 0.1);
+    --luxury-muted-wash: rgba(197 160 89 / 0.06);
 
     /* Soft warm blush canvas — cards stay clean white */
-    --background: 340 90% 98.2%;
-    --foreground: 330 28% 18%;
+    --background: 20 40% 98%;
+    --foreground: 25 22% 20%;
     --card: 0 0% 100%;
-    --card-foreground: 330 28% 18%;
+    --card-foreground: 25 22% 20%;
     --popover: 0 0% 100%;
-    --popover-foreground: 330 28% 18%;
+    --popover-foreground: 25 22% 20%;
 
-    --primary: 330 81% 70%;
-    --primary-foreground: 0 0% 100%;
-    --primary-hover: 330 78% 64%;
-    --primary-active: 330 74% 58%;
-    --primary-subtle: 330 55% 96%;
+    /* Primary: dusty rose — Luxury Pro */
+    --primary: 0 35% 73%;
+    --primary-foreground: 25 25% 14%;
+    --primary-hover: 0 45% 55%;
+    --primary-active: 0 48% 48%;
+    --primary-subtle: 20 42% 96%;
 
-    --secondary: 330 40% 96%;
-    --secondary-foreground: 330 28% 22%;
+    --secondary: 20 35% 96%;
+    --secondary-foreground: 25 20% 22%;
 
-    --muted: 340 30% 95%;
-    --muted-foreground: 330 12% 42%;
+    --muted: 25 18% 94%;
+    --muted-foreground: 25 10% 42%;
 
-    --accent: 43 85% 94%;
-    --accent-foreground: 330 28% 18%;
-    --accent-light: 43 90% 80%;
+    --accent: 41 52% 94%;
+    --accent-foreground: 25 22% 20%;
+    --accent-light: 41 45% 82%;
 
     --destructive: 0 72% 55%;
     --destructive-foreground: 0 0% 100%;
@@ -94,15 +98,15 @@
     --success: 160 72% 38%;
     --success-foreground: 0 0% 100%;
 
-    --border: 340 25% 90%;
-    --input: 340 20% 94%;
-    --ring: 330 81% 70%;
+    --border: 25 20% 90%;
+    --input: 25 18% 94%;
+    --ring: 41 43% 52%;
 
-    --gold: 43 96% 56%;
-    --gold-foreground: 330 28% 16%;
-    --gold-subtle: 43 85% 94%;
+    --gold: 41 43% 52%;
+    --gold-foreground: 25 25% 14%;
+    --gold-subtle: 41 45% 94%;
 
-    --rose-strong: 330 72% 48%;
+    --rose-strong: 0 45% 55%;
     --neutral-warm-50: 30 40% 98%;
     --neutral-warm-100: 30 35% 95%;
     --neutral-warm-200: 28 25% 88%;
@@ -117,12 +121,12 @@
     --radius: var(--radius-xl);
 
     --shadow-xs: 0 1px 2px rgb(0 0 0 / 0.04);
-    --shadow-sm: 0 4px 18px rgb(244 114 182 / 0.14), 0 2px 8px rgb(0 0 0 / 0.045);
-    --shadow-md: 0 10px 28px rgb(244 114 182 / 0.2), 0 4px 14px rgb(251 191 36 / 0.08);
-    --shadow-lg: 0 18px 44px rgb(244 114 182 / 0.24), 0 8px 22px rgb(251 191 36 / 0.14);
-    --shadow-xl: 0 24px 52px rgb(0 0 0 / 0.07), 0 0 36px rgb(251 191 36 / 0.2);
+    --shadow-sm: 0 4px 20px rgb(210 162 162 / 0.16), 0 2px 8px rgb(0 0 0 / 0.04);
+    --shadow-md: 0 10px 28px rgb(210 162 162 / 0.18), 0 4px 14px rgb(197 160 89 / 0.1);
+    --shadow-lg: 0 18px 44px rgb(210 162 162 / 0.22), 0 8px 22px rgb(197 160 89 / 0.12);
+    --shadow-xl: 0 24px 52px rgb(0 0 0 / 0.06), 0 0 36px rgb(197 160 89 / 0.18);
     --shadow-inner-soft: inset 0 1px 0 hsl(0 0% 100% / 0.7);
-    --shadow-nav: 0 -8px 32px rgb(0 0 0 / 0.06), 0 0 24px rgb(244 114 182 / 0.08);
+    --shadow-nav: 0 -8px 32px rgb(0 0 0 / 0.06), 0 0 24px rgb(197 160 89 / 0.1);
 
     --shadow-card: var(--shadow-sm);
     --shadow-subtle: var(--shadow-xs);
@@ -226,16 +230,17 @@
     font-feature-settings: 'kern' 1;
     overscroll-behavior-y: contain;
     text-rendering: optimizeLegibility;
+    line-height: 1.75;
   }
 
   h1 {
-    @apply text-heading-1 font-bold leading-[1.2] tracking-luxury-tight text-foreground;
+    @apply font-display text-heading-1 font-semibold leading-[1.2] tracking-[0.02em] text-foreground;
   }
   h2 {
-    @apply text-heading-2 font-semibold leading-snug tracking-luxury-tight text-foreground;
+    @apply font-display text-heading-2 font-semibold leading-snug tracking-[0.015em] text-foreground;
   }
   h3 {
-    @apply text-heading-3 font-semibold leading-snug tracking-luxury-tight text-foreground;
+    @apply font-display text-heading-3 font-semibold leading-snug tracking-[0.02em] text-foreground;
   }
 
   svg.lucide {
@@ -244,19 +249,56 @@
 }
 
 @layer components {
+  /** Luxury Pro — reusable gradients */
+  .gradient-luxury-primary {
+    background: linear-gradient(135deg, hsl(0 35% 73%), hsl(0 45% 55%));
+  }
+  .gradient-luxury-gold {
+    background: linear-gradient(135deg, #c5a059, #e6c77a);
+  }
+  .gradient-luxury-bg {
+    background: linear-gradient(to bottom, #ffffff, hsl(20 40% 96%));
+  }
+
+  /** Category + filter pill — premium feminine, horizontal scroll rows */
   .category-chip {
-    @apply shrink-0 rounded-full border-2 border-primary/20 bg-card/95 px-3 py-1.5 text-xs font-bold text-foreground shadow-sm transition-all duration-200 ease-out;
-    @apply hover:border-primary/40 hover:shadow-md;
+    @apply ripple min-h-12 min-w-fit shrink-0 rounded-2xl border border-border bg-card px-4 py-2 text-sm font-medium text-foreground shadow-sm transition-all duration-200 ease-out;
+    @apply hover:border-primary/30 hover:bg-primary/10 hover:shadow-md;
   }
   .category-chip--selected {
-    @apply gradient-rosera border-transparent text-white shadow-md;
+    @apply gradient-rosera border-transparent text-primary-foreground shadow-md;
+  }
+
+  .ripple {
+    position: relative;
+    overflow: hidden;
+  }
+  .ripple-pulse {
+    position: absolute;
+    border-radius: 50%;
+    pointer-events: none;
+    background: rgba(184, 150, 106, 0.32);
+    transform: scale(0);
+    animation: rosera-ripple 600ms linear forwards;
+  }
+  @keyframes rosera-ripple {
+    to {
+      transform: scale(3);
+      opacity: 0;
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .ripple-pulse {
+      animation: none;
+      opacity: 0;
+    }
   }
   .tab-chip {
     @apply shrink-0 rounded-full border-2 border-primary/20 bg-card/95 px-4 py-2 text-sm font-bold text-foreground shadow-sm transition-all duration-200 ease-out;
     @apply hover:border-primary/40 hover:shadow-md;
   }
   .tab-chip--selected {
-    @apply gradient-rosera border-transparent text-white shadow-md;
+    @apply gradient-rosera border-transparent text-primary-foreground shadow-md;
   }
 
   .ds-page {
@@ -283,8 +325,10 @@
   }
 
   .luxury-card {
-    @apply rounded-3xl border border-border/40 bg-card p-6 text-card-foreground shadow-elevated transition-all duration-200 ease-out;
-    @apply hover:border-primary/25 hover:shadow-floating;
+    @apply rounded-3xl border border-gold/15 bg-card p-6 text-card-foreground opacity-100 shadow-elevated transition-all duration-300 ease-out;
+    @apply hover:-translate-y-0.5 hover:border-gold/25 hover:shadow-floating motion-reduce:hover:translate-y-0;
+    color: hsl(var(--card-foreground));
+    background-color: hsl(var(--card));
   }
 
   .luxury-screen-header {
@@ -303,12 +347,12 @@
     @apply relative flex w-full max-w-full items-center gap-3 rounded-3xl border border-primary/20 bg-white px-4 py-4 text-start shadow-elevated ring-1 ring-gold/10 transition-all duration-200 hover:border-primary/30 hover:shadow-floating active:scale-[0.99] dark:bg-card/95 dark:ring-gold/5;
   }
 
-  /** Soft pink/blush page canvas */
+  /** Soft pink/blush page canvas — white → blush + rose wash */
   .luxury-bg {
     background:
-      radial-gradient(ellipse 120% 80% at 50% 0%, rgb(244 114 182 / 0.08) 0%, transparent 55%),
-      radial-gradient(ellipse 80% 50% at 100% 15%, rgb(251 191 36 / 0.06) 0%, transparent 45%),
-      hsl(var(--background));
+      radial-gradient(ellipse 120% 80% at 50% 0%, rgb(210 162 162 / 0.09) 0%, transparent 55%),
+      radial-gradient(ellipse 80% 50% at 100% 15%, rgb(197 160 89 / 0.07) 0%, transparent 45%),
+      linear-gradient(to bottom, #ffffff, hsl(20 40% 96%));
   }
   .dark .luxury-bg {
     background:
@@ -354,7 +398,7 @@
       rgba(251, 191, 36, 0.45) 55%,
       transparent 100%
     );
-    opacity: 0;
+    opacity: 1;
     transform: translateX(-100%);
   }
   .luxury-star-shimmer--run {
@@ -363,7 +407,7 @@
   @media (prefers-reduced-motion: reduce) {
     .luxury-star-shimmer--run {
       animation: none;
-      opacity: 0;
+      opacity: 1;
       transform: none;
     }
   }
@@ -371,7 +415,7 @@
 
 @keyframes splash-brand-enter {
   from {
-    opacity: 0;
+    opacity: 1;
     transform: scale(0.94) translateY(8px);
   }
   to {
@@ -383,7 +427,7 @@
 @keyframes auth-logo-breathe {
   0%,
   100% {
-    opacity: 0.8;
+    opacity: 1;
   }
   50% {
     opacity: 1;
@@ -393,14 +437,14 @@
 @keyframes luxury-star-shimmer-sweep {
   0% {
     transform: translateX(-100%);
-    opacity: 0;
+    opacity: 1;
   }
   30% {
-    opacity: 0.9;
+    opacity: 1;
   }
   100% {
     transform: translateX(100%);
-    opacity: 0;
+    opacity: 1;
   }
 }
 
@@ -411,14 +455,14 @@
   }
   to {
     transform: translate(-50%, -50%) scale(3);
-    opacity: 0;
+    opacity: 1;
   }
 }
 
 .luxury-ripple-el {
   width: 28px;
   height: 28px;
-  background: rgb(244 114 182 / 0.35);
+  background: rgb(210 162 162 / 0.35);
   animation: luxury-ripple 600ms ease-out forwards;
   will-change: transform, opacity;
 }
@@ -426,18 +470,18 @@
 @media (prefers-reduced-motion: reduce) {
   .luxury-ripple-el {
     animation: none;
-    opacity: 0;
+    opacity: 1;
   }
 }
 
 @keyframes petal-fall {
   0% {
     transform: translate3d(-50%, -8vh, 0) rotate(0deg);
-    opacity: var(--petal-op, 0.45);
+    opacity: var(--petal-op, 1);
   }
   100% {
     transform: translate3d(calc(-50% + var(--petal-drift, 0px)), 110vh, 0) rotate(220deg);
-    opacity: var(--petal-op, 0.45);
+    opacity: var(--petal-op, 1);
   }
 }
 
@@ -451,7 +495,7 @@
 @media (prefers-reduced-motion: reduce) {
   .petal-fall {
     animation: none;
-    opacity: 0;
+    opacity: 1;
   }
 }
 
@@ -495,27 +539,27 @@
   }
 
   .icon-circle-pink {
-    @apply inline-flex shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary ring-1 ring-primary/20 transition-all duration-200 ease-out dark:bg-primary/15 dark:ring-primary/25;
-    box-shadow: 0 0 20px rgb(244 114 182 / 0.22);
+    @apply inline-flex shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary ring-1 ring-gold/20 transition-all duration-200 ease-out dark:bg-primary/15 dark:ring-gold/25;
+    box-shadow: 0 0 20px rgb(210 162 162 / 0.2);
   }
   .dark .icon-circle-pink {
-    box-shadow: 0 0 18px rgb(244 114 182 / 0.16);
+    box-shadow: 0 0 18px rgb(210 162 162 / 0.14);
   }
 
   .pb-safe {
     padding-bottom: max(5rem, env(safe-area-inset-bottom));
   }
 
-  /** Primary CTA — pink → gold (original) */
+  /** Primary CTA — dusty rose → deep rose → champagne */
   .gradient-primary,
   .gradient-rosera {
-    background: linear-gradient(135deg, hsl(330 81% 70%) 0%, hsl(330 75% 72%) 42%, hsl(43 96% 56%) 100%);
-    border: 1px solid rgb(244 114 182 / 0.45);
+    background: linear-gradient(135deg, hsl(0 35% 73%) 0%, hsl(0 45% 55%) 55%, #c5a059 100%);
+    border: 1px solid rgb(197 160 89 / 0.35);
     border-radius: 9999px;
-    color: hsl(0 0% 100%) !important;
+    color: hsl(25 25% 14%) !important;
     font-weight: 600;
-    text-shadow: 0 1px 2px hsl(330 40% 20% / 0.15);
-    box-shadow: 0 6px 20px rgb(244 114 182 / 0.35), 0 2px 8px rgb(251 191 36 / 0.2);
+    text-shadow: 0 1px 1px hsl(0 0% 100% / 0.35);
+    box-shadow: 0 6px 22px rgb(210 162 162 / 0.3), 0 2px 10px rgb(197 160 89 / 0.18);
   }
   .dark .gradient-primary,
   .dark .gradient-rosera {
@@ -523,10 +567,10 @@
       135deg,
       hsl(var(--primary-active)) 0%,
       hsl(var(--primary)) 45%,
-      hsl(43 88% 54%) 100%
+      hsl(41 43% 52%) 100%
     );
-    color: hsl(0 0% 100%) !important;
-    box-shadow: 0 8px 28px rgb(244 114 182 / 0.25);
+    color: hsl(210 36% 96%) !important;
+    box-shadow: 0 8px 28px rgb(210 162 162 / 0.22);
   }
 
   .luxury-img-cover {

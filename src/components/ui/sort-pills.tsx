@@ -1,4 +1,5 @@
 import { cn } from '@/lib/utils'
+import { attachRipple } from '@/lib/ripple'
 
 export type SortPillOption<T extends string = string> = { value: T; label: string }
 
@@ -49,9 +50,12 @@ export function SortPills<T extends string>({
             type="button"
             role="tab"
             aria-selected={active}
-            onClick={() => onChange(opt.value)}
+            onClick={(e) => {
+              attachRipple(e)
+              onChange(opt.value)
+            }}
             className={cn(
-              'touch-manipulation transition-all duration-200 ease-out',
+              'ripple touch-manipulation transition-all duration-200 ease-out',
               'active:scale-[0.98]',
               'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40 focus-visible:ring-offset-2 focus-visible:ring-offset-card',
               isMap
@@ -63,11 +67,11 @@ export function SortPills<T extends string>({
                       : 'border-border/80 bg-card/95 text-foreground shadow-sm backdrop-blur-sm hover:border-primary/40 dark:bg-card/90'
                   )
                 : cn(
-                    'rounded-full border-2 font-bold',
-                    dense ? 'px-3 py-2 text-xs' : 'px-4 py-2.5 text-sm',
+                    'min-h-12 shrink-0 rounded-2xl border border-border bg-card px-4 py-2 text-sm font-medium text-foreground shadow-sm',
+                    dense ? 'px-3 py-2 text-xs' : 'px-4 py-2 text-sm',
                     active
-                      ? 'gradient-rosera border-transparent text-white shadow-elevated'
-                      : 'border-primary/25 bg-card/95 text-foreground shadow-sm hover:border-primary/40 hover:bg-accent/80 hover:shadow-md'
+                      ? 'gradient-rosera border-transparent text-primary-foreground shadow-md'
+                      : 'hover:border-primary/30 hover:bg-primary/10 hover:shadow-md'
                   )
             )}
           >
