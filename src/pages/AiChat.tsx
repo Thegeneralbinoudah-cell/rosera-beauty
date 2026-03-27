@@ -8,7 +8,9 @@ import {
   type ReactNode,
 } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Send, Sparkles, Camera, ImageIcon, MapPin, Star, Loader2, Package } from 'lucide-react'
+import { motion } from 'framer-motion'
+import { Send, Sparkles, Camera, ImageIcon, MapPin, Star, Loader2, Package, Mic } from 'lucide-react'
+import { pickMediaRecorderMimeType, isMediaRecorderSupported } from '@/lib/webVoiceRecording'
 import { useAuth } from '@/contexts/AuthContext'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -35,6 +37,11 @@ import { captureProductEvent } from '@/lib/posthog'
 import { useCartStore } from '@/stores/cartStore'
 import { fetchRosySalonBookingPreview, type RosySalonBookingPreview } from '@/lib/roseySalonBookingPreview'
 import { cn } from '@/lib/utils'
+
+const EMPTY_SALON_PREVIEW_MAP = new Map<string, RosySalonBookingPreview>()
+import type { RozyVisionChatAdvisorMode } from '@/lib/rozyVisionChatTypes'
+import { VISION_FAIL_AR } from '@/lib/rozyVisionChatInvoke'
+import { RosyVisionChatResults } from '@/components/chat/RosyVisionChatResults'
 import { VoiceWaveform } from '@/components/rosey/VoiceWaveform'
 import { stopRosyVoicePlayback, ROSY_VOICE_PHASE_EVENT, isElevenLabsConfigured } from '@/lib/voice'
 
@@ -286,10 +293,21 @@ export default function AiChat({ embedded = false }: { embedded?: boolean }) {
   const [faceScanOpen, setFaceScanOpen] = useState(false)
   const [liveCameraOpen, setLiveCameraOpen] = useState(false)
   const [faceScanConsent, setFaceScanConsent] = useState(false)
+  const [advisorMode, setAdvisorMode] = useState<RozyVisionChatAdvisorMode | null>(null)
+  /** يُحدَّد عند «التقاط/رفع» ويُستهلك عند الإرسال — لا يُمسح عند إغلاق حوار الموافقة */
+  const committedAdvisorModeRef = useRef<RozyVisionChatAdvisorMode | null>(null)
+  /** إغلاق كاميرا مباشر للانتقال لاختيار ملف — لا تُفرَّغ الوضع قبل onPickImage */
+  const photoPickFromLiveRef = useRef(false)
   const clientGeoRef = useRef<{ lat: number; lng: number } | null>(null)
 
   const [voiceUi, setVoiceUi] = useState<RosyVoiceUi>('idle')
   const [liveTranscript, setLiveTranscript] = useState('')
+  const [voiceCaptureStream, setVoiceCaptureStream] = useState<MediaStream | null>(null)
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null)
+  const recordChunksRef = useRef<Blob[]>([])
+  const voiceCaptureStreamRef = useRef<MediaStream | null>(null)
+  const lastRecordingObjectUrlRef = useRef<string | null>(null)
+  const liveTranscriptRef = useRef('')
   const recognitionRef = useRef<RosySpeechRecognitionLike | null>(null)
   const lastVoiceSendRef = useRef<{ text: string; at: number }>({ text: '', at: 0 })
   const voiceSessionRef = useRef({ pending: false, expectTts: false })
@@ -314,11 +332,82 @@ export default function AiChat({ embedded = false }: { embedded?: boolean }) {
     sendingRef.current = sending
   }, [historyError, loading, sending])
 
+  useEffect(() => {
+    liveTranscriptRef.current = liveTranscript
+  }, [liveTranscript])
+
   const clearResumeListenTimeout = useCallback(() => {
     if (resumeListenTimeoutRef.current) {
       clearTimeout(resumeListenTimeoutRef.current)
       resumeListenTimeoutRef.current = null
     }
+  }, [])
+
+  /** Immediate mic release (no blob) — unmount / hard reset */
+  const syncStopVoiceCapture = useCallback(() => {
+    try {
+      mediaRecorderRef.current?.stop()
+    } catch {
+      /* ignore */
+    }
+    mediaRecorderRef.current = null
+    recordChunksRef.current = []
+    voiceCaptureStreamRef.current?.getTracks().forEach((t) => t.stop())
+    voiceCaptureStreamRef.current = null
+    setVoiceCaptureStream(null)
+  }, [])
+
+  /** Web `MediaRecorder` stop — same role as Expo `Audio.Recording.stopAndUnloadAsync` + URI */
+  const stopVoiceRecording = useCallback((): Promise<{ url: string | null }> => {
+    return new Promise((resolve) => {
+      const mr = mediaRecorderRef.current
+      const stream = voiceCaptureStreamRef.current
+      if (!mr || mr.state === 'inactive') {
+        stream?.getTracks().forEach((t) => t.stop())
+        voiceCaptureStreamRef.current = null
+        setVoiceCaptureStream(null)
+        mediaRecorderRef.current = null
+        resolve({ url: null })
+        return
+      }
+      mr.onstop = () => {
+        const blob = new Blob(recordChunksRef.current, { type: mr.mimeType || 'audio/webm' })
+        recordChunksRef.current = []
+        let url: string | null = null
+        if (blob.size > 0) {
+          if (lastRecordingObjectUrlRef.current) URL.revokeObjectURL(lastRecordingObjectUrlRef.current)
+          url = URL.createObjectURL(blob)
+          lastRecordingObjectUrlRef.current = url
+        }
+        stream?.getTracks().forEach((t) => t.stop())
+        voiceCaptureStreamRef.current = null
+        setVoiceCaptureStream(null)
+        mediaRecorderRef.current = null
+        resolve({ url })
+      }
+      mr.stop()
+    })
+  }, [])
+
+  const startVoiceRecordingPipeline = useCallback(async () => {
+    if (!isMediaRecorderSupported()) return
+    const stream = await navigator.mediaDevices.getUserMedia({
+      audio: { echoCancellation: true, noiseSuppression: true },
+    })
+    if (!chatAliveRef.current) {
+      stream.getTracks().forEach((t) => t.stop())
+      return
+    }
+    const mime = pickMediaRecorderMimeType()
+    const mr = new MediaRecorder(stream, mime ? { mimeType: mime } : undefined)
+    mediaRecorderRef.current = mr
+    voiceCaptureStreamRef.current = stream
+    setVoiceCaptureStream(stream)
+    recordChunksRef.current = []
+    mr.ondataavailable = (e) => {
+      if (e.data.size) recordChunksRef.current.push(e.data)
+    }
+    mr.start(250)
   }, [])
 
   const scheduleResumeListen = useCallback(
@@ -335,7 +424,7 @@ export default function AiChat({ embedded = false }: { embedded?: boolean }) {
   )
 
   const startVoiceListeningInner = useCallback(
-    (opts?: { silentHaptic?: boolean; skipCancelTts?: boolean }) => {
+    async (opts?: { silentHaptic?: boolean; skipCancelTts?: boolean }) => {
       if (!chatAliveRef.current) return
       if (historyErrorRef.current || loadingRef.current) return
       const Ctor = getRosySpeechRecognitionCtor()
@@ -355,6 +444,21 @@ export default function AiChat({ embedded = false }: { embedded?: boolean }) {
         recognitionRef.current?.abort()
       } catch {
         /* ignore */
+      }
+      syncStopVoiceCapture()
+
+      try {
+        await startVoiceRecordingPipeline()
+      } catch {
+        voiceLoopActiveRef.current = false
+        toast.message('تعذر تفعيل المايك — جرّبي الكتابة 💕')
+        setVoiceUi('idle')
+        return
+      }
+
+      if (!chatAliveRef.current) {
+        syncStopVoiceCapture()
+        return
       }
 
       const recognition = new Ctor()
@@ -387,20 +491,25 @@ export default function AiChat({ embedded = false }: { embedded?: boolean }) {
 
         voiceGotTranscriptRef.current = true
         voiceSessionRef.current = { pending: true, expectTts: false }
-        setVoiceUi('processing')
-        setLiveTranscript('')
-        void sendMessage(transcript, null, clientGeoRef.current, { fromVoice: true }).finally(() => {
-          requestAnimationFrame(() => {
-            if (voiceSessionRef.current.pending) {
-              voiceSessionRef.current.pending = false
-              setVoiceUi((u) => (u === 'processing' ? 'idle' : u))
-            }
+        void (async () => {
+          await stopVoiceRecording()
+          if (!chatAliveRef.current) return
+          setVoiceUi('processing')
+          setLiveTranscript('')
+          void sendMessage(transcript, null, clientGeoRef.current, { fromVoice: true }).finally(() => {
+            requestAnimationFrame(() => {
+              if (voiceSessionRef.current.pending) {
+                voiceSessionRef.current.pending = false
+                setVoiceUi((u) => (u === 'processing' ? 'idle' : u))
+              }
+            })
           })
-        })
+        })()
       }
 
       recognition.onerror = (ev) => {
         const code = (ev as RosySpeechErrorEvent).error ?? ''
+        void stopVoiceRecording()
         if (code === 'no-speech') {
           setLiveTranscript('')
           setVoiceUi('idle')
@@ -440,12 +549,19 @@ export default function AiChat({ embedded = false }: { embedded?: boolean }) {
         setVoiceUi('listening')
       } catch {
         voiceLoopActiveRef.current = false
+        syncStopVoiceCapture()
         toast.message('تعذر تفعيل المايك — جرّبي الكتابة 💕')
         setVoiceUi('idle')
         recognitionRef.current = null
       }
     },
-    [sendMessage, scheduleResumeListen]
+    [
+      sendMessage,
+      scheduleResumeListen,
+      startVoiceRecordingPipeline,
+      stopVoiceRecording,
+      syncStopVoiceCapture,
+    ]
   )
 
   useEffect(() => {
@@ -473,11 +589,13 @@ export default function AiChat({ embedded = false }: { embedded?: boolean }) {
     prevSendingForVoiceRef.current = sending
     if (wasSending && !sending && voiceSessionRef.current.expectTts) {
       voiceSessionRef.current.expectTts = false
-      setLiveTranscript('')
-      if (voiceLoopActiveRef.current) {
-        const delay = isElevenLabsConfigured() ? 420 : 220
-        scheduleResumeListen(delay)
-      }
+      queueMicrotask(() => {
+        setLiveTranscript('')
+        if (voiceLoopActiveRef.current) {
+          const delay = isElevenLabsConfigured() ? 420 : 220
+          scheduleResumeListen(delay)
+        }
+      })
     }
   }, [sending, scheduleResumeListen])
 
@@ -490,6 +608,11 @@ export default function AiChat({ embedded = false }: { embedded?: boolean }) {
     return () => {
       chatAliveRef.current = false
       clearResumeListenTimeout()
+      syncStopVoiceCapture()
+      if (lastRecordingObjectUrlRef.current) {
+        URL.revokeObjectURL(lastRecordingObjectUrlRef.current)
+        lastRecordingObjectUrlRef.current = null
+      }
       try {
         recognitionRef.current?.abort()
       } catch {
@@ -497,7 +620,7 @@ export default function AiChat({ embedded = false }: { embedded?: boolean }) {
       }
       stopRosyVoicePlayback()
     }
-  }, [clearResumeListenTimeout])
+  }, [clearResumeListenTimeout, syncStopVoiceCapture])
 
   const toggleVoiceInput = useCallback(() => {
     if (historyError || loading) return
@@ -518,14 +641,19 @@ export default function AiChat({ embedded = false }: { embedded?: boolean }) {
     if (voiceUi === 'listening' && recognitionRef.current) {
       voiceLoopActiveRef.current = false
       clearResumeListenTimeout()
-      setLiveTranscript('')
+      const captured = liveTranscriptRef.current.trim()
       try {
         recognitionRef.current.abort()
       } catch {
         /* ignore */
       }
       recognitionRef.current = null
-      setVoiceUi('idle')
+      setLiveTranscript('')
+      void (async () => {
+        await stopVoiceRecording()
+        setVoiceUi('idle')
+        if (captured) setInput((p) => (p ? `${p} ${captured}` : captured))
+      })()
       return
     }
 
@@ -557,6 +685,7 @@ export default function AiChat({ embedded = false }: { embedded?: boolean }) {
     clearResumeListenTimeout,
     salonOwnerSalesMode,
     kickoffSalonOwnerVoiceSales,
+    stopVoiceRecording,
   ])
 
   useEffect(() => {
@@ -592,11 +721,11 @@ export default function AiChat({ embedded = false }: { embedded?: boolean }) {
     return [...ids]
   }, [messages])
 
+  const salonPreviewEffective =
+    salonIdsForPreview.length === 0 ? EMPTY_SALON_PREVIEW_MAP : salonPreviewById
+
   useEffect(() => {
-    if (salonIdsForPreview.length === 0) {
-      setSalonPreviewById(new Map())
-      return
-    }
+    if (salonIdsForPreview.length === 0) return
     let cancelled = false
     void fetchRosySalonBookingPreview(salonIdsForPreview).then((map) => {
       if (!cancelled) setSalonPreviewById(map)
@@ -654,33 +783,45 @@ export default function AiChat({ embedded = false }: { embedded?: boolean }) {
     e.target.value = ''
     if (!f || !f.type.startsWith('image/')) return
     try {
+      photoPickFromLiveRef.current = false
       const { base64, mime } = await fileToBase64(f)
       const text = input.trim()
       setInput('')
-      await sendMessage(text || '', { base64, mime }, clientGeoRef.current)
+      const mode = committedAdvisorModeRef.current
+      committedAdvisorModeRef.current = null
+      await sendMessage(text || '', { base64, mime }, clientGeoRef.current, {
+        visionAdvisorMode: mode ?? undefined,
+      })
+      setAdvisorMode(null)
     } catch {
       /* ignore */
     }
   }
 
   const openFaceScanFlow = () => {
+    committedAdvisorModeRef.current = null
+    photoPickFromLiveRef.current = false
     setFaceScanConsent(false)
+    setAdvisorMode(null)
     setFaceScanOpen(true)
   }
 
   const startLiveAfterConsent = () => {
-    if (!faceScanConsent) return
+    if (!faceScanConsent || !advisorMode) return
+    committedAdvisorModeRef.current = advisorMode
     setFaceScanOpen(false)
     setLiveCameraOpen(true)
   }
 
   const startUploadAfterConsent = () => {
-    if (!faceScanConsent) return
+    if (!faceScanConsent || !advisorMode) return
+    committedAdvisorModeRef.current = advisorMode
     setFaceScanOpen(false)
     window.setTimeout(() => galRef.current?.click(), 0)
   }
 
   const captureFromVideo = async () => {
+    const mode = committedAdvisorModeRef.current
     const v = videoRef.current
     if (!v || v.videoWidth === 0) {
       toast.error('الكاميرا غير جاهزة بعد')
@@ -697,7 +838,10 @@ export default function AiChat({ embedded = false }: { embedded?: boolean }) {
     const file = new File([blob], 'face-capture.jpg', { type: 'image/jpeg' })
     const { base64, mime } = await fileToBase64(file)
     setLiveCameraOpen(false)
-    await sendMessage(input.trim() || '', { base64, mime }, clientGeoRef.current)
+    committedAdvisorModeRef.current = null
+    await sendMessage(input.trim() || '', { base64, mime }, clientGeoRef.current, {
+      visionAdvisorMode: mode ?? undefined,
+    })
   }
 
   const onlyWelcome = !loading && !historyError && messages.length === 1 && messages[0]?.id === 'welcome'
@@ -796,8 +940,8 @@ export default function AiChat({ embedded = false }: { embedded?: boolean }) {
     <div
       className={
         size === 'md'
-          ? 'flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-[#fce4ec] via-[#fbcfe8] to-[#f9a8c9] text-[#9B2257] shadow-[0_0_22px_rgba(249,168,201,0.55),0_2px_8px_rgba(190,24,93,0.12)] ring-2 ring-white/90 dark:ring-pink-950/40'
-          : 'flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-[#fce4ec] via-[#fbcfe8] to-[#f9a8c9] text-[#9B2257] shadow-[0_0_18px_rgba(249,168,201,0.5)] ring-2 ring-white/90 dark:ring-pink-950/40'
+          ? 'flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-card via-primary/15 to-primary/25 text-primary shadow-[0_0_20px_rgb(244_114_182/0.35)] ring-2 ring-primary/25'
+          : 'flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-card via-primary/15 to-primary/25 text-primary shadow-[0_0_16px_rgb(244_114_182/0.28)] ring-2 ring-primary/20'
       }
       aria-hidden
     >
@@ -815,24 +959,24 @@ export default function AiChat({ embedded = false }: { embedded?: boolean }) {
           return (
             <div
               key={p.id}
-              className="overflow-hidden rounded-xl border border-pink-500/20 bg-white shadow-md dark:border-pink-400/20 dark:bg-card"
+              className="overflow-hidden rounded-[8px] border border-border bg-card shadow-md"
             >
               {img ? (
                 <img src={img} alt="" className="aspect-[16/10] w-full object-cover" />
               ) : (
-                <div className="flex aspect-[16/10] w-full items-center justify-center bg-gradient-to-br from-pink-50 to-rose-100 dark:from-pink-950/40 dark:to-rose-950/30">
-                  <Package className="h-10 w-10 text-pink-300 dark:text-pink-600/80" aria-hidden />
+                <div className="flex aspect-[16/10] w-full items-center justify-center bg-gradient-to-br from-muted/80 to-muted/50">
+                  <Package className="h-10 w-10 text-accent" aria-hidden />
                 </div>
               )}
               <div className="space-y-2 p-3">
                 <div className="text-start">
-                  <p className="line-clamp-2 text-sm font-bold leading-snug text-[#1F1F1F] dark:text-foreground">
+                  <p className="line-clamp-2 text-sm font-bold leading-snug text-foreground">
                     {p.name_ar}
                   </p>
                   {p.brand_ar ? (
                     <p className="mt-0.5 text-xs text-muted-foreground">{p.brand_ar}</p>
                   ) : null}
-                  <p className="mt-1 text-sm font-semibold text-[#BE185D]">
+                  <p className="mt-1 text-sm font-semibold text-primary">
                     {p.price.toLocaleString('ar-SA', { maximumFractionDigits: 2 })} ر.س
                   </p>
                   <p className="mt-1 line-clamp-3 text-xs leading-relaxed text-muted-foreground">{p.benefit}</p>
@@ -841,7 +985,7 @@ export default function AiChat({ embedded = false }: { embedded?: boolean }) {
                   type="button"
                   size="sm"
                   variant="outline"
-                  className="h-11 w-full rounded-xl border-pink-500/25 text-[#BE185D] transition-transform hover:bg-pink-50 active:scale-95 dark:border-pink-400/20 dark:hover:bg-pink-950/30"
+                  className="h-11 w-full rounded-[4px] border-border text-foreground transition-transform hover:bg-muted/80 active:scale-95"
                   onClick={() => nav(`/product/${encodeURIComponent(p.id)}`)}
                 >
                   {lang === 'ar' ? 'تفاصيل المنتج' : 'View product'}
@@ -866,7 +1010,7 @@ export default function AiChat({ embedded = false }: { embedded?: boolean }) {
               : t('aiChat.ratingUnknown')
           const distLabel =
             salon.distance_km != null ? t('aiChat.distanceKm', { n: salon.distance_km.toFixed(1) }) : null
-          const preview = salonPreviewById.get(salon.id)
+          const preview = salonPreviewEffective.get(salon.id)
           const canQuickBook =
             Boolean(preview && preview.serviceCount > 0 && preview.firstServiceId)
           const suggestedSvc = preview?.firstServiceNameAr?.trim()
@@ -874,12 +1018,12 @@ export default function AiChat({ embedded = false }: { embedded?: boolean }) {
           return (
             <div
               key={salon.id}
-              className="overflow-hidden rounded-xl border border-pink-500/20 bg-white shadow-md dark:border-pink-400/20 dark:bg-card"
+              className="overflow-hidden rounded-[8px] border border-border bg-card shadow-md"
             >
               <img src={img} alt="" className="aspect-[16/10] w-full object-cover" />
               <div className="space-y-3 p-3 pt-3">
                 <div className="text-start">
-                  <p className="line-clamp-2 text-sm font-bold leading-snug text-[#1F1F1F] dark:text-foreground">
+                  <p className="line-clamp-2 text-sm font-bold leading-snug text-foreground">
                     {salon.name_ar}
                   </p>
                   <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
@@ -889,13 +1033,13 @@ export default function AiChat({ embedded = false }: { embedded?: boolean }) {
                     </span>
                     {distLabel ? (
                       <span className="inline-flex items-center gap-0.5">
-                        <MapPin className="h-3.5 w-3.5 text-[#BE185D]/80" aria-hidden />
+                        <MapPin className="h-3.5 w-3.5 text-primary/80" aria-hidden />
                         {distLabel}
                       </span>
                     ) : null}
                   </div>
                   {suggestedSvc ? (
-                    <p className="mt-2 text-start text-xs font-semibold text-[#9B2257]/95">
+                    <p className="mt-2 text-start text-xs font-semibold text-primary/95">
                       خدمة مقترحة: {suggestedSvc}
                     </p>
                   ) : null}
@@ -904,7 +1048,7 @@ export default function AiChat({ embedded = false }: { embedded?: boolean }) {
                   <Button
                     type="button"
                     size="sm"
-                    className="h-11 w-full rounded-xl bg-gradient-to-l from-[#9C27B0] to-[#E91E8C] text-white shadow-sm transition-transform active:scale-95"
+                    className="h-11 w-full rounded-xl gradient-primary text-white shadow-sm transition-transform active:scale-95"
                     onClick={() =>
                       goBooking(salon.id, { service_id: preview?.firstServiceId ?? undefined })
                     }
@@ -915,7 +1059,7 @@ export default function AiChat({ embedded = false }: { embedded?: boolean }) {
                     type="button"
                     size="sm"
                     variant="outline"
-                    className="h-11 w-full rounded-xl border-pink-500/25 text-[#BE185D] transition-transform hover:bg-pink-50 active:scale-95 dark:border-pink-400/20 dark:hover:bg-pink-950/30"
+                    className="h-11 w-full rounded-[4px] border-border text-foreground transition-transform hover:bg-muted/80 active:scale-95"
                     onClick={() => goSalonDetail(salon.id, preview?.firstServiceId)}
                   >
                     عرض التفاصيل
@@ -925,7 +1069,7 @@ export default function AiChat({ embedded = false }: { embedded?: boolean }) {
                       type="button"
                       size="sm"
                       variant="secondary"
-                      className="h-11 w-full rounded-xl border border-pink-500/20 bg-pink-50/90 font-semibold text-[#9B2257] transition-transform hover:bg-pink-100/90 active:scale-95 dark:border-pink-400/20 dark:bg-pink-950/40 dark:text-pink-100 dark:hover:bg-pink-950/60"
+                      className="h-11 w-full rounded-[4px] border border-accent/30 bg-accent/10 font-semibold text-foreground transition-transform hover:bg-accent/15 active:scale-95"
                       onClick={() =>
                         goBooking(salon.id, {
                           service_id: preview.firstServiceId!,
@@ -943,7 +1087,7 @@ export default function AiChat({ embedded = false }: { embedded?: boolean }) {
                     type="button"
                     size="sm"
                     variant="outline"
-                    className="h-11 w-full rounded-xl border-pink-500/25 text-[#BE185D] transition-transform hover:bg-pink-50 active:scale-95 dark:border-pink-400/20 dark:hover:bg-pink-950/30"
+                    className="h-11 w-full rounded-[4px] border-border text-foreground transition-transform hover:bg-muted/80 active:scale-95"
                     onClick={() => nav(`/map?focus=${encodeURIComponent(salon.id)}`)}
                   >
                     {t('aiChat.showOnMap')}
@@ -961,13 +1105,13 @@ export default function AiChat({ embedded = false }: { embedded?: boolean }) {
     const sep = `\n\n${FACE_SCAN_MEDICAL_DISCLAIMER}`
     const idx = row.message.lastIndexOf(sep)
     if (idx === -1) {
-      return <p className="whitespace-pre-wrap text-sm leading-relaxed text-[#1F1F1F] dark:text-foreground">{row.message}</p>
+      return <p className="whitespace-pre-wrap text-sm leading-relaxed text-foreground">{row.message}</p>
     }
     return (
       <div className="text-sm leading-relaxed">
-        <p className="whitespace-pre-wrap text-[#1F1F1F] dark:text-foreground">{row.message.slice(0, idx)}</p>
-        <div className="mt-3 border-t border-rose-200/80 pt-3 dark:border-rose-900/50">
-          <p className="whitespace-pre-wrap text-rose-800 dark:text-rose-100">{FACE_SCAN_MEDICAL_DISCLAIMER}</p>
+        <p className="whitespace-pre-wrap text-foreground">{row.message.slice(0, idx)}</p>
+        <div className="mt-3 border-t border-border pt-3">
+          <p className="whitespace-pre-wrap text-muted-foreground">{FACE_SCAN_MEDICAL_DISCLAIMER}</p>
         </div>
       </div>
     )
@@ -996,7 +1140,7 @@ export default function AiChat({ embedded = false }: { embedded?: boolean }) {
     <>
       {(voiceUi === 'listening' || voiceUi === 'processing') && (
         <div
-          className="max-h-16 w-full overflow-y-auto rounded-2xl border border-pink-500/25 bg-white/95 px-3 py-2 text-center text-xs font-semibold leading-snug text-[#374151] shadow-lg backdrop-blur-md dark:border-pink-400/20 dark:bg-card/95 dark:text-foreground"
+          className="max-h-16 w-full overflow-y-auto rounded-[4px] border border-border bg-card/95 px-3 py-2 text-center text-xs font-semibold leading-snug text-foreground shadow-lg backdrop-blur-md"
           dir="rtl"
         >
           {liveTranscript ? liveTranscript : voiceUi === 'processing' ? '⏳ …' : '… استمعي'}
@@ -1004,56 +1148,67 @@ export default function AiChat({ embedded = false }: { embedded?: boolean }) {
       )}
       <VoiceWaveform
         phase={voiceUi === 'speaking' ? 'speaking' : voiceUi === 'listening' ? 'listening' : 'idle'}
-        className="drop-shadow-[0_0_14px_rgba(236,72,153,0.4)]"
+        externalStream={voiceCaptureStream}
+        dustyRoseRecording={voiceUi === 'listening'}
+        className="drop-shadow-[0_0_14px_rgb(244_114_182/0.35)]"
       />
-      <button
-        type="button"
-        disabled={
-          !!historyError ||
-          loading ||
-          (voiceUi !== 'listening' && voiceUi !== 'speaking' && (sending || voiceUi === 'processing'))
-        }
-        onClick={() => void toggleVoiceInput()}
-        aria-label={
-          voiceUi === 'listening'
-            ? 'إيقاف المحادثة الصوتية'
-            : voiceUi === 'speaking'
-              ? 'قطع صوت روزي ومتابعة الحديث'
-              : voiceUi === 'processing'
-                ? 'جاري معالجة كلامك'
-                : 'تحدثي مع روزي — وضع محادثة متواصل'
-        }
-        className={cn(
-          'flex h-14 min-h-[56px] w-14 min-w-[56px] shrink-0 touch-manipulation items-center justify-center rounded-full bg-gradient-to-br from-[#fce4ec] via-[#fbcfe8] to-[#f472b6] text-lg shadow-[0_0_32px_rgba(236,72,153,0.55),0_8px_24px_rgba(190,24,93,0.18)] ring-2 ring-white/95 transition-transform active:scale-95 disabled:pointer-events-none disabled:opacity-45 dark:ring-pink-950/40',
-          voiceUi === 'listening' && 'ring-4 ring-red-400/55 scale-[1.04]',
-          voiceUi === 'processing' && 'ring-4 ring-amber-300/50',
-          voiceUi === 'speaking' && 'ring-4 ring-violet-400/50 scale-[1.03] shadow-[0_0_36px_rgba(167,139,250,0.45)]'
+      <div className="relative z-[10050] flex h-11 w-11 min-h-[44px] min-w-[44px] items-center justify-center">
+        {voiceUi === 'listening' && (
+          <>
+            <motion.span
+              className="pointer-events-none absolute inset-[-6px] rounded-full border-2 border-primary/55"
+              aria-hidden
+              animate={{ opacity: [0.35, 0.95, 0.35], scale: [1, 1.12, 1] }}
+              transition={{ duration: 1.1, repeat: Infinity, ease: 'easeInOut' }}
+            />
+            <motion.span
+              className="pointer-events-none absolute inset-[-14px] rounded-full border border-primary/35"
+              aria-hidden
+              animate={{ opacity: [0.15, 0.55, 0.15], scale: [1, 1.22, 1] }}
+              transition={{ duration: 1.1, repeat: Infinity, ease: 'easeInOut', delay: 0.15 }}
+            />
+          </>
         )}
-      >
-        {voiceUi === 'processing' ? (
-          <Loader2 className="h-7 w-7 animate-spin text-[#9B2257]" aria-hidden />
-        ) : voiceUi === 'listening' ? (
-          <span className="text-2xl leading-none" aria-hidden>
-            🔴
-          </span>
-        ) : voiceUi === 'speaking' ? (
-          <span className="text-2xl leading-none" aria-hidden>
-            ✨
-          </span>
-        ) : (
-          <span className="text-2xl leading-none" aria-hidden>
-            🎤
-          </span>
-        )}
-      </button>
+        <button
+          type="button"
+          disabled={
+            !!historyError ||
+            loading ||
+            (voiceUi !== 'listening' && voiceUi !== 'speaking' && (sending || voiceUi === 'processing'))
+          }
+          onClick={() => void toggleVoiceInput()}
+          aria-label={
+            voiceUi === 'listening'
+              ? 'إيقاف المحادثة الصوتية'
+              : voiceUi === 'speaking'
+                ? 'قطع صوت روزي ومتابعة الحديث'
+                : voiceUi === 'processing'
+                  ? 'جاري معالجة كلامك'
+                  : 'تحدثي مع روزي — وضع محادثة متواصل'
+          }
+          className={cn(
+            'relative z-[1] flex h-11 w-11 min-h-[44px] min-w-[44px] shrink-0 touch-manipulation items-center justify-center rounded-full border-2 border-primary bg-card text-primary shadow-[0_6px_22px_rgba(0,0,0,0.45)] transition-transform active:scale-95 disabled:pointer-events-none disabled:opacity-45',
+            voiceUi === 'processing' && 'ring-2 ring-primary/45',
+            voiceUi === 'speaking' && 'ring-2 ring-primary/60 shadow-[0_0_28px_rgb(244_114_182/0.35)]'
+          )}
+        >
+          {voiceUi === 'processing' ? (
+            <Loader2 className="h-6 w-6 animate-spin text-primary" aria-hidden />
+          ) : voiceUi === 'speaking' ? (
+            <Sparkles className="h-6 w-6 text-primary" aria-hidden />
+          ) : (
+            <Mic className="h-7 w-7 shrink-0 text-primary" strokeWidth={1.35} aria-hidden />
+          )}
+        </button>
+      </div>
       <p className="pointer-events-none text-center text-[10px] font-medium text-muted-foreground drop-shadow-sm">
         {voiceUi === 'listening'
-          ? 'متواصل — 🔴 يوقف'
+          ? 'متواصل — اضغطي للإيقاف'
           : voiceUi === 'speaking'
-            ? 'روزي ✨ — اضغطي للقطع'
+            ? 'روزي تتحدث — اضغطي للقطع'
             : voiceUi === 'processing'
-              ? '⏳ روزي…'
-              : '🎤 محادثة صوتية فاخرة'}
+              ? 'روزي تستمع…'
+              : 'محادثة صوتية فاخرة'}
       </p>
     </>
   )
@@ -1071,11 +1226,11 @@ export default function AiChat({ embedded = false }: { embedded?: boolean }) {
         <header className="luxury-screen-header z-10">
           <div className="flex items-center justify-between gap-3">
             <div className="flex min-w-0 flex-1 items-center gap-3">
-              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-primary/90 via-primary to-amber-500/90 text-primary-foreground shadow-elevated ring-2 ring-gold/25">
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-primary/35 bg-gradient-to-br from-primary to-primary-hover text-primary-foreground shadow-elevated">
                 <Sparkles className="h-5 w-5" strokeWidth={2} aria-hidden />
               </div>
               <div className="min-w-0">
-                <h1 className="text-heading-3 font-extrabold text-foreground">روزي</h1>
+                <h1 className="text-heading-3 font-semibold tracking-wide text-foreground">روزي</h1>
                 <p className="text-body-sm font-medium text-muted-foreground">
                   مساعدة الحجز والجمال — نبرة سعودية دافئة ✨
                 </p>
@@ -1094,7 +1249,7 @@ export default function AiChat({ embedded = false }: { embedded?: boolean }) {
         )}
       >
         {loading ? (
-          <p className="text-center font-medium text-[#374151] dark:text-rosera-gray">جاري التحميل...</p>
+          <p className="text-center font-medium text-muted-foreground">جاري التحميل...</p>
         ) : historyError ? (
           <div className="mx-auto max-w-md rounded-2xl border border-dashed border-destructive/30 bg-destructive/5 p-6 text-center">
             <p className="text-sm font-semibold text-destructive">{historyError}</p>
@@ -1120,7 +1275,7 @@ export default function AiChat({ embedded = false }: { embedded?: boolean }) {
                   <Button
                     type="button"
                     variant="link"
-                    className="text-sm font-semibold text-[#BE185D]"
+                    className="text-sm font-semibold text-primary"
                     onClick={() => nav(buildMapExploreUrl())}
                   >
                     {t('aiChat.exploreMapLink')}
@@ -1146,7 +1301,16 @@ export default function AiChat({ embedded = false }: { embedded?: boolean }) {
                     {rosyAvatar('md')}
                     <div className="flex min-w-0 max-w-[min(85%,28rem)] flex-col gap-3">
                       <div className="rounded-2xl border border-primary/15 bg-card/95 px-4 py-3.5 shadow-elevated backdrop-blur-sm">
-                        {renderAssistantTextOnly(row)}
+                        {row.visionAdvisorResult ? (
+                          <div className="space-y-3">
+                            <p className="text-xs font-extrabold text-primary">{row.message}</p>
+                            <RosyVisionChatResults result={row.visionAdvisorResult} />
+                          </div>
+                        ) : row.message.trim() === VISION_FAIL_AR ? (
+                          <RosyVisionChatResults result={null} />
+                        ) : (
+                          renderAssistantTextOnly(row)
+                        )}
                       </div>
                       {renderAssistantAttachments(row)}
                     </div>
@@ -1169,7 +1333,7 @@ export default function AiChat({ embedded = false }: { embedded?: boolean }) {
                 </div>
               </div>
             )}
-            <p className="mt-4 text-center text-[11px] font-medium text-[#374151] dark:text-rosera-gray">
+            <p className="mt-4 text-center text-[11px] font-medium text-muted-foreground">
               صور الوجه تُرسَل للتحليل مؤقتاً فقط ولا تُحفَظ على خوادمنا ولا في سجل المحادثة.
             </p>
           </>
@@ -1180,16 +1344,68 @@ export default function AiChat({ embedded = false }: { embedded?: boolean }) {
         open={faceScanOpen}
         onOpenChange={(open) => {
           setFaceScanOpen(open)
+          if (!open) {
+            setAdvisorMode(null)
+          }
         }}
       >
         <DialogContent className="max-h-[90dvh] overflow-y-auto" dir="rtl">
           <DialogHeader>
-            <DialogTitle>تحليل الوجه</DialogTitle>
+            <DialogTitle>تحليل روزي الذكي 🌸</DialogTitle>
           </DialogHeader>
-          <p className="whitespace-pre-wrap text-sm font-medium leading-relaxed text-[#1F1F1F] dark:text-foreground/90">
+          <div className="grid grid-cols-2 gap-3">
+            {(
+              [
+                { mode: 'hand_nail' as const, icon: '🤚', title: 'تحليل اليد', sub: 'اكتشفي أندرتونك وألوان مناكيرك' },
+                {
+                  mode: 'hair_color' as const,
+                  icon: '💆‍♀️',
+                  title: 'ألوان الشعر',
+                  sub: 'اختاري صبغة تناسب بشرتك',
+                },
+                {
+                  mode: 'haircut' as const,
+                  icon: '✂️',
+                  title: 'قصة الشعر',
+                  sub: 'اعرفي القصة الأنسب لوجهك',
+                },
+                {
+                  mode: 'skin_analysis' as const,
+                  icon: '🧴',
+                  title: 'تحليل البشرة',
+                  sub: 'روتين عناية وتوصيات متخصصة',
+                },
+              ] as const
+            ).map((c) => {
+              const selected = advisorMode === c.mode
+              return (
+                <button
+                  key={c.mode}
+                  type="button"
+                  onClick={() => setAdvisorMode(c.mode)}
+                  className={cn(
+                    'flex flex-col items-start gap-1 rounded-2xl border-2 p-3 text-start transition touch-manipulation',
+                    selected
+                      ? 'border border-primary/40 bg-muted shadow-sm ring-1 ring-primary/20 dark:bg-primary/10 dark:ring-primary/25'
+                      : 'border-gray-200 bg-white dark:border-border dark:bg-card',
+                  )}
+                >
+                  <span className="text-xl leading-none" aria-hidden>
+                    {c.icon}
+                  </span>
+                  <span className="text-sm font-bold text-foreground">{c.title}</span>
+                  <span className="text-[11px] font-medium leading-snug text-muted-foreground">{c.sub}</span>
+                </button>
+              )
+            })}
+          </div>
+          {!advisorMode ? (
+            <p className="text-center text-xs font-medium text-muted-foreground">اختاري نوع التحليل أولاً ✨</p>
+          ) : null}
+          <p className="whitespace-pre-wrap text-sm font-medium leading-relaxed text-foreground/90">
             {FACE_SCAN_MEDICAL_DISCLAIMER}
           </p>
-          <p className="text-xs font-medium text-[#374151] dark:text-rosera-gray">
+          <p className="text-xs font-medium text-muted-foreground">
             لن نخزّن صورتك: تُستخدم لطلب التحليل فقط ثم تُهمل من الذاكرة.
           </p>
           <div className="flex items-start gap-3 rounded-xl border border-primary/15 bg-rosera-light/80 p-3 dark:bg-muted/30">
@@ -1199,25 +1415,39 @@ export default function AiChat({ embedded = false }: { embedded?: boolean }) {
               onCheckedChange={(v) => setFaceScanConsent(v === true)}
               className="mt-0.5"
             />
-            <Label htmlFor="face-scan-consent" className="cursor-pointer text-sm font-semibold leading-snug text-[#1F1F1F] dark:text-foreground">
+            <Label htmlFor="face-scan-consent" className="cursor-pointer text-sm font-semibold leading-snug text-foreground">
               {FACE_SCAN_CONSENT_LABEL}
             </Label>
           </div>
           <div className="flex flex-col gap-2">
             <Button
               type="button"
-              className="w-full gap-2 bg-gradient-to-l from-[#9C27B0] to-[#E91E8C]"
-              disabled={!faceScanConsent}
+              className="w-full gap-2 gradient-primary"
+              disabled={!faceScanConsent || !advisorMode}
               onClick={startLiveAfterConsent}
             >
               <Camera className="h-4 w-4" aria-hidden />
               التقاط صورة الآن
             </Button>
-            <Button type="button" variant="outline" className="w-full gap-2" disabled={!faceScanConsent} onClick={startUploadAfterConsent}>
+            <Button
+              type="button"
+              variant="outline"
+              className="w-full gap-2"
+              disabled={!faceScanConsent || !advisorMode}
+              onClick={startUploadAfterConsent}
+            >
               <ImageIcon className="h-4 w-4" aria-hidden />
               رفع صورة من الملفات
             </Button>
-            <Button type="button" variant="ghost" onClick={() => setFaceScanOpen(false)}>
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={() => {
+                committedAdvisorModeRef.current = null
+                setAdvisorMode(null)
+                setFaceScanOpen(false)
+              }}
+            >
               إلغاء
             </Button>
           </div>
@@ -1228,7 +1458,12 @@ export default function AiChat({ embedded = false }: { embedded?: boolean }) {
         open={liveCameraOpen}
         onOpenChange={(open) => {
           setLiveCameraOpen(open)
-          if (!open) stopCamera()
+          if (!open) {
+            stopCamera()
+            if (photoPickFromLiveRef.current) return
+            committedAdvisorModeRef.current = null
+            setAdvisorMode(null)
+          }
         }}
       >
         <DialogContent className="max-w-md" dir="rtl">
@@ -1239,10 +1474,17 @@ export default function AiChat({ embedded = false }: { embedded?: boolean }) {
             <video ref={videoRef} className="h-full w-full object-cover" playsInline muted autoPlay />
           </div>
           <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-            <Button type="button" variant="outline" onClick={() => setLiveCameraOpen(false)}>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                photoPickFromLiveRef.current = false
+                setLiveCameraOpen(false)
+              }}
+            >
               إلغاء
             </Button>
-            <Button type="button" className="bg-gradient-to-l from-[#9C27B0] to-[#E91E8C]" onClick={() => void captureFromVideo()}>
+            <Button type="button" className="gradient-primary" onClick={() => void captureFromVideo()}>
               التقاط وإرسال
             </Button>
             <Button
@@ -1250,6 +1492,7 @@ export default function AiChat({ embedded = false }: { embedded?: boolean }) {
               variant="secondary"
               className="gap-1 text-xs sm:text-sm"
               onClick={() => {
+                photoPickFromLiveRef.current = true
                 setLiveCameraOpen(false)
                 window.setTimeout(() => camFallbackRef.current?.click(), 0)
               }}
@@ -1264,7 +1507,7 @@ export default function AiChat({ embedded = false }: { embedded?: boolean }) {
       <input ref={camFallbackRef} type="file" accept="image/*" capture="user" className="hidden" onChange={onPickImage} />
 
       {embedded ? (
-        <div className="relative z-20 shrink-0 border-t border-primary/12 bg-gradient-to-b from-white to-[#fffafc] dark:from-card dark:to-card">
+        <div className="relative z-20 shrink-0 border-t border-primary/12 bg-gradient-to-b from-card to-muted/50 dark:from-card dark:to-card">
           <div className="mx-auto flex w-full max-w-[18rem] flex-col items-center gap-2 px-4 pb-2 pt-2">
             {renderVoiceUi()}
           </div>
@@ -1273,7 +1516,7 @@ export default function AiChat({ embedded = false }: { embedded?: boolean }) {
 
       <div
         className={cn(
-          'sticky bottom-0 z-30 border-t border-primary/12 bg-gradient-to-b from-white to-[#fffafc] shadow-[0_-8px_32px_-12px_rgba(244,114,182,0.12)] dark:from-card dark:to-card dark:shadow-none',
+          'sticky bottom-0 z-30 border-t border-primary/12 bg-gradient-to-b from-card to-muted/40 shadow-[0_-8px_32px_-12px_rgb(212_165_165/0.12)] dark:from-card dark:to-card dark:shadow-none',
           embedded
             ? 'pb-[calc(env(safe-area-inset-bottom,0px)+12px)]'
             : 'pb-[calc(5.5rem+env(safe-area-inset-bottom,0px)+12px)]'
@@ -1287,14 +1530,14 @@ export default function AiChat({ embedded = false }: { embedded?: boolean }) {
         >
           <Button
             type="button"
-            size="icon"
             variant="outline"
-            className="min-h-[44px] min-w-[44px] shrink-0 touch-manipulation rounded-2xl"
-            aria-label="تحليل وجه — كاميرا أو رفع"
+            className="shrink-0 touch-manipulation gap-1.5 rounded-full border border-primary/30 bg-gradient-to-l from-muted to-primary/10 px-3 py-2 min-h-[44px] text-xs font-extrabold text-primary shadow-sm shadow-primary/15"
+            aria-label="تحليل روزي ✨ — كاميرا أو رفع"
             disabled={!!historyError || loading}
             onClick={openFaceScanFlow}
           >
-            <Sparkles className="h-5 w-5 text-[#9B2257]" />
+            <Sparkles className="h-4 w-4 shrink-0 text-primary" aria-hidden />
+            <span className="whitespace-nowrap">تحليل روزي ✨</span>
           </Button>
           <Input
             ref={chatInputRef}
@@ -1315,7 +1558,7 @@ export default function AiChat({ embedded = false }: { embedded?: boolean }) {
           />
           <Button
             size="icon"
-            className="min-h-[44px] min-w-[44px] shrink-0 touch-manipulation rounded-2xl bg-gradient-to-l from-[#9C27B0] to-[#E91E8C]"
+            className="min-h-[44px] min-w-[44px] shrink-0 touch-manipulation rounded-2xl gradient-primary"
             disabled={!!historyError || loading || sending}
             onClick={() => void send(input)}
           >
@@ -1326,9 +1569,9 @@ export default function AiChat({ embedded = false }: { embedded?: boolean }) {
 
       {!embedded ? (
         <div
-          className="pointer-events-none fixed left-1/2 z-[55] flex w-[min(100%,20rem)] -translate-x-1/2 flex-col items-center gap-2 px-4"
+          className="pointer-events-none fixed left-1/2 z-[10050] flex w-[min(100%,20rem)] -translate-x-1/2 flex-col items-center gap-2 px-4"
           style={{
-            bottom: 'calc(6.25rem + env(safe-area-inset-bottom, 0px) + 12px)',
+            bottom: 'calc(7.85rem + env(safe-area-inset-bottom, 0px))',
           }}
         >
           <div className="pointer-events-auto flex w-full max-w-[18rem] flex-col items-center gap-2">

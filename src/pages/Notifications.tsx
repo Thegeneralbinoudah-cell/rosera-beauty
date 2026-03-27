@@ -21,15 +21,15 @@ type NotifRow = {
 const typeConfig: Record<string, { icon: string; label: string; color: string }> = {
   booking: { icon: '✅', label: 'تأكيد حجز', color: 'text-green-600' },
   reminder: { icon: '⏰', label: 'تذكير', color: 'text-rose-700' },
-  offer: { icon: '🔥', label: 'عرض خاص', color: 'text-[#E91E8C]' },
+  offer: { icon: '🔥', label: 'عرض خاص', color: 'text-primary' },
   order: { icon: '📦', label: 'تحديث طلب', color: 'text-blue-600' },
-  review: { icon: '⭐', label: 'تقييم', color: 'text-[#9B2257]' },
+  review: { icon: '⭐', label: 'تقييم', color: 'text-primary' },
   promo: { icon: '📢', label: 'إعلان', color: 'text-rosera-gray' },
-  growth_inactive: { icon: '💜', label: 'روزيرا', color: 'text-[#9C27B0]' },
-  growth_nudge: { icon: '✨', label: 'اقتراح لكِ', color: 'text-[#E91E8C]' },
-  growth_skin: { icon: '🪞', label: 'البشرة', color: 'text-violet-600' },
-  growth_offer: { icon: '🔥', label: 'عرض قريب منكِ', color: 'text-[#E91E8C]' },
-  growth_promo: { icon: '💜', label: 'روزيرا', color: 'text-[#9C27B0]' },
+  growth_inactive: { icon: '💜', label: 'روزيرا', color: 'text-accent' },
+  growth_nudge: { icon: '✨', label: 'اقتراح لكِ', color: 'text-primary' },
+  growth_skin: { icon: '🪞', label: 'البشرة', color: 'text-primary' },
+  growth_offer: { icon: '🔥', label: 'عرض قريب منكِ', color: 'text-primary' },
+  growth_promo: { icon: '💜', label: 'روزيرا', color: 'text-accent' },
 }
 
 function configForType(t: string | null | undefined) {
@@ -171,7 +171,7 @@ export default function Notifications() {
                 <li key={n.id}>
                   <button
                     type="button"
-                    className={`flex w-full gap-4 rounded-2xl border bg-white p-4 text-start transition dark:bg-card ${
+                    className={`flex w-full gap-4 rounded-2xl border bg-card p-4 text-start transition dark:bg-card ${
                       !n.is_read ? 'border-primary/30 bg-primary/5 shadow-sm' : 'border-border/60 hover:border-primary/20'
                     }`}
                     onClick={() => {
@@ -181,7 +181,7 @@ export default function Notifications() {
                     <div className="relative shrink-0">
                       <span className={`text-2xl ${cfg.color}`}>{cfg.icon}</span>
                       {!n.is_read && (
-                        <span className="absolute -top-0.5 -end-0.5 h-2 w-2 rounded-full bg-[#E91E8C]" />
+                        <span className="absolute -top-0.5 -end-0.5 h-2 w-2 rounded-full bg-primary" />
                       )}
                     </div>
                     <div className="min-w-0 flex-1">

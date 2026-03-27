@@ -1,73 +1,145 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { formatPrice } from '@/lib/utils'
 import { useSearchParams, Link } from 'react-router-dom'
 import { supabase } from '@/lib/supabase'
 import { trackEvent } from '@/lib/analytics'
+import { captureBookingFailed, type BookingFailedReason } from '@/lib/posthog'
 import { trackRosyHesitationCheckoutIfAttributed } from '@/lib/roseyHesitationAnalytics'
 import { Button } from '@/components/ui/button'
 import { Loader2, CheckCircle, XCircle } from 'lucide-react'
 
 type PayKind = 'booking' | 'order' | 'subscription' | 'salon_ad' | 'subscription_renewal_cron' | null
 
+type ParsedCallback =
+  | {
+      kind: 'sync'
+      status: 'success' | 'fail'
+      message: string
+      payKind: PayKind
+      bookingCommissionSar: number | null
+    }
+  | {
+      kind: 'verify'
+      type: 'booking' | 'order' | 'subscription' | 'salon_ad'
+      ref: string
+      paymentId: string
+    }
+
+function parsePaymentCallback(sp: URLSearchParams): ParsedCallback {
+  const typeRaw = sp.get('type')
+  const payStatus = (sp.get('status') || '').toLowerCase()
+
+  if (typeRaw === 'subscription_renewal_cron') {
+    if (payStatus === 'failed' || payStatus === 'failure') {
+      return {
+        kind: 'sync',
+        status: 'fail',
+        message: 'لم يكتمل الدفع',
+        payKind: 'subscription_renewal_cron',
+        bookingCommissionSar: null,
+      }
+    }
+    return {
+      kind: 'sync',
+      status: 'success',
+      message: 'تم استلام تأكيد الدفع.',
+      payKind: 'subscription_renewal_cron',
+      bookingCommissionSar: null,
+    }
+  }
+
+  const type = typeRaw as PayKind
+  const ref = sp.get('ref')
+  const paymentId = (sp.get('id') || sp.get('payment_id') || '').trim()
+
+  if (payStatus === 'failed' || payStatus === 'failure') {
+    return {
+      kind: 'sync',
+      status: 'fail',
+      message: 'لم يكتمل الدفع',
+      payKind: type,
+      bookingCommissionSar: null,
+    }
+  }
+
+  if (!type || !ref) {
+    return {
+      kind: 'sync',
+      status: 'fail',
+      message: 'رابط غير صالح',
+      payKind: type,
+      bookingCommissionSar: null,
+    }
+  }
+
+  if (!['booking', 'order', 'subscription', 'salon_ad'].includes(type)) {
+    return {
+      kind: 'sync',
+      status: 'fail',
+      message: 'نوع العملية غير معروف',
+      payKind: type,
+      bookingCommissionSar: null,
+    }
+  }
+
+  if (!paymentId) {
+    console.error('[PaymentCallback] missing payment id in callback URL', { type, ref })
+    return {
+      kind: 'sync',
+      status: 'fail',
+      message: 'لم يتم استلام معرّف الدفع من Moyasar',
+      payKind: type,
+      bookingCommissionSar: null,
+    }
+  }
+
+  return {
+    kind: 'verify',
+    type: type as 'booking' | 'order' | 'subscription' | 'salon_ad',
+    ref,
+    paymentId,
+  }
+}
+
+function getBookingCaptureReasonFromUrl(sp: URLSearchParams): BookingFailedReason | null {
+  const typeRaw = sp.get('type')
+  const payStatus = (sp.get('status') || '').toLowerCase()
+  if (typeRaw === 'subscription_renewal_cron') return null
+  if (payStatus === 'failed' || payStatus === 'failure') {
+    return typeRaw === 'booking' ? 'callback_pay_failed' : null
+  }
+  const type = typeRaw as PayKind
+  const ref = sp.get('ref')
+  const paymentId = (sp.get('id') || sp.get('payment_id') || '').trim()
+  if (!type || !ref) return typeRaw === 'booking' ? 'callback_invalid_url' : null
+  if (!['booking', 'order', 'subscription', 'salon_ad'].includes(type)) {
+    return typeRaw === 'booking' ? 'callback_bad_type' : null
+  }
+  if (!paymentId) return type === 'booking' ? 'callback_missing_payment_id' : null
+  return null
+}
+
 export default function PaymentCallback() {
   const [searchParams] = useSearchParams()
-  const [status, setStatus] = useState<'loading' | 'success' | 'fail'>('loading')
-  const [message, setMessage] = useState('')
-  const [kind, setKind] = useState<PayKind>(null)
-  const [bookingCommissionSar, setBookingCommissionSar] = useState<number | null>(null)
+  const parsed = useMemo(() => parsePaymentCallback(searchParams), [searchParams])
+
+  const [verifyResult, setVerifyResult] = useState<{
+    status: 'success' | 'fail'
+    message: string
+    payKind: PayKind
+    bookingCommissionSar: number | null
+  } | null>(null)
 
   useEffect(() => {
-    const typeRaw = searchParams.get('type')
-    const payStatus = (searchParams.get('status') || '').toLowerCase()
+    const reason = getBookingCaptureReasonFromUrl(searchParams)
+    if (reason) captureBookingFailed(reason, { phase: 'payment_callback' })
+  }, [searchParams])
 
-    if (typeRaw === 'subscription_renewal_cron') {
-      if (payStatus === 'failed' || payStatus === 'failure') {
-        setStatus('fail')
-        setMessage('لم يكتمل الدفع')
-        return
-      }
-      setKind('subscription_renewal_cron')
-      setStatus('success')
-      setMessage('تم استلام تأكيد الدفع.')
-      return
-    }
-
-    const type = typeRaw as PayKind
-    const ref = searchParams.get('ref')
-    const paymentId = (searchParams.get('id') || searchParams.get('payment_id') || '').trim()
-
-    if (payStatus === 'failed' || payStatus === 'failure') {
-      setStatus('fail')
-      setMessage('لم يكتمل الدفع')
-      return
-    }
-
-    if (!type || !ref) {
-      setStatus('fail')
-      setMessage('رابط غير صالح')
-      return
-    }
-
-    if (
-      type !== 'booking' &&
-      type !== 'order' &&
-      type !== 'subscription' &&
-      type !== 'salon_ad'
-    ) {
-      setStatus('fail')
-      setMessage('نوع العملية غير معروف')
-      return
-    }
-
-    setKind(type)
-
-    if (!paymentId) {
-      console.error('[PaymentCallback] missing payment id in callback URL', { type, ref })
-      setStatus('fail')
-      setMessage('لم يتم استلام معرّف الدفع من Moyasar')
-      return
-    }
-
+  useEffect(() => {
+    const p = parsePaymentCallback(searchParams)
+    if (p.kind !== 'verify') return
+    const { type, ref, paymentId } = p
+    queueMicrotask(() => setVerifyResult(null))
     let cancelled = false
     ;(async () => {
       try {
@@ -77,8 +149,13 @@ export default function PaymentCallback() {
         if (cancelled) return
         const err = (data as { error?: string })?.error
         if (error || err) {
-          setStatus('fail')
-          setMessage(err || error?.message || 'فشل التحقق من الدفع')
+          if (type === 'booking') captureBookingFailed('callback_verify', { phase: 'payment_callback' })
+          setVerifyResult({
+            status: 'fail',
+            message: err || error?.message || 'فشل التحقق من الدفع',
+            payKind: type,
+            bookingCommissionSar: null,
+          })
           return
         }
 
@@ -90,14 +167,13 @@ export default function PaymentCallback() {
           previous_plan?: string | null
         }
 
+        let bookingCommissionSar: number | null = null
         if (
           type === 'booking' &&
           typeof verifyPayload.commission_amount === 'number' &&
           Number.isFinite(verifyPayload.commission_amount)
         ) {
-          setBookingCommissionSar(verifyPayload.commission_amount)
-        } else if (type === 'booking') {
-          setBookingCommissionSar(null)
+          bookingCommissionSar = verifyPayload.commission_amount
         }
 
         const {
@@ -138,12 +214,22 @@ export default function PaymentCallback() {
           trackRosyHesitationCheckoutIfAttributed(user.id)
         }
 
-        setStatus('success')
+        setVerifyResult({
+          status: 'success',
+          message: '',
+          payKind: type,
+          bookingCommissionSar,
+        })
       } catch (e) {
         if (!cancelled) {
           console.error(e)
-          setStatus('fail')
-          setMessage(e instanceof Error ? e.message : 'حدث خطأ')
+          if (type === 'booking') captureBookingFailed('callback_exception', { phase: 'payment_callback' })
+          setVerifyResult({
+            status: 'fail',
+            message: e instanceof Error ? e.message : 'حدث خطأ',
+            payKind: type,
+            bookingCommissionSar: null,
+          })
         }
       }
     })()
@@ -151,6 +237,21 @@ export default function PaymentCallback() {
       cancelled = true
     }
   }, [searchParams])
+
+  const effective =
+    parsed.kind === 'sync'
+      ? {
+          status: parsed.status,
+          message: parsed.message,
+          payKind: parsed.payKind,
+          bookingCommissionSar: parsed.bookingCommissionSar,
+        }
+      : verifyResult
+
+  const status = effective?.status ?? 'loading'
+  const message = effective?.message ?? ''
+  const kind = effective?.payKind ?? null
+  const bookingCommissionSar = effective?.bookingCommissionSar ?? null
 
   const successHref =
     kind === 'order'
@@ -210,7 +311,7 @@ export default function PaymentCallback() {
           )}
         </div>
         <div className="flex flex-wrap justify-center gap-3">
-          <Button asChild className="rounded-2xl bg-gradient-to-l from-[#9C27B0] to-[#E91E8C]">
+          <Button asChild className="rounded-2xl gradient-primary">
             <Link to={successHref}>{successLabel}</Link>
           </Button>
           <Button asChild variant="outline" className="rounded-2xl">
@@ -244,15 +345,15 @@ export default function PaymentCallback() {
             <Link to="/bookings">حجوزاتي</Link>
           </Button>
         ) : kind === 'order' ? (
-          <Button asChild className="rounded-2xl bg-gradient-to-l from-[#9C27B0] to-[#E91E8C]">
+          <Button asChild className="rounded-2xl gradient-primary">
             <Link to="/cart">السلة</Link>
           </Button>
         ) : kind === 'subscription' || kind === 'subscription_renewal_cron' ? (
-          <Button asChild className="rounded-2xl bg-gradient-to-l from-[#9C27B0] to-[#E91E8C]">
+          <Button asChild className="rounded-2xl gradient-primary">
             <Link to="/salon/subscription">الاشتراك</Link>
           </Button>
         ) : kind === 'salon_ad' ? (
-          <Button asChild className="rounded-2xl bg-gradient-to-l from-[#9C27B0] to-[#E91E8C]">
+          <Button asChild className="rounded-2xl gradient-primary">
             <Link to="/salon/ads">الإعلانات</Link>
           </Button>
         ) : null}

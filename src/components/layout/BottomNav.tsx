@@ -18,7 +18,7 @@ export function BottomNav() {
 
   return (
     <nav
-      className="fixed bottom-0 inset-x-0 z-50 border-t border-primary/20 bg-background/95 pb-safe pt-2 shadow-nav backdrop-blur-xl dark:border-border"
+      className="fixed bottom-0 inset-x-0 z-50 border-t border-primary/15 bg-card/95 pb-safe pt-2 shadow-nav backdrop-blur-xl"
       aria-label={t('nav.main')}
     >
       <div className="mx-auto flex max-w-lg items-center justify-around px-1">
@@ -35,28 +35,33 @@ export function BottomNav() {
                 if (to === '/map') void import('@/pages/MapPage')
               }}
               className={cn(
-                'relative flex flex-1 flex-col items-center gap-0.5 py-2 text-[10px] font-bold tracking-luxury-tight transition-all duration-200 active:scale-95',
-                active ? 'text-rosera-strong' : 'text-muted-foreground'
+                'relative flex flex-1 flex-col items-center gap-0.5 py-2 text-[10px] font-normal tracking-luxury-tight transition-opacity duration-slow active:opacity-90',
+                active ? 'text-accent' : 'text-muted-foreground'
               )}
             >
               {active && (
                 <motion.span
                   layoutId="navdot"
-                  className="absolute -top-0.5 h-1 w-8 rounded-full bg-primary/40"
+                  className="absolute -top-1 inset-x-0 mx-auto h-1.5 w-1.5 rounded-full bg-accent"
                   transition={{ type: 'spring', stiffness: 400, damping: 30 }}
                 />
               )}
-              <span
+              <motion.span
+                whileTap={{ scale: 0.88 }}
+                transition={{ type: 'spring', stiffness: 520, damping: 18 }}
                 className={cn(
-                  'flex h-10 w-10 items-center justify-center rounded-full transition-all duration-200',
-                  active ? 'icon-circle-pink scale-100' : 'bg-transparent'
+                  'flex h-10 w-10 items-center justify-center rounded-full transition-colors duration-300 ease-out',
+                  active ? 'bg-primary/20' : 'bg-transparent'
                 )}
               >
                 <Icon
-                  className={cn('h-5 w-5 transition-transform duration-200', active ? 'text-rosera-strong' : 'text-muted-foreground')}
-                  strokeWidth={active ? 2.5 : 2}
+                  className={cn(
+                    'h-5 w-5 transition-colors duration-300 ease-out',
+                    active ? 'text-accent' : 'text-muted-foreground'
+                  )}
+                  strokeWidth={1.25}
                 />
-              </span>
+              </motion.span>
               <span className="leading-tight text-center whitespace-nowrap">{t(k)}</span>
             </NavLink>
           )

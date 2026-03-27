@@ -137,7 +137,7 @@ export default function AdminUsers() {
           </SelectContent>
         </Select>
       </div>
-      <div className="mt-6 overflow-x-auto rounded-xl border bg-white dark:bg-card">
+      <div className="mt-6 overflow-x-auto rounded-xl border bg-card">
         <table className="w-full text-sm">
           <thead className="border-b">
             <tr>

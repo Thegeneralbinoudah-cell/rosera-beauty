@@ -54,12 +54,22 @@ const dict: Record<Lang, Record<string, string>> = {
     'authEmail.terms': 'الشروط والأحكام',
 
     'auth.oauthSectionLabel': 'أو سجّلي دخولكِ بسرعة',
+    'auth.continueWithApple': 'متابعة مع Apple',
+    'auth.continueWithGoogle': 'متابعة مع Google',
     'auth.oauthGoogle': 'تسجيل الدخول عبر Google',
     'auth.oauthApple': 'تسجيل الدخول عبر Apple',
     'auth.oauthFailed': 'تعذر تسجيل الدخول',
     'auth.oauthNetworkError': 'تعذر الاتصال. تحققي من الشبكة',
     'auth.oauthNoRedirect': 'لم يُرجَع رابط تسجيل الدخول. تحققي من إعدادات Google/Apple في Supabase.',
     'auth.oauthSupabaseNotConfigured': 'التطبيق غير مهيأ للاتصال بقاعدة البيانات. راجعي ملف البيئة.',
+    'auth.oauthRedirectUriMismatch':
+      'خطأ redirect_uri: في Google Cloud و Apple يجب إضافة رابط Supabase (وليس رابط التطبيق فقط). أضفّي بالضبط: {{url}}',
+    'auth.oauthRedirectUriMismatchGeneric':
+      'خطأ redirect_uri: في Google (Authorized redirect URIs) و Apple (Return URLs) أضفّي الرابط …supabase.co/auth/v1/callback من لوحة Supabase → Settings → API.',
+    'auth.oauthCallbackNoSession': 'لم يكتمل تسجيل الدخول — لا توجد جلسة. جرّبي مرة أخرى أو استخدمي البريد أو الجوال.',
+    'auth.oauthCallbackWorking': 'جاري تسجيل الدخول…',
+    'auth.oauthCallbackRedirecting': 'جاري التوجيه…',
+    'auth.oauthProfileSetupFailed': 'تعذر إعداد ملفكِ الشخصي. يمكنكِ المحاولة من الإعدادات لاحقاً.',
     'auth.orDivider': 'أو',
 
     'otp.title': 'رمز التحقق',
@@ -102,6 +112,10 @@ const dict: Record<Lang, Record<string, string>> = {
     'common.loading': 'جاري التحميل…',
     'common.km': 'كم',
 
+    'notFound.title': 'الصفحة غير موجودة',
+    'notFound.subtitle': 'الرابط غير صحيح أو أُزيل. ارجعي للرئيسية أو استخدمي القائمة.',
+    'notFound.ctaHome': 'الرئيسية',
+
     'search.placeholder': 'صالون، مدينة، منطقة، تصنيف...',
     'search.filter': 'تصفية',
     'search.sortNearest': 'الأقرب إليك',
@@ -111,6 +125,7 @@ const dict: Record<Lang, Record<string, string>> = {
     'search.emptyStateTitle': 'لا توجد نتائج',
     'search.emptyStateSub': 'جربي كلمات مختلفة أو استكشفي الأقرب لك',
     'search.emptyStateCtaNearest': 'عرض الأقرب',
+    'search.emptyCategoryFilterExact': 'لا توجد نتائج لهذا التصنيف حالياً',
     'search.emptyCategoryTitle': 'لا نتائج لهذا التصنيف',
     'search.emptyCategorySub':
       'لا توجد منشآت مطابقة ضمن التصنيف المختار. غيّري الفلتر من «تصفية» أو استكشفي الخريطة لنفس التصنيف.',
@@ -130,7 +145,7 @@ const dict: Record<Lang, Record<string, string>> = {
     'search.cat.nails': 'أظافر',
     'search.cat.brides': 'عرائس',
     'search.cat.skincare': 'عناية بالبشرة',
-    'search.cat.clinic_beauty': 'عيادة تجميل',
+    'search.cat.clinic_beauty': 'عيادات تجميل',
     'search.cat.clinic_skin': 'عيادة جلدية',
     'search.cat.clinic_laser': 'عيادة ليزر',
     'search.cat.clinic_filler': 'عيادة حقن وفيلر',
@@ -427,12 +442,22 @@ const dict: Record<Lang, Record<string, string>> = {
     'authEmail.terms': 'Terms & Conditions',
 
     'auth.oauthSectionLabel': 'Or continue with',
+    'auth.continueWithApple': 'Continue with Apple',
+    'auth.continueWithGoogle': 'Continue with Google',
     'auth.oauthGoogle': 'Sign in with Google',
     'auth.oauthApple': 'Sign in with Apple',
     'auth.oauthFailed': 'Sign-in failed',
     'auth.oauthNetworkError': 'Network error. Check your connection.',
     'auth.oauthNoRedirect': 'No OAuth redirect URL returned. Check Google/Apple provider settings in Supabase.',
     'auth.oauthSupabaseNotConfigured': 'App is not configured to connect (missing env).',
+    'auth.oauthRedirectUriMismatch':
+      'redirect_uri mismatch: In Google Cloud and Apple Developer you must add Supabase’s callback URL (not only your app URL). Add exactly: {{url}}',
+    'auth.oauthRedirectUriMismatchGeneric':
+      'redirect_uri mismatch: In Google (Authorized redirect URIs) and Apple (Return URLs), add https://…supabase.co/auth/v1/callback from Supabase → Settings → API.',
+    'auth.oauthCallbackNoSession': 'Sign-in did not complete — no session. Try again or use email or phone.',
+    'auth.oauthCallbackWorking': 'Signing you in…',
+    'auth.oauthCallbackRedirecting': 'Redirecting…',
+    'auth.oauthProfileSetupFailed': 'Could not set up your profile. You can try again from settings later.',
     'auth.orDivider': 'or',
 
     'otp.title': 'Verification code',
@@ -475,6 +500,10 @@ const dict: Record<Lang, Record<string, string>> = {
     'common.loading': 'Loading…',
     'common.km': 'km',
 
+    'notFound.title': 'Page not found',
+    'notFound.subtitle': 'This link doesn’t exist or was removed. Go home or use the menu.',
+    'notFound.ctaHome': 'Home',
+
     'search.placeholder': 'Salon, city, region, category...',
     'search.filter': 'Filters',
     'search.sortNearest': 'Nearest to you',
@@ -484,6 +513,7 @@ const dict: Record<Lang, Record<string, string>> = {
     'search.emptyStateTitle': 'No results',
     'search.emptyStateSub': 'Try different words or explore what is nearest to you ✨',
     'search.emptyStateCtaNearest': 'Show nearest',
+    'search.emptyCategoryFilterExact': 'No results for this category right now',
     'search.emptyCategoryTitle': 'No results for this category',
     'search.emptyCategorySub':
       'Nothing matched the selected category. Change filters or open the map with the same category.',

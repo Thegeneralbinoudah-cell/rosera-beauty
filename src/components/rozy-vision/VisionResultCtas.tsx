@@ -83,9 +83,9 @@ export function VisionResultCtas({
         variant="default"
         className={cn(
           'min-h-[48px] flex-1 rounded-xl border-0 font-bold shadow-lg',
-          'bg-gradient-to-l from-[#c026d3] via-primary to-[#db2777] text-white',
+          'bg-gradient-to-l from-destructive via-primary to-accent text-white',
           'hover:opacity-95 active:scale-[0.99] transition-all duration-300',
-          'shadow-[0_8px_24px_-6px_rgba(192,38,211,0.45)]',
+          'shadow-[0_8px_24px_-6px_rgb(212_165_165_/_0.45)]',
         )}
         onClick={goPrimary}
       >

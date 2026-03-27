@@ -7,6 +7,8 @@ import { AuthProvider } from '@/contexts/AuthContext'
 import { PreferencesProvider } from '@/contexts/PreferencesContext'
 import App from './App.tsx'
 import { RootErrorBoundary } from '@/components/RootErrorBoundary'
+import { GlobalThemeToggle } from '@/components/GlobalThemeToggle'
+import { RosyPanelProvider } from '@/contexts/RosyPanelContext'
 import { registerSW } from 'virtual:pwa-register'
 /** Tajawal عربي فقط — self-host، font-display: swap داخل الحزم */
 import '@fontsource/tajawal/arabic-400.css'
@@ -59,8 +61,11 @@ if (!rootEl) {
           <BrowserRouter>
             <PreferencesProvider>
               <AuthProvider>
-                <App />
-                <Toaster position="top-center" richColors dir="rtl" closeButton visibleToasts={4} />
+                <RosyPanelProvider>
+                  <App />
+                  <GlobalThemeToggle />
+                  <Toaster position="top-center" richColors dir="rtl" closeButton visibleToasts={4} />
+                </RosyPanelProvider>
               </AuthProvider>
             </PreferencesProvider>
           </BrowserRouter>

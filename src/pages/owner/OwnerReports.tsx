@@ -4,6 +4,7 @@ import { useAuth } from '@/contexts/AuthContext'
 import { getMySalonBusinessId } from '@/lib/salonOwner'
 import { Card } from '@/components/ui/card'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts'
+import { colors } from '@/theme/tokens'
 
 export default function OwnerReports() {
   const { user } = useAuth()
@@ -53,7 +54,9 @@ export default function OwnerReports() {
   }, [user])
 
   useEffect(() => {
-    void load()
+    queueMicrotask(() => {
+      void load()
+    })
   }, [load])
 
   const maxC = Math.max(...topSvc.map((x) => x.count), 1)
@@ -72,7 +75,7 @@ export default function OwnerReports() {
         </Card>
         <Card className="p-6">
           <p className="text-sm text-rosera-gray">متوسط التقييم</p>
-          <p className="text-2xl font-extrabold text-[#9B2257]">⭐ {rating.toFixed(1)}</p>
+          <p className="text-2xl font-extrabold text-primary">⭐ {rating.toFixed(1)}</p>
         </Card>
       </div>
       <Card className="mt-8 p-6">
@@ -87,7 +90,7 @@ export default function OwnerReports() {
                   <XAxis type="number" hide />
                   <YAxis type="category" dataKey="name" width={100} tick={{ fontSize: 11 }} />
                   <Tooltip formatter={(v) => [Number(v ?? 0), 'حجوزات']} />
-                  <Bar dataKey="count" fill="#E91E8C" radius={[0, 6, 6, 0]} />
+                  <Bar dataKey="count" fill={colors.chartPrimary} radius={[0, 6, 6, 0]} />
                 </BarChart>
               </ResponsiveContainer>
             </div>
@@ -100,7 +103,7 @@ export default function OwnerReports() {
                   </div>
                   <div className="h-2 overflow-hidden rounded-full bg-muted">
                     <div
-                      className="h-full rounded-full bg-gradient-to-l from-[#9C27B0] to-[#E91E8C]"
+                      className="h-full rounded-full gradient-primary"
                       style={{ width: `${Math.round((s.count / maxC) * 100)}%` }}
                     />
                   </div>

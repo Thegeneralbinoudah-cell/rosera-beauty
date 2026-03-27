@@ -7,6 +7,7 @@ import { ROSY_FIRST_VISIT_WELCOME } from '@/lib/roseyChatCopy'
 import { usePreferences } from '@/contexts/PreferencesContext'
 import { cn } from '@/lib/utils'
 import { captureProductEvent } from '@/lib/posthog'
+import { colors } from '@/theme/colors'
 
 const EN_INTRO =
   "Hey love—I'm Rosy! I can help you pick the best salon, aesthetics clinic, or beauty products from global brands ✨"
@@ -44,9 +45,12 @@ export function RosyHomeFirstIntro({ className }: { className?: string }) {
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
       className={cn(
-        'relative overflow-hidden rounded-2xl border border-pink-200/60 bg-gradient-to-br from-white via-[#fff8fc] to-amber-50/90 p-4 shadow-[0_16px_44px_-18px_rgba(219,39,119,0.38)] dark:border-rose-900/45 dark:from-rose-950/55 dark:via-card dark:to-amber-950/25',
+        'relative overflow-hidden rounded-2xl border border-pink-200/60 bg-gradient-to-br from-white via-transparent to-amber-50/90 p-4 shadow-[0_16px_44px_-18px_rgba(212,165,165,0.38)] dark:border-rose-900/45 dark:from-rose-950/55 dark:via-card dark:to-amber-950/25',
         className
       )}
+      style={{
+        backgroundImage: `linear-gradient(to bottom right, white, ${colors.surface}, color-mix(in srgb, ${colors.accent} 22%, transparent))`,
+      }}
     >
       <div
         className="pointer-events-none absolute -start-6 -top-10 h-28 w-28 rounded-full bg-gradient-to-br from-pink-300/25 to-amber-200/20 blur-2xl"
@@ -54,7 +58,7 @@ export function RosyHomeFirstIntro({ className }: { className?: string }) {
       />
       <div className="relative flex gap-3">
         <div
-          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-[#ec4899] via-[#f472b6] to-[#fbbf24] shadow-[0_8px_24px_-6px_rgba(236,72,153,0.55)]"
+          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-primary via-accent to-accent shadow-[0_8px_24px_-6px_rgba(212,165,165,0.55)]"
           aria-hidden
         >
           <Sparkles className="h-5 w-5 text-white" />

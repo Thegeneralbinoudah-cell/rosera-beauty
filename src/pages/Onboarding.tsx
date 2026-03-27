@@ -74,14 +74,14 @@ export default function Onboarding() {
               </div>
             </div>
             <div className="flex flex-1 flex-col items-center justify-center px-8 pb-8">
-              <h2 className="text-center text-2xl font-bold text-[#1F1F1F] dark:text-white">{title}</h2>
+              <h2 className="text-center text-2xl font-bold text-foreground dark:text-white">{title}</h2>
               <div className="mt-8 flex gap-2">
                 {slides.map((_, j) => (
                   <button
                     key={j}
                     type="button"
                     onClick={() => setI(j)}
-                    className={`h-2 rounded-full transition-all ${j === i ? 'w-8 bg-primary' : 'w-2 bg-[#9CA3AF]/50'}`}
+                    className={`h-2 rounded-full transition-all ${j === i ? 'w-8 bg-primary' : 'w-2 bg-muted-foreground/40'}`}
                     aria-label={`شريحة ${j + 1}`}
                   />
                 ))}
@@ -90,18 +90,18 @@ export default function Onboarding() {
           </motion.div>
         </AnimatePresence>
       </div>
-      <div className="flex flex-col gap-3 border-t border-border bg-white p-6 dark:bg-card">
+      <div className="flex flex-col gap-3 border-t border-border bg-card p-6 dark:bg-card">
         {i < slides.length - 1 ? (
           <>
-            <Button className="w-full rounded-2xl bg-gradient-to-l from-[#9C27B0] to-[#E91E8C]" onClick={() => setI((x) => x + 1)}>
+            <Button className="w-full rounded-2xl gradient-primary" onClick={() => setI((x) => x + 1)}>
               {t.next}
             </Button>
-            <button type="button" className="text-center text-sm font-medium text-[#374151] dark:text-[#D1D5DB]" onClick={finish}>
+            <button type="button" className="text-center text-sm font-medium text-foreground dark:text-muted-foreground" onClick={finish}>
               {t.skip}
             </button>
           </>
         ) : (
-          <Button className="w-full rounded-2xl bg-gradient-to-l from-[#9C27B0] to-[#E91E8C]" onClick={finish}>
+          <Button className="w-full rounded-2xl gradient-primary" onClick={finish}>
             {t.start}
           </Button>
         )}

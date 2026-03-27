@@ -1,8 +1,15 @@
 import { Component, type ErrorInfo, type ReactNode } from 'react'
+import { captureProductEvent } from '@/lib/posthog'
+import { gradients } from '@/theme/tokens'
 
 type Props = { children: ReactNode }
 
 type State = { error: Error | null }
+
+/** يمنع تكرار نفس حدث التحليلات إن أُعيد استدعاء didCatch (نادراً / إعادة تركيب). */
+let lastReactRenderErrorKey: string | null = null
+let lastReactRenderErrorAt = 0
+const REACT_ERROR_DEDUPE_MS = 2500
 
 /**
  * يمنع «صفحة بيضاء» الصامتة عند أي خطأ React غير مُعالَج.
@@ -15,7 +22,22 @@ export class RootErrorBoundary extends Component<Props, State> {
   }
 
   componentDidCatch(error: Error, info: ErrorInfo) {
-    console.error('[RootErrorBoundary]', error, info.componentStack)
+    try {
+      console.error('[RootErrorBoundary]', error, info.componentStack)
+      const key = `${(error.message || 'error').slice(0, 200)}:${(error.stack || '').slice(0, 160)}`
+      const now = Date.now()
+      if (lastReactRenderErrorKey === key && now - lastReactRenderErrorAt < REACT_ERROR_DEDUPE_MS) {
+        return
+      }
+      lastReactRenderErrorKey = key
+      lastReactRenderErrorAt = now
+      captureProductEvent('react_render_error', {
+        message: (error.message || 'error').slice(0, 200),
+        stack: (error.stack || '').slice(0, 200),
+      })
+    } catch {
+      /* ignore */
+    }
   }
 
   render() {
@@ -23,7 +45,7 @@ export class RootErrorBoundary extends Component<Props, State> {
       return (
         <div
           className="min-h-dvh flex flex-col items-center justify-center gap-4 p-6 text-center"
-          style={{ background: 'linear-gradient(135deg, #E91E8C 0%, #9C27B0 100%)' }}
+          style={{ background: gradients.primary }}
         >
           <p className="text-lg font-bold text-white">حدث خطأ في التطبيق</p>
           <p className="max-w-md text-sm text-white/90">
@@ -31,7 +53,7 @@ export class RootErrorBoundary extends Component<Props, State> {
           </p>
           <button
             type="button"
-            className="rounded-full bg-white px-6 py-2 text-sm font-semibold text-[#9B2257] shadow-lg"
+            className="rounded-full bg-card px-6 py-2 text-sm font-semibold text-primary shadow-lg"
             onClick={() => window.location.reload()}
           >
             إعادة تحميل

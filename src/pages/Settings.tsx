@@ -24,13 +24,12 @@ import { tr } from '@/lib/i18n'
 export default function Settings() {
   const { dark, setDark, lang, setLang } = usePreferences()
   const t = (key: string) => tr(lang, key)
-  const [city, setCity] = useState('الخبر')
+  const [city, setCity] = useState(() => {
+    if (typeof window === 'undefined') return 'الخبر'
+    return localStorage.getItem(STORAGE_KEYS.city) || 'الخبر'
+  })
   const [notif, setNotif] = useState(true)
   const [delOpen, setDelOpen] = useState(false)
-
-  useEffect(() => {
-    setCity(localStorage.getItem(STORAGE_KEYS.city) || 'الخبر')
-  }, [])
 
   useEffect(() => {
     localStorage.setItem(STORAGE_KEYS.lang, lang)
@@ -40,7 +39,7 @@ export default function Settings() {
   return (
     <div className="luxury-page-canvas px-4 py-8 pb-28">
       <div className="mx-auto max-w-md">
-        <h1 className="text-heading-2 font-bold tracking-luxury-tight text-foreground">الإعدادات</h1>
+        <h1 className="text-heading-2 font-semibold tracking-luxury-tight text-foreground">الإعدادات</h1>
         <p className="mt-2 text-body-sm font-medium text-muted-foreground">تفضيلاتكِ وتجربة التطبيق بأناقة</p>
 
         <div className="mt-10 space-y-4">

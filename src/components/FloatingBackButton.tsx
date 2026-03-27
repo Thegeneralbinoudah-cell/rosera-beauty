@@ -12,7 +12,12 @@ export function FloatingBackButton() {
   const { t } = useI18n()
 
   /** الصفحة فيها زر رجوع مضمّن — نتجنّب زرّين */
-  if (pathname === '/rosy-vision' || pathname === '/skin-analysis') return null
+  if (
+    pathname === '/rosy-vision' ||
+    pathname === '/skin-analysis' ||
+    pathname.startsWith('/salon/')
+  )
+    return null
 
   return (
     <button

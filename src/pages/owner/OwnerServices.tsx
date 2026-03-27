@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/contexts/AuthContext'
 import { getMySalonBusinessId } from '@/lib/salonOwner'
@@ -41,14 +41,14 @@ export default function OwnerServices() {
   const [edit, setEdit] = useState<Svc | null>(null)
   const [del, setDel] = useState<Svc | null>(null)
 
-  const load = () => {
+  const load = useCallback(() => {
     if (!bid) return
     void supabase
       .from('services')
       .select('id, name_ar, price, duration_minutes, category')
       .eq('business_id', bid)
       .then(({ data }) => setServices((data ?? []) as Svc[]))
-  }
+  }, [bid])
 
   useEffect(() => {
     if (!user) return
@@ -57,7 +57,7 @@ export default function OwnerServices() {
 
   useEffect(() => {
     load()
-  }, [bid])
+  }, [load])
 
   const add = async () => {
     if (!bid || !name.trim()) return
@@ -115,7 +115,7 @@ export default function OwnerServices() {
 
   return (
     <div className="space-y-2">
-      <h1 className="text-2xl font-extrabold text-[#880e4f] dark:text-[#f48fb1]">الخدمات</h1>
+      <h1 className="text-2xl font-extrabold text-foreground">الخدمات</h1>
       <p className="text-sm text-muted-foreground">السعر والمدة كما تظهر لعملائك</p>
       <div className="mt-4 space-y-3 rounded-2xl border border-pink-100/80 bg-white/90 p-4 shadow-sm dark:border-border dark:bg-card">
         <p className="font-bold text-sm">إضافة خدمة</p>
@@ -151,7 +151,7 @@ export default function OwnerServices() {
               </span>
             </div>
             <div className="flex items-center gap-2">
-              <span className="font-bold text-primary">{s.price} ر.س</span>
+              <span className="font-bold text-accent">{s.price} ر.س</span>
               <Button size="sm" variant="outline" onClick={() => setEdit({ ...s })}>
                 تعديل
               </Button>

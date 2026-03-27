@@ -3,6 +3,10 @@ import * as SelectPrimitive from '@radix-ui/react-select'
 import { Check, ChevronDown } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
+/** Matches `src/theme/colors.js` — same as Input */
+const selectTriggerClassName =
+  'flex h-12 w-full items-center justify-between rounded-3xl border border-primary/25 bg-card px-4 py-2 text-body text-foreground shadow-none ring-offset-background transition-all duration-200 ease-out focus:outline-none focus:border-accent focus:ring-2 focus:ring-accent/30 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50'
+
 const Select = SelectPrimitive.Root
 const SelectGroup = SelectPrimitive.Group
 const SelectValue = SelectPrimitive.Value
@@ -13,10 +17,7 @@ const SelectTrigger = React.forwardRef<
 >(({ className, children, ...props }, ref) => (
   <SelectPrimitive.Trigger
     ref={ref}
-    className={cn(
-      'flex h-12 w-full items-center justify-between rounded-2xl border border-input bg-card px-4 py-2 text-body text-foreground ring-offset-background transition-[box-shadow,border-color] duration-normal ease-premium-out focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50',
-      className
-    )}
+    className={cn(selectTriggerClassName, className)}
     {...props}
   >
     {children}
@@ -35,7 +36,7 @@ const SelectContent = React.forwardRef<
     <SelectPrimitive.Content
       ref={ref}
       className={cn(
-        'relative z-50 max-h-96 min-w-[8rem] overflow-hidden rounded-xl border border-border bg-popover text-popover-foreground shadow-md data-[state=open]:animate-in',
+        'relative z-50 max-h-96 min-w-[8rem] overflow-hidden rounded-3xl border border-border bg-popover text-popover-foreground shadow-[0_10px_30px_rgba(212,165,165,0.25)] backdrop-blur-sm data-[state=open]:animate-in dark:shadow-[0_10px_30px_rgba(0,0,0,0.32)]',
         position === 'popper' && 'translate-y-1',
         className
       )}

@@ -3,6 +3,7 @@ import { MapPinned } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useI18n } from '@/hooks/useI18n'
 import { cn } from '@/lib/utils'
+import { colors } from '@/theme/colors'
 
 function CitySkylineIllustration({ className }: { className?: string }) {
   return (
@@ -15,20 +16,20 @@ function CitySkylineIllustration({ className }: { className?: string }) {
     >
       <defs>
         <linearGradient id="ccse-bg" x1="110" y1="0" x2="110" y2="180" gradientUnits="userSpaceOnUse">
-          <stop stopColor="#FDF2F8" />
-          <stop offset="1" stopColor="#FCE7F3" />
+          <stop stopColor={colors.surface} />
+          <stop offset="1" stopColor={colors.secondary} />
         </linearGradient>
         <linearGradient id="ccse-bld" x1="0" y1="0" x2="220" y2="180" gradientUnits="userSpaceOnUse">
-          <stop stopColor="#F9A8C9" stopOpacity="0.95" />
-          <stop offset="1" stopColor="#F472B6" stopOpacity="0.55" />
+          <stop stopColor={colors.primary} stopOpacity="0.95" />
+          <stop offset="1" stopColor={colors.primary} stopOpacity="0.55" />
         </linearGradient>
         <linearGradient id="ccse-accent" x1="160" y1="40" x2="200" y2="100" gradientUnits="userSpaceOnUse">
-          <stop stopColor="#FBCFE8" />
-          <stop offset="1" stopColor="#F9A8C9" />
+          <stop stopColor={colors.secondary} />
+          <stop offset="1" stopColor={colors.primary} />
         </linearGradient>
       </defs>
       <ellipse cx="110" cy="100" rx="88" ry="72" fill="url(#ccse-bg)" />
-      <ellipse cx="110" cy="118" rx="72" ry="8" fill="#F9A8C9" fillOpacity="0.12" />
+      <ellipse cx="110" cy="118" rx="72" ry="8" fill={colors.primary} fillOpacity="0.12" />
 
       <g>
         <path
@@ -53,7 +54,7 @@ function CitySkylineIllustration({ className }: { className?: string }) {
         />
       </g>
 
-      <g fill="#BE185D" fillOpacity="0.22">
+      <g fill={colors.error} fillOpacity="0.22">
         <circle cx="84" cy="98" r="2.5" />
         <circle cx="92" cy="98" r="2.5" />
         <circle cx="84" cy="108" r="2.5" />
@@ -72,23 +73,23 @@ function CitySkylineIllustration({ className }: { className?: string }) {
       />
       <path
         d="M175 38v8M171 42h8"
-        stroke="#BE185D"
+        stroke={colors.error}
         strokeOpacity="0.35"
         strokeWidth="1.2"
         strokeLinecap="round"
       />
       <path
         d="M48 46l2 4.5 5 .8-3.6 3.4.9 5-4.4-2.4-4.4 2.4.9-5-3.6-3.4 5-.8 2-4.5Z"
-        fill="#F9A8C9"
+        fill={colors.primary}
         fillOpacity="0.55"
       />
       <path
         d="M188 78l1.6 3.6 3.9.6-2.8 2.7.7 3.9-3.5-1.9-3.5 1.9.7-3.9-2.8-2.7 3.9-.6 1.6-3.6Z"
-        fill="#FBCFE8"
+        fill={colors.secondary}
         fillOpacity="0.9"
       />
 
-      <ellipse cx="110" cy="154" rx="56" ry="3" fill="#F9A8C9" fillOpacity="0.15" />
+      <ellipse cx="110" cy="154" rx="56" ry="3" fill={colors.primary} fillOpacity="0.15" />
     </svg>
   )
 }
@@ -110,16 +111,17 @@ export function CityComingSoonEmpty({ ctaTo, className }: CityComingSoonEmptyPro
       )}
     >
       <div
-        className="pointer-events-none absolute inset-x-8 top-8 h-40 rounded-[2.5rem] bg-gradient-to-b from-[#FDF2F8] via-white to-transparent opacity-90 dark:from-primary/10 dark:via-transparent"
+        className="pointer-events-none absolute inset-x-8 top-8 h-40 rounded-[2.5rem] opacity-90"
+        style={{ backgroundImage: `linear-gradient(to bottom, ${colors.surface}, white, transparent)` }}
         aria-hidden
       />
       <div className="relative z-[1] mb-6 drop-shadow-sm">
         <CitySkylineIllustration />
       </div>
-      <h2 className="font-cairo relative z-[1] max-w-[17rem] text-lg font-semibold leading-relaxed tracking-tight text-[#374151] dark:text-foreground">
+      <h2 className="font-cairo relative z-[1] max-w-[17rem] text-lg font-semibold leading-relaxed tracking-tight text-foreground">
         {t('city.emptySoon')}
       </h2>
-      <p className="font-cairo relative z-[1] mt-2 max-w-[18rem] text-sm leading-relaxed text-[#6B7280] dark:text-muted-foreground">
+      <p className="font-cairo relative z-[1] mt-2 max-w-[18rem] text-sm leading-relaxed text-muted-foreground">
         {t('city.emptySoonSub')}
       </p>
       <Button

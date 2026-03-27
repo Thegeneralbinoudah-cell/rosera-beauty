@@ -63,7 +63,7 @@ export default function AdminSalons() {
           غير موثّقة فقط
         </label>
       </div>
-      <div className="mt-6 overflow-x-auto rounded-xl border bg-white dark:bg-card">
+      <div className="mt-6 overflow-x-auto rounded-xl border bg-card">
         <table className="w-full min-w-[640px] text-sm">
           <thead className="border-b bg-muted/50">
             <tr>
@@ -96,7 +96,7 @@ export default function AdminSalons() {
                   </Button>
                 </td>
                 <td className="p-3 text-center">
-                  <Link to={`/salon/${r.id}`} className="text-primary underline font-semibold">
+                  <Link to={`/salon/${r.id}`} className="font-semibold text-accent underline">
                     عرض
                   </Link>
                 </td>

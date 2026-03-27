@@ -20,13 +20,18 @@ import { STORAGE_KEYS } from '@/lib/utils'
 import { tr } from '@/lib/i18n'
 import { usePreferences } from '@/contexts/PreferencesContext'
 import { cn } from '@/lib/utils'
+import { colors } from '@/theme/colors'
 
 /** تأخير قصير — يعطي وقتاً لقراءة الرئيسية ورسالة روزي دون تكديس فوري */
 const FIRST_VISIT_DELAY_MS = 4_500
 const SESSION_MODAL_OPEN = 'rosera_pwa_first_visit_modal_open'
 
 const shellClass =
-  'gap-6 rounded-3xl border border-pink-200/55 bg-gradient-to-b from-[#fff8fc] via-white to-amber-50/90 p-8 shadow-floating dark:border-pink-900/40 dark:from-rose-950/45 dark:via-card dark:to-amber-950/22'
+  'gap-6 rounded-3xl border border-pink-200/55 bg-gradient-to-b via-white to-amber-50/90 p-8 shadow-floating dark:border-pink-900/40 dark:from-rose-950/45 dark:via-card dark:to-amber-950/22'
+
+const shellStyle = {
+  backgroundImage: `linear-gradient(to bottom, ${colors.surface}, white, color-mix(in srgb, ${colors.accent} 22%, transparent))`,
+} as const
 
 function usePreferInstallSheet() {
   const [preferSheet, setPreferSheet] = useState(false)
@@ -131,10 +136,10 @@ export function PwaFirstVisitDialog() {
         type="button"
         onClick={onInstall}
         className={cn(
-          'order-1 min-h-[3.25rem] flex-1 rounded-2xl border-0 text-base font-bold text-white shadow-[0_0_28px_rgba(244,114,182,0.5),0_8px_24px_rgba(251,191,36,0.25)]',
-          'bg-gradient-to-r from-[#ec4899] via-[#f472b6] to-[#fbbf24]',
+          'order-1 min-h-[3.25rem] flex-1 rounded-2xl border-0 text-base font-bold text-white shadow-[0_0_28px_rgba(212,165,165,0.5),0_8px_24px_rgba(197,160,89,0.25)]',
+          'bg-gradient-to-r from-primary via-accent to-secondary',
           'transition hover:brightness-105 active:scale-[0.98]',
-          'dark:from-[#db2777] dark:via-[#ec4899] dark:to-[#d97706]'
+          'dark:from-primary dark:via-accent dark:to-accent'
         )}
       >
         {tr(lang, 'pwa.installCta')}
@@ -156,6 +161,7 @@ export function PwaFirstVisitDialog() {
         <DialogContent
           dir={isRtl ? 'rtl' : 'ltr'}
           className={cn('z-[75] max-w-[min(calc(100vw-2rem),24rem)]', shellClass, '[&>button.absolute]:hidden')}
+          style={shellStyle}
         >
           {glow}
         <DialogHeader className="space-y-4 text-center sm:text-center">
@@ -177,6 +183,7 @@ export function PwaFirstVisitDialog() {
         side="bottom"
         dir={isRtl ? 'rtl' : 'ltr'}
         className={cn('z-[75] rounded-t-3xl', shellClass, 'pb-[max(1.5rem,env(safe-area-inset-bottom))]')}
+        style={shellStyle}
       >
         {glow}
         <SheetHeader className="space-y-4 text-center">

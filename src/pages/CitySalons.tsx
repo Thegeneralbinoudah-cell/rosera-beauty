@@ -32,6 +32,11 @@ import {
 
 const CITY_SORT_PREFS_KEY = 'rosera:city:sort'
 
+const EMPTY_BOOST_MAP = new Map<string, BoostMeta>()
+const EMPTY_FEATURED_IDS = new Set<string>()
+const EMPTY_PLAN_MAP = new Map<string, SalonSubscriptionPlan>()
+const EMPTY_OFFER_MAP = new Map<string, SalonActiveOffer>()
+
 export default function CitySalons() {
   const { t } = useI18n()
   const { lang } = usePreferences()
@@ -92,10 +97,7 @@ export default function CitySalons() {
   }, [sortBy, setParams])
 
   useEffect(() => {
-    if (!salons.length) {
-      setSalonBoostMeta(new Map())
-      return
-    }
+    if (!salons.length) return
     let c = true
     void fetchActiveBusinessBoostMeta(salons.map((s) => s.id)).then((m) => {
       if (c) setSalonBoostMeta(m)
@@ -106,10 +108,7 @@ export default function CitySalons() {
   }, [salons])
 
   useEffect(() => {
-    if (!salons.length) {
-      setFeaturedAdIds(new Set())
-      return
-    }
+    if (!salons.length) return
     let c = true
     void fetchActiveSalonFeaturedAdSalonIds(salons.map((s) => s.id)).then((s) => {
       if (c) setFeaturedAdIds(s)
@@ -120,10 +119,7 @@ export default function CitySalons() {
   }, [salons])
 
   useEffect(() => {
-    if (!user?.id) {
-      setAiProfile(undefined)
-      return
-    }
+    if (!user?.id) return
     let c = true
     void fetchAiUserProfile(user.id).then((p) => {
       if (c) setAiProfile(p)
@@ -134,11 +130,7 @@ export default function CitySalons() {
   }, [user?.id])
 
   useEffect(() => {
-    if (!salons.length) {
-      setPlanMap(new Map())
-      setOfferMap(new Map())
-      return
-    }
+    if (!salons.length) return
     const ids = salons.map((s) => s.id)
     let c = true
     void Promise.all([
@@ -155,6 +147,12 @@ export default function CitySalons() {
     }
   }, [salons])
 
+  const salonBoostMetaDisplay = salons.length === 0 ? EMPTY_BOOST_MAP : salonBoostMeta
+  const featuredAdIdsDisplay = salons.length === 0 ? EMPTY_FEATURED_IDS : featuredAdIds
+  const aiProfileDisplay = user?.id ? aiProfile : undefined
+  const planMapDisplay = salons.length === 0 ? EMPTY_PLAN_MAP : planMap
+  const offerMapDisplay = salons.length === 0 ? EMPTY_OFFER_MAP : offerMap
+
   const paramSig = params.toString()
 
   const personalizedBaseSignals = useMemo((): PersonalizedRankingSignals => {
@@ -168,7 +166,7 @@ export default function CitySalons() {
       intentKeywords: readMapChatHintsFromSession(),
       preferredServiceType: parsePreferredServiceParam(p.get('service')),
     }
-  }, [paramSig, sortBy])
+  }, [paramSig])
 
   const displaySalons = useMemo(() => {
     if (sortBy === 'smart') {
@@ -181,16 +179,16 @@ export default function CitySalons() {
           category_label: b.category_label,
           city: b.city,
           price_range: b.price_range,
-          subscription_plan: mergeSubscriptionPlan(b, planMap.get(b.id)),
+          subscription_plan: mergeSubscriptionPlan(b, planMapDisplay.get(b.id)),
           is_featured: b.is_featured,
-          has_active_featured_ad: featuredAdIds.has(b.id),
-          activeOffer: offerMap.get(b.id) ?? null,
+          has_active_featured_ad: featuredAdIdsDisplay.has(b.id),
+          activeOffer: offerMapDisplay.get(b.id) ?? null,
         }),
         baseSignals: personalizedBaseSignals,
-        userProfile: aiProfile,
+        userProfile: aiProfileDisplay,
         userPos,
       })
-      return partitionSalonsWithFeaturedAdsFirst(sorted, featuredAdIds)
+      return partitionSalonsWithFeaturedAdsFirst(sorted, featuredAdIdsDisplay)
     }
 
     const sorted = [...salons].sort((a, b) => {
@@ -226,34 +224,34 @@ export default function CitySalons() {
         rb - ra
       )
     })
-    return partitionSalonsWithFeaturedAdsFirst(sorted, featuredAdIds)
+    return partitionSalonsWithFeaturedAdsFirst(sorted, featuredAdIdsDisplay)
   }, [
     salons,
     sortBy,
     userPos,
-    featuredAdIds,
+    featuredAdIdsDisplay,
     personalizedBaseSignals,
-    aiProfile,
-    offerMap,
-    planMap,
+    aiProfileDisplay,
+    offerMapDisplay,
+    planMapDisplay,
   ])
 
   return (
-    <div className="min-h-dvh bg-white pb-28 dark:bg-rosera-dark">
-      <header className="sticky top-0 z-20 border-b border-[#F9A8C9]/25 bg-white px-4 py-4 shadow-sm dark:border-border dark:bg-card">
+    <div className="min-h-dvh bg-background pb-28 dark:bg-rosera-dark">
+      <header className="sticky top-0 z-20 border-b border-primary/25 bg-card px-4 py-4 shadow-sm dark:border-border dark:bg-card">
         <div className="mx-auto flex max-w-lg items-center gap-3">
           {regionId && (
             <Link
               to={`/region/${regionId}`}
-              className="inline-flex shrink-0 items-center gap-0.5 text-sm font-semibold text-[#BE185D] transition-colors hover:text-[#9D174D] dark:text-primary"
+              className="inline-flex shrink-0 items-center gap-0.5 text-sm font-semibold text-primary transition-colors hover:text-primary dark:text-primary"
             >
               <ChevronLeft className="h-4 w-4" aria-hidden />
               {t('city.backRegion')}
             </Link>
           )}
           <div className="min-w-0 flex-1">
-            <h1 className="truncate text-xl font-semibold text-[#374151] dark:text-foreground">{cityName || '...'}</h1>
-            <p className="text-sm font-medium text-[#6B7280] dark:text-muted-foreground">{t('city.subtitle')}</p>
+            <h1 className="truncate text-xl font-semibold text-foreground">{cityName || '...'}</h1>
+            <p className="text-sm font-medium text-muted-foreground">{t('city.subtitle')}</p>
           </div>
         </div>
       </header>
@@ -275,7 +273,7 @@ export default function CitySalons() {
             <Button variant="ghost" size="sm" className="gap-1" onClick={resetCityFilters}>
               {t('common.reset')}
               {activeFiltersCount > 0 && (
-                <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-[#F9A8C9] px-1 text-[10px] font-extrabold text-[#374151]">
+                <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-primary/35 px-1 text-[10px] font-extrabold text-foreground">
                   {activeFiltersCount}
                 </span>
               )}
@@ -291,9 +289,9 @@ export default function CitySalons() {
         ) : salons.length === 0 ? (
           <CityComingSoonEmpty ctaTo={regionId ? `/region/${regionId}` : '/home'} />
         ) : (
-          <div className="grid gap-4 sm:grid-cols-2">
+          <div className="motion-stagger grid gap-4 sm:grid-cols-2">
             {displaySalons.map((b) => {
-              const meta = salonBoostMeta.get(b.id)
+              const meta = salonBoostMetaDisplay.get(b.id)
               return (
                 <BusinessCard
                   key={b.id}
@@ -301,7 +299,7 @@ export default function CitySalons() {
                   showFavorite
                   isSponsored={!!meta}
                   sponsorLabel={meta?.boost_type}
-                  isFeaturedAd={featuredAdIds.has(b.id)}
+                  isFeaturedAd={featuredAdIdsDisplay.has(b.id)}
                 />
               )
             })}

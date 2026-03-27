@@ -139,7 +139,7 @@ export default function AdminTeam() {
       <p className="mt-2 text-sm text-muted-foreground">
         عرض المسؤولين والمشرفين. المالك فقط يمكنه حذف الأعضاء.
       </p>
-      <div className="mt-6 overflow-x-auto rounded-xl border bg-white dark:bg-card">
+      <div className="mt-6 overflow-x-auto rounded-xl border bg-card">
         <table className="w-full text-sm">
           <thead className="border-b">
             <tr>

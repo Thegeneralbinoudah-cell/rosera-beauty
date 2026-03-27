@@ -39,7 +39,7 @@ export function RosyChatPanel() {
               aria-hidden
             />
             <div className="min-w-0 flex-1 text-start">
-              <p className="bg-gradient-to-l from-[#be185d] via-primary to-amber-600 bg-clip-text text-lg font-extrabold tracking-tight text-transparent dark:from-pink-200 dark:via-primary dark:to-amber-200">
+              <p className="bg-gradient-to-l from-destructive via-primary to-accent bg-clip-text text-lg font-extrabold tracking-tight text-transparent dark:from-pink-200 dark:via-primary dark:to-amber-200">
                 روزي ✨
               </p>
               <p className="text-xs font-medium text-muted-foreground">مساعدتك الجمالية بالذكاء الاصطناعي</p>

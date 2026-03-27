@@ -77,6 +77,7 @@ export default function TopSalons() {
       const { data, error: qErr } = await supabase
         .from('businesses')
         .select('id,name_ar,cover_image,average_rating,total_reviews,category,category_label')
+        .in('category', ['salon', 'beauty_salon'])
         .gte('average_rating', 4.0)
         .gt('total_reviews', 20)
         .limit(48)
@@ -122,11 +123,11 @@ export default function TopSalons() {
   }, [loading, error, rows])
 
   return (
-    <div className="min-h-dvh bg-gradient-to-b from-[#fff5fb] via-white to-[#fce4ec]/30 pb-28 dark:from-rosera-dark dark:via-rosera-dark dark:to-rosera-dark">
+    <div className="min-h-dvh bg-gradient-to-b from-background via-white to-primary-subtle/30 pb-28 dark:from-background dark:via-background dark:to-background">
       <header className="sticky top-0 z-20 border-b border-primary/10 bg-white/80 px-4 py-5 backdrop-blur-xl dark:bg-rosera-dark/90">
         <div className="mx-auto max-w-5xl">
-          <h1 className="text-2xl font-extrabold tracking-tight text-[#1F1F1F] dark:text-foreground">{ui.title}</h1>
-          <p className="mt-1.5 text-sm font-medium text-[#6B7280] dark:text-rosera-gray">{ui.subtitle}</p>
+          <h1 className="text-2xl font-extrabold tracking-tight text-foreground">{ui.title}</h1>
+          <p className="mt-1.5 text-sm font-medium text-muted-foreground">{ui.subtitle}</p>
         </div>
       </header>
 
@@ -142,7 +143,7 @@ export default function TopSalons() {
             {error}
           </p>
         ) : rows.length === 0 ? (
-          <div className="rounded-2xl border border-dashed border-primary/25 bg-white/60 py-20 text-center dark:bg-card/40">
+          <div className="rounded-2xl border border-dashed border-primary/25 dark:bg-card/40 bg-card/60 py-20 text-center dark:bg-card/40">
             <p className="text-sm font-medium text-rosera-gray">{ui.empty}</p>
           </div>
         ) : (

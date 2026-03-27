@@ -1,26 +1,38 @@
 import type { Business } from '@/lib/supabase'
+import { isHomeCategoryValue, type HomeCategoryValue } from '@/lib/homeCategories'
 
-/** Canonical Arabic labels — must stay aligned with Search filter UI and Home chips. */
+/** Search filter dialog — 5 canonical `categoryValue` keys (aligned with Home). */
 export const SEARCH_BUSINESS_CATEGORY_OPTIONS: readonly {
-  value: string
+  categoryValue: string
   key: string
 }[] = [
-  { value: 'صالون نسائي', key: 'search.cat.salon_female' },
-  { value: 'سبا ومساج', key: 'search.cat.spa_massage' },
-  { value: 'مكياج', key: 'search.cat.makeup' },
-  { value: 'عناية بالبشرة', key: 'search.cat.skincare' },
-  { value: 'عيادة تجميل', key: 'search.cat.clinic_beauty' },
-  { value: 'عيادة جلدية', key: 'search.cat.clinic_skin' },
-  { value: 'عيادة ليزر', key: 'search.cat.clinic_laser' },
-  { value: 'عيادة حقن وفيلر', key: 'search.cat.clinic_filler' },
+  { categoryValue: 'salon', key: 'search.cat.salon_female' },
+  { categoryValue: 'clinic', key: 'search.cat.clinic_beauty' },
+  { categoryValue: 'spa', key: 'search.cat.spa_massage' },
+  { categoryValue: 'makeup', key: 'search.cat.makeup' },
+  { categoryValue: 'skincare', key: 'search.cat.skincare' },
 ] as const
 
-const CANONICAL_VALUES = SEARCH_BUSINESS_CATEGORY_OPTIONS.map((o) => o.value)
+/** Legacy Arabic labels (Map, old bookmarks) — `resolveSearchCategoryFilter` / `businessMatchesSearchCategory` */
+const LEGACY_CANONICAL_LABELS = [
+  'صالون نسائي',
+  'سبا ومساج',
+  'مكياج',
+  'عناية بالبشرة',
+  'عيادة تجميل',
+  'عيادة جلدية',
+  'عيادة ليزر',
+  'عيادة حقن وفيلر',
+] as const
+
+const CANONICAL_VALUES: string[] = [...LEGACY_CANONICAL_LABELS]
 
 /** URL / legacy chip text → canonical `categoryLabel` */
 const ALIASES_TO_CANONICAL: Record<string, string> = {
   'عيادة حقن': 'عيادة حقن وفيلر',
   'حقن وفيلر': 'عيادة حقن وفيلر',
+  /** Home chip wording vs legacy seed label */
+  'عيادات تجميل': 'عيادة تجميل',
 }
 
 export function normalizeArabicLabel(s: string): string {
@@ -142,4 +154,62 @@ export function businessMatchesOffersVenueTab(
   }
 
   return true
+}
+
+const VALUE_TO_LABELS: Record<HomeCategoryValue, string[]> = {
+  salon: ['صالون نسائي'],
+  clinic: ['عيادات تجميل', 'عيادة تجميل'],
+  spa: ['سبا ومساج'],
+  makeup: ['مكياج'],
+  skincare: ['عناية بالبشرة'],
+}
+
+/** Map legacy `categoryLabel` URL params → canonical `categoryValue` for Home / Search chips. */
+export function legacyCategoryLabelToCategoryValue(raw: string): string | null {
+  const n = normalizeArabicLabel(raw)
+  const map: Record<string, HomeCategoryValue> = {
+    'صالون نسائي': 'salon',
+    'سبا ومساج': 'spa',
+    'مكياج': 'makeup',
+    'عناية بالبشرة': 'skincare',
+    'عيادة تجميل': 'clinic',
+    'عيادات تجميل': 'clinic',
+    'عيادة جلدية': 'clinic',
+    'عيادة ليزر': 'clinic',
+    'عيادة حقن وفيلر': 'clinic',
+    'عيادة حقن': 'clinic',
+  }
+  return map[n] ?? null
+}
+
+/**
+ * Strict filter by `category_value` (DB) or `category` / `category_label` for one of five chips.
+ * Does not mix types — e.g. clinic rows never match `salon`.
+ */
+export function businessMatchesCategoryValue(
+  b: Pick<Business, 'category' | 'category_label'> & { category_value?: string | null },
+  value: string
+): boolean {
+  if (!isHomeCategoryValue(value)) return false
+  const v = value as HomeCategoryValue
+
+  const cv = (b.category_value ?? '').toLowerCase().trim()
+  if (cv === v) return true
+
+  const cat = (b.category ?? '').toLowerCase().trim()
+  if (cat === v) return true
+
+  const lbl = normalizeArabicLabel(b.category_label ?? '')
+  if (lbl) {
+    const allowed = VALUE_TO_LABELS[v]
+    if (allowed.some((a) => normalizeArabicLabel(a) === lbl)) return true
+  }
+
+  if (v === 'clinic' && cat === 'clinic') return true
+  if (v === 'spa' && cat === 'spa') return true
+  if (v === 'makeup' && cat === 'makeup') return true
+  if (v === 'skincare' && cat === 'skincare') return true
+  if (v === 'salon' && (cat === 'salon' || cat === 'beauty_salon')) return true
+
+  return false
 }

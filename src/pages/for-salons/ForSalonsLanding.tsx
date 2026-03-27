@@ -36,14 +36,14 @@ export default function ForSalonsLanding() {
   }
 
   return (
-    <div className="min-h-dvh bg-gradient-to-b from-[#fff5f8] via-white to-[#fce4ec]/40 dark:from-background dark:via-background dark:to-pink-950/20" dir="rtl">
-      <header className="border-b border-pink-100/80 bg-white/80 backdrop-blur-md dark:border-border dark:bg-card/80">
+    <div className="min-h-dvh bg-gradient-to-b from-background via-white to-primary-subtle/30 dark:from-background dark:via-background dark:to-primary/10" dir="rtl">
+      <header className="border-b border-primary/15 bg-card/80 backdrop-blur-md border-border">
         <div className="mx-auto flex max-w-3xl items-center justify-between gap-4 px-4 py-4">
           <Link to="/home" className="flex items-center gap-2">
             <img src={ROSERA_LOGO_SRC} alt="" className="h-9 w-9 rounded-xl object-contain" />
-            <span className="text-sm font-bold text-[#880e4f] dark:text-pink-200">روزيرا للصالونات</span>
+            <span className="text-sm font-bold text-primary dark:text-primary">روزيرا للصالونات</span>
           </Link>
-          <Button variant="ghost" size="sm" className="text-[#ad1457]" asChild>
+          <Button variant="ghost" size="sm" className="text-primary" asChild>
             <Link to="/home">دخول التطبيق</Link>
           </Button>
         </div>
@@ -51,7 +51,7 @@ export default function ForSalonsLanding() {
 
       <main className="mx-auto max-w-lg px-4 py-10 pb-28">
         <div className="text-center">
-          <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-[#fce4ec] to-[#f9a8c9] text-[#9B2257] shadow-lg shadow-pink-200/50">
+          <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-primary-subtle to-primary/35 text-primary shadow-lg shadow-primary/20">
             <Sparkles className="h-7 w-7" strokeWidth={2} />
           </div>
           <h1 className="text-2xl font-extrabold leading-snug text-foreground sm:text-3xl">
@@ -82,9 +82,9 @@ export default function ForSalonsLanding() {
           ].map(({ icon: Icon, title, desc }) => (
             <div
               key={title}
-              className="flex gap-4 rounded-2xl border border-pink-100/90 bg-white p-4 shadow-sm dark:border-border dark:bg-card"
+              className="flex gap-4 rounded-2xl border border-primary/15 bg-card p-4 shadow-sm border-border"
             >
-              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-pink-50 text-[#c2185b] dark:bg-pink-950/40 dark:text-pink-200">
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-primary-subtle text-primary dark:bg-primary/15 dark:text-primary">
                 <Icon className="h-5 w-5" />
               </div>
               <div>
@@ -95,11 +95,11 @@ export default function ForSalonsLanding() {
           ))}
         </section>
 
-        <section className="mt-8 rounded-2xl border-2 border-dashed border-[#e91e8c]/35 bg-gradient-to-l from-pink-50/90 to-white p-5 dark:border-pink-500/30 dark:from-pink-950/25 dark:to-card">
+        <section className="mt-8 rounded-2xl border-2 border-dashed border-primary/35 bg-gradient-to-l from-primary-subtle/90 to-white p-5 dark:border-primary/30 dark:from-primary/15 dark:to-card">
           <div className="flex items-start gap-3">
-            <Gift className="mt-0.5 h-6 w-6 shrink-0 text-[#c2185b]" />
+            <Gift className="mt-0.5 h-6 w-6 shrink-0 text-primary" />
             <div>
-              <p className="font-extrabold text-[#880e4f] dark:text-pink-200">عرض الترحيب</p>
+              <p className="font-extrabold text-primary dark:text-primary">عرض الترحيب</p>
               <ul className="mt-2 space-y-1.5 text-sm text-foreground">
                 <li>• أول شهر اشتراك باقة أساسية — مجاني 🎁</li>
                 <li>• بدون عمولة منصة على الحجوزات في أول أسبوع</li>
@@ -116,7 +116,7 @@ export default function ForSalonsLanding() {
             type="button"
             size="lg"
             disabled={loading}
-            className="h-12 w-full rounded-2xl bg-gradient-to-l from-[#9C27B0] to-[#E91E8C] text-base font-bold text-white shadow-md"
+            className="h-12 w-full rounded-2xl gradient-primary text-base font-bold text-white shadow-md"
             onClick={() => void goRegister()}
           >
             سجلي صالونك
@@ -135,11 +135,11 @@ export default function ForSalonsLanding() {
 
         <p className="mt-8 text-center text-xs text-muted-foreground">
           بالمتابعة أنتِ توافقين على{' '}
-          <Link to="/terms" className="font-semibold text-[#ad1457] underline-offset-2 hover:underline">
+          <Link to="/terms" className="font-semibold text-accent underline-offset-2 hover:underline">
             الشروط
           </Link>{' '}
           و{' '}
-          <Link to="/privacy" className="font-semibold text-[#ad1457] underline-offset-2 hover:underline">
+          <Link to="/privacy" className="font-semibold text-accent underline-offset-2 hover:underline">
             الخصوصية
           </Link>
           .

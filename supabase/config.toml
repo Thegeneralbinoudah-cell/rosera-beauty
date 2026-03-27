@@ -23,9 +23,6 @@ verify_jwt = false
 [functions.skin-analysis]
 verify_jwt = false
 
-[functions.rozy-vision]
-verify_jwt = false
-
 [functions.rozi-vision]
 verify_jwt = false
 

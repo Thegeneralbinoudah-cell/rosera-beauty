@@ -110,7 +110,7 @@ export default function AdminOffers() {
   return (
     <div className="mx-auto max-w-3xl space-y-8">
       <div>
-        <h1 className="text-2xl font-bold text-[#1F1F1F] dark:text-foreground">العروض والخصومات</h1>
+        <h1 className="text-2xl font-bold text-foreground">العروض والخصومات</h1>
         <p className="mt-1 text-sm text-rosera-gray">إضافة عرض يدوياً لصالون</p>
       </div>
 
@@ -179,7 +179,7 @@ export default function AdminOffers() {
         </div>
         <Button
           type="button"
-          className="w-full rounded-2xl bg-gradient-to-l from-[#9C27B0] to-[#E91E8C]"
+          className="w-full rounded-2xl gradient-primary"
           disabled={saving}
           onClick={() => void submit()}
         >

@@ -89,7 +89,7 @@ export default function OffersPage() {
         {loading
           ? [1, 2, 3].map((i) => <Skeleton key={i} className="h-40 w-full" />)
           : list.map((o) => (
-              <div key={o.id} className="flex gap-4 overflow-hidden rounded-2xl border bg-white shadow-sm dark:bg-card">
+              <div key={o.id} className="flex gap-4 overflow-hidden rounded-2xl border bg-card shadow-sm dark:bg-card">
                 <img
                   src={o.image || o.businesses?.cover_image || 'https://images.unsplash.com/photo-1560066984-138dadb4c035?w=200'}
                   alt=""

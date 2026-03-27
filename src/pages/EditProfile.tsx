@@ -144,7 +144,7 @@ export default function EditProfile() {
             </SelectContent>
           </Select>
         </div>
-        <Button className="w-full rounded-2xl bg-gradient-to-l from-[#9C27B0] to-[#E91E8C]" onClick={save} disabled={loading}>
+        <Button className="w-full rounded-2xl gradient-primary" onClick={save} disabled={loading}>
           حفظ التغييرات
         </Button>
       </div>

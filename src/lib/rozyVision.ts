@@ -21,7 +21,7 @@ export type RozyVisionInvokePayload = {
 /** Aligns with Edge `MAX_BASE64_CHARS` — max raw image size before base64 (~3.9MB). */
 export const MAX_ROZY_VISION_IMAGE_BYTES = 3_800_000
 
-/** Same as `supabase/functions/rozy-vision` — reject before upload if longer. */
+/** Same as `supabase/functions/rozi-vision` — reject before upload if longer. */
 export const MAX_ROZY_VISION_BASE64_CHARS = 5_200_000
 
 /** Vision call budget — slow networks get a clear error instead of hanging UI. */
@@ -74,6 +74,20 @@ const CONF_SET = new Set<RozyVisionConfidence>(['high', 'medium', 'low'])
 const UNDERTONE_SET = new Set<RozyVisionUndertone>(['warm', 'cool', 'neutral', 'uncertain'])
 const FACE_SET = new Set<RozyVisionFaceShape>(['oval', 'round', 'square', 'heart', 'uncertain'])
 
+/** يطابق منطق الخادم: غياب الحقل = مقبول؛ الرفض الصريح فقط يرفض. */
+function coerceQualityOk(v: unknown): boolean {
+  if (v === false) return false
+  if (v === true) return true
+  if (v === 0) return false
+  if (v === 1) return true
+  if (typeof v === 'string') {
+    const s = v.trim().toLowerCase()
+    if (s === 'false' || s === 'no' || s === '0') return false
+    if (s === 'true' || s === 'yes' || s === '1') return true
+  }
+  return true
+}
+
 function pickMode(v: unknown, fallback: RozyVisionMode): RozyVisionMode {
   return v === 'hand' || v === 'face' ? v : fallback
 }
@@ -114,7 +128,7 @@ export function normalizeRozyVisionResult(raw: unknown, fallbackMode: RozyVision
   const base: RozyVisionResult = {
     mode,
     confidence: pickConfidence(r.confidence),
-    qualityOk: typeof r.qualityOk === 'boolean' ? r.qualityOk : false,
+    qualityOk: coerceQualityOk(r.qualityOk),
     summaryAr: summaryRaw,
     undertone: pickUndertone(r.undertone),
     faceShape: pickFaceShape(r.faceShape),
@@ -156,7 +170,7 @@ export async function invokeRozyVision(payload: RozyVisionInvokePayload): Promis
     throw new Error('الصورة كبيرة جداً بعد التحويل — اختاري ملفاً أصغر')
   }
 
-  const { data, error, response } = await supabase.functions.invoke('rozy-vision', {
+  const { data, error, response } = await supabase.functions.invoke('rozi-vision', {
     body: {
       mode: payload.mode,
       imageBase64: payload.imageBase64,

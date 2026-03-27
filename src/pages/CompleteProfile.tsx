@@ -63,7 +63,7 @@ export default function CompleteProfile() {
         if (options.length && !city) setCity(options[0].name_ar)
       })
     return () => { c = false }
-  }, [])
+  }, [city])
 
   const onFile = (e: React.ChangeEvent<HTMLInputElement>) => {
     const f = e.target.files?.[0]
@@ -115,7 +115,7 @@ export default function CompleteProfile() {
   if (profile?.full_name?.trim()) return null
 
   return (
-    <div className="min-h-dvh bg-white px-6 py-12 dark:bg-rosera-dark">
+    <div className="min-h-dvh bg-background px-6 py-12 dark:bg-rosera-dark">
       <div className="mx-auto max-w-md">
         <h1 className="text-2xl font-extrabold text-center text-foreground">أكملي ملفكِ</h1>
         <p className="mt-2 text-center text-sm text-rosera-gray">خطوة واحدة وتنتهين</p>
@@ -164,7 +164,7 @@ export default function CompleteProfile() {
             </Select>
           </div>
           <Button
-            className="mt-6 h-12 w-full rounded-2xl bg-gradient-to-l from-[#9C27B0] to-[#E91E8C] text-base font-bold"
+            className="mt-6 h-12 w-full rounded-2xl gradient-primary text-base font-bold"
             onClick={save}
             disabled={loading}
           >

@@ -1,5 +1,6 @@
-import { useEffect, useState } from 'react'
-import { Star, MapPin, Heart, Navigation } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
+import type { ReactNode } from 'react'
+import { MapPin, Heart, Navigation } from 'lucide-react'
 import { Card } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import type { Business } from '@/lib/supabase'
@@ -15,6 +16,55 @@ import { usePreferences } from '@/contexts/PreferencesContext'
 import { Button } from '@/components/ui/button'
 import { LazyImage } from '@/components/ui/lazy-image'
 import { formatDistrictCityLine } from '@/lib/locationFormat'
+import { LuxuryStarRating } from '@/components/ui/LuxuryStarRating'
+import { useMediaQuery } from '@/hooks/useMediaQuery'
+
+/** Desktop: cover image translateY at ~0.5× scroll-derived offset (rAF-batched). */
+function SalonCoverParallax({ src, children }: { src: string; children?: ReactNode }) {
+  const wrapRef = useRef<HTMLDivElement>(null)
+  const isLg = useMediaQuery('(min-width: 1024px)')
+  const [y, setY] = useState(0)
+
+  useEffect(() => {
+    if (!isLg) return
+    let raf = 0
+    const tick = () => {
+      const el = wrapRef.current
+      if (!el) return
+      const rect = el.getBoundingClientRect()
+      const vh = window.innerHeight
+      if (rect.bottom < 0 || rect.top > vh) {
+        setY(0)
+        return
+      }
+      const center = rect.top + rect.height / 2
+      const offset = (center - vh / 2) * 0.08 * 0.5
+      setY(-offset)
+    }
+    const onScroll = () => {
+      cancelAnimationFrame(raf)
+      raf = requestAnimationFrame(tick)
+    }
+    window.addEventListener('scroll', onScroll, { passive: true })
+    tick()
+    return () => {
+      window.removeEventListener('scroll', onScroll)
+      cancelAnimationFrame(raf)
+    }
+  }, [isLg])
+
+  return (
+    <div ref={wrapRef} className="relative min-h-[12rem] w-full flex-[3] basis-0 overflow-hidden">
+      <div
+        className="h-full min-h-[12rem] w-full transition-transform duration-300 ease-spring-soft group-hover/card:scale-105 motion-reduce:transition-none motion-reduce:group-hover/card:scale-100"
+        style={isLg ? { transform: `translate3d(0, ${y}px, 0)`, willChange: 'transform' } : undefined}
+      >
+        <LazyImage src={src} alt="" className="h-full min-h-[12rem] w-full object-cover" />
+      </div>
+      {children}
+    </div>
+  )
+}
 
 export function BusinessCard({
   b,
@@ -95,32 +145,31 @@ export function BusinessCard({
         }
       }}
       className={cn(
-        'cursor-pointer overflow-hidden ring-1 ring-gold/10 transition-shadow duration-200 hover:shadow-floating focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/45 focus-visible:ring-offset-2',
-        isFeaturedAd && 'ring-2 ring-fuchsia-500/55 ring-offset-2 ring-offset-background',
+        'flex min-h-[280px] cursor-pointer flex-col overflow-hidden p-0 ring-1 ring-primary/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/35 focus-visible:ring-offset-2 focus-visible:ring-offset-background',
+        isFeaturedAd && 'ring-2 ring-accent/45 ring-offset-2 ring-offset-background',
         className
       )}
     >
-      <div className="relative aspect-[4/3] w-full overflow-hidden">
-        <LazyImage src={img} alt="" className="h-full w-full object-cover" />
-        <Badge className="absolute top-2 start-2 max-w-[85%] truncate text-[10px] font-semibold shadow-md">
+      <SalonCoverParallax src={img}>
+        <Badge className="absolute top-2 start-2 z-[2] max-w-[85%] truncate text-[10px] font-normal shadow-md">
           {label}
         </Badge>
         {isFeaturedAd && (
-          <span className="absolute top-10 start-2 z-[5] rounded-full bg-gradient-to-l from-fuchsia-600 to-pink-500 px-2 py-0.5 text-[9px] font-extrabold text-white shadow-md">
+          <span className="absolute top-10 start-2 z-[5] rounded-full gradient-primary px-2 py-0.5 text-[9px] font-normal text-primary-foreground shadow-md">
             إعلان ⭐
           </span>
         )}
         {b.is_featured && (
-          <span className="absolute bottom-2 start-2 rounded-full bg-amber-400/95 px-2 py-0.5 text-[9px] font-extrabold text-amber-950 shadow-md">
+          <span className="absolute bottom-2 start-2 z-[2] rounded-full border border-accent/35 bg-card/95 px-2 py-0.5 text-[9px] font-normal text-accent shadow-sm">
             ⭐ صالون مميز
           </span>
         )}
         {isSponsored && (
           <span
-            className={`absolute ${b.is_featured ? 'bottom-9' : 'bottom-2'} start-2 rounded-full px-2 py-0.5 text-[9px] font-extrabold shadow-md ${
+            className={`absolute z-[2] ${b.is_featured ? 'bottom-9' : 'bottom-2'} start-2 rounded-full border border-primary/25 px-2 py-0.5 text-[9px] font-normal shadow-sm ${
               sponsorLabel === 'featured'
-                ? 'bg-amber-400/95 text-amber-950'
-                : 'bg-white/90 text-[#9B2257] dark:bg-black/70 dark:text-primary'
+                ? 'bg-muted text-accent'
+                : 'bg-card/95 text-accent'
             }`}
           >
             {sponsorLabel === 'featured' ? 'Featured' : 'مُموَّل'}
@@ -130,50 +179,49 @@ export function BusinessCard({
           <button
             type="button"
             aria-label="مفضلة"
-            className="absolute top-2 end-2 z-10 flex h-10 w-10 items-center justify-center rounded-full bg-white/90 shadow-md backdrop-blur-sm transition hover:scale-105 dark:bg-black/50"
+            className="absolute top-2 end-2 z-10 flex h-10 w-10 items-center justify-center rounded-full border border-primary/20 bg-card/95 shadow-md backdrop-blur-sm transition hover:scale-105"
             onClick={toggleFav}
           >
             <Heart
-              className={cn('h-5 w-5', fav ? 'fill-[#E91E8C] text-[#E91E8C]' : 'text-rosera-gray')}
+              className={cn('h-5 w-5', fav ? 'fill-accent text-accent' : 'text-muted-foreground')}
             />
           </button>
         )}
-      </div>
-      <div className="p-4">
-        <h3
-          dir="auto"
-          className="line-clamp-2 text-start text-base font-semibold leading-snug text-foreground"
-        >
-          {b.name_ar}
-        </h3>
-        <div className="mt-1 flex flex-wrap items-center gap-2 text-sm font-medium text-[#374151] dark:text-rosera-gray">
-          <span
-            dir="ltr"
-            className="flex items-center gap-0.5 tabular-nums text-[#9B2257]"
-            style={{ unicodeBidi: 'isolate' }}
-          >
-            <Star className="h-4 w-4 shrink-0 fill-[#9B2257] text-[#9B2257]" aria-hidden />
-            {new Intl.NumberFormat(lang === 'ar' ? 'ar-SA' : 'en-US', {
-              minimumFractionDigits: 1,
-              maximumFractionDigits: 1,
-            }).format(Number(b.average_rating ?? 0))}
-          </span>
-          <span dir="ltr" className="tabular-nums">
-            ({b.total_reviews ?? 0})
-          </span>
-          <span className="flex min-w-0 items-start gap-1">
-            <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden />
-            <span className="min-w-0 whitespace-normal text-[15px] font-medium leading-snug text-gray-700 dark:text-gray-300">
-              {locationLine || b.city}
+      </SalonCoverParallax>
+      <div className="flex flex-[2] basis-0 flex-col justify-between p-4">
+        <div>
+          <h3 dir="auto" className="line-clamp-2 text-start font-serif text-lg font-normal leading-snug text-foreground">
+            {b.name_ar}
+          </h3>
+          <div className="mt-1 flex flex-wrap items-center gap-2 text-sm font-light text-muted-foreground">
+            <span
+              dir="ltr"
+              className="flex items-center gap-1.5 tabular-nums text-accent"
+              style={{ unicodeBidi: 'isolate' }}
+            >
+              <LuxuryStarRating rating={Number(b.average_rating ?? 0)} />
+              {new Intl.NumberFormat(lang === 'ar' ? 'ar-SA' : 'en-US', {
+                minimumFractionDigits: 1,
+                maximumFractionDigits: 1,
+              }).format(Number(b.average_rating ?? 0))}
             </span>
-          </span>
-          {distanceKm != null && <span>{distanceKm.toFixed(1)} كم</span>}
+            <span dir="ltr" className="tabular-nums">
+              ({b.total_reviews ?? 0})
+            </span>
+            <span className="flex min-w-0 items-start gap-1">
+              <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden />
+              <span className="min-w-0 whitespace-normal text-[15px] font-light leading-snug text-muted-foreground">
+                {locationLine || b.city}
+              </span>
+            </span>
+            {distanceKm != null && <span>{distanceKm.toFixed(1)} كم</span>}
+          </div>
         </div>
         <div className="mt-3 grid gap-2.5" onClick={(e) => e.stopPropagation()}>
           <Button
             type="button"
             size="sm"
-            className="w-full gap-1.5 text-xs font-extrabold"
+            className="w-full gap-1.5 text-xs font-normal"
             onClick={(e) => {
               e.stopPropagation()
               e.preventDefault()
@@ -186,8 +234,8 @@ export function BusinessCard({
             <Button
               type="button"
               size="sm"
-              variant="outline"
-              className="w-full gap-1.5 rounded-xl text-xs font-semibold"
+              variant="secondary"
+              className="w-full gap-1.5 rounded-full text-xs font-normal"
               onClick={(e) => {
                 e.stopPropagation()
                 e.preventDefault()
@@ -213,22 +261,22 @@ export function BusinessRow({ b }: { b: Business }) {
     <button
       type="button"
       onClick={() => nav(`/salon/${b.id}`)}
-      className="flex w-full gap-3 rounded-2xl border border-border/60 bg-card p-4 text-start shadow-elevated transition-shadow hover:shadow-floating dark:bg-card"
+      className="flex w-full gap-3 rounded-[20px] border border-primary/15 bg-card p-4 text-start shadow-[0_8px_32px_rgba(139,26,74,0.15)] transition-shadow hover:shadow-[0_12px_40px_rgba(139,26,74,0.22)]"
     >
-      <LazyImage src={img} alt="" className="h-20 w-20 shrink-0 rounded-xl object-cover" />
+      <LazyImage src={img} alt="" className="h-20 w-20 shrink-0 rounded-[14px] object-cover" />
       <div className="min-w-0 flex-1">
-        <h3 dir="auto" className="line-clamp-2 text-start font-semibold text-[#1F1F1F] dark:text-foreground">
+        <h3 dir="auto" className="line-clamp-2 text-start font-serif font-normal text-foreground">
           {b.name_ar}
         </h3>
-        <p className="whitespace-normal text-[15px] font-medium leading-snug text-gray-700 dark:text-gray-300">
+        <p className="whitespace-normal text-[15px] font-light leading-snug text-muted-foreground">
           {locationLine || b.city}
         </p>
         <div
           dir="ltr"
           style={{ unicodeBidi: 'isolate' }}
-          className="mt-1 flex items-center gap-1 text-sm font-medium tabular-nums text-[#9B2257]"
+          className="mt-1 flex items-center gap-1.5 text-sm font-light tabular-nums text-accent"
         >
-          <Star className="h-4 w-4 shrink-0 fill-[#9B2257] text-[#9B2257]" aria-hidden />
+          <LuxuryStarRating rating={Number(b.average_rating ?? 0)} />
           {new Intl.NumberFormat(lang === 'ar' ? 'ar-SA' : 'en-US', {
             minimumFractionDigits: 1,
             maximumFractionDigits: 1,

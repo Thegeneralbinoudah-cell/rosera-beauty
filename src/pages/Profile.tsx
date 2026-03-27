@@ -61,12 +61,12 @@ export default function Profile() {
         <p className="mt-2 text-rosera-gray">{t('profile.guestSubtitle')}</p>
         <button
           type="button"
-          className="mt-6 rounded-2xl gradient-rosera px-8 py-3 font-bold text-[#374151] transition-transform duration-200 active:scale-95"
+          className="mt-6 rounded-2xl gradient-rosera px-8 py-3 font-bold text-primary-foreground transition-transform duration-200 active:scale-95"
           onClick={() => nav('/auth')}
         >
           {t('profile.login')}
         </button>
-        <Link to="/settings" className="mt-6 text-primary">
+        <Link to="/settings" className="mt-6 text-accent">
           {t('profile.settings')}
         </Link>
       </div>
@@ -93,7 +93,7 @@ export default function Profile() {
           <Link
             key={to}
             to={to}
-            className="flex items-center justify-between rounded-xl border bg-white px-4 py-4 dark:bg-card"
+            className="flex items-center justify-between rounded-xl border bg-card px-4 py-4"
           >
             <span className="flex items-center gap-3 font-semibold">
               <Icon className="h-5 w-5 text-primary" />
@@ -105,7 +105,7 @@ export default function Profile() {
         {isBusinessOwner && (
           <Link
             to="/salon/dashboard"
-            className="flex items-center justify-between rounded-xl border bg-white px-4 py-4 dark:bg-card"
+            className="flex items-center justify-between rounded-xl border bg-card px-4 py-4"
           >
             <span className="flex items-center gap-3 font-semibold">
               <Building2 className="h-5 w-5 text-primary" />
@@ -117,7 +117,7 @@ export default function Profile() {
         {isAdmin && (
           <Link
             to="/admin"
-            className="flex items-center justify-between rounded-xl border bg-white px-4 py-4 dark:bg-card"
+            className="flex items-center justify-between rounded-xl border bg-card px-4 py-4"
           >
             <span className="flex items-center gap-3 font-semibold">
               <Shield className="h-5 w-5 text-primary" />

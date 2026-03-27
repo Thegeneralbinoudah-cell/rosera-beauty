@@ -3,13 +3,14 @@ import { cn } from '@/lib/utils'
 
 export type VoiceWaveformPhase = 'idle' | 'listening' | 'speaking'
 
-function useMicLevels(active: boolean): number[] {
-  const [levels, setLevels] = useState(() => [0.2, 0.16, 0.22, 0.18, 0.2])
+const IDLE_MIC_LEVELS = [0.2, 0.16, 0.22, 0.18, 0.2] as const
+
+function useMicLevels(active: boolean, externalStream?: MediaStream | null): number[] {
+  const [levels, setLevels] = useState<number[]>(() => [...IDLE_MIC_LEVELS])
   const rafRef = useRef<number>(0)
 
   useEffect(() => {
     if (!active) {
-      setLevels([0.2, 0.16, 0.22, 0.18, 0.2])
       return
     }
 
@@ -19,11 +20,15 @@ function useMicLevels(active: boolean): number[] {
 
     void (async () => {
       try {
-        stream = await navigator.mediaDevices.getUserMedia({
-          audio: { echoCancellation: true, noiseSuppression: true },
-        })
+        if (externalStream) {
+          stream = externalStream
+        } else {
+          stream = await navigator.mediaDevices.getUserMedia({
+            audio: { echoCancellation: true, noiseSuppression: true },
+          })
+        }
         if (cancelled) {
-          stream.getTracks().forEach((t) => t.stop())
+          if (!externalStream) stream.getTracks().forEach((t) => t.stop())
           return
         }
         ctx = new AudioContext()
@@ -71,24 +76,29 @@ function useMicLevels(active: boolean): number[] {
     return () => {
       cancelled = true
       cancelAnimationFrame(rafRef.current)
-      stream?.getTracks().forEach((tr) => tr.stop())
+      if (!externalStream) stream?.getTracks().forEach((tr) => tr.stop())
       void ctx?.close()
     }
-  }, [active])
+  }, [active, externalStream])
 
-  return levels
+  return active ? levels : [...IDLE_MIC_LEVELS]
 }
 
 type VoiceWaveformProps = {
   phase: VoiceWaveformPhase
   className?: string
+  /** Single shared mic stream (e.g. from `MediaRecorder`) — avoids double `getUserMedia`. */
+  externalStream?: MediaStream | null
+  /** While recording / listening — bars use accent gold. */
+  dustyRoseRecording?: boolean
 }
 
 /**
  * موجة صوتية — مستويات حقيقية أثناء الاستماع عند توفر المايك، وحركة ناعمة في وضعي السكون والكلام.
  */
-export function VoiceWaveform({ phase, className }: VoiceWaveformProps) {
-  const liveLevels = useMicLevels(phase === 'listening')
+export function VoiceWaveform({ phase, className, externalStream, dustyRoseRecording }: VoiceWaveformProps) {
+  const listening = phase === 'listening'
+  const liveLevels = useMicLevels(listening, listening ? externalStream : null)
   const tRef = useRef(0)
   const [idlePulse, setIdlePulse] = useState([0.2, 0.16, 0.22, 0.18, 0.2])
 
@@ -114,18 +124,22 @@ export function VoiceWaveform({ phase, className }: VoiceWaveformProps) {
     return () => cancelAnimationFrame(raf)
   }, [phase])
 
-  const heights = phase === 'listening' ? liveLevels : idlePulse
+  const heights = listening ? liveLevels : idlePulse
+
+  const barClass = cn(
+    dustyRoseRecording && listening
+      ? 'inline-block w-2 origin-bottom rounded-full bg-accent shadow-sm transition-[height] duration-75'
+      : 'inline-block w-2 origin-bottom rounded-full bg-gradient-to-t from-primary via-accent to-primary/40 shadow-sm transition-[height] duration-75',
+    phase === 'idle' && 'opacity-80',
+    phase === 'speaking' && 'opacity-95'
+  )
 
   return (
     <div className={cn('flex h-9 items-end justify-center gap-1.5', className)} aria-hidden>
       {heights.map((h, i) => (
         <span
           key={i}
-          className={cn(
-            'inline-block w-2 origin-bottom rounded-full bg-gradient-to-t from-[#9C27B0] via-[#E91E8C] to-[#F9A8C9] shadow-sm transition-[height] duration-75',
-            phase === 'idle' && 'opacity-80',
-            phase === 'speaking' && 'opacity-95'
-          )}
+          className={barClass}
           style={{
             height: `${Math.max(18, 10 + h * 52)}px`,
             animationDelay: `${i * 70}ms`,

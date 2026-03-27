@@ -4,6 +4,8 @@
 interface ImportMetaEnv {
   readonly VITE_SUPABASE_URL: string
   readonly VITE_SUPABASE_ANON_KEY: string
+  /** OAuth redirect (default: `${origin}/auth/callback`). Must be listed in Supabase Redirect URLs. */
+  readonly VITE_AUTH_REDIRECT_URL?: string
   /** Google Maps JavaScript API + Places API (New) — same key with APIs enabled in Cloud Console */
   readonly VITE_GOOGLE_MAPS_API_KEY?: string
   /** Optional Map ID for vector tiles + AdvancedMarkerElement (Map Management in Cloud Console) */

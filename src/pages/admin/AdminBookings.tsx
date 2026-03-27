@@ -101,7 +101,7 @@ export default function AdminBookings() {
       </div>
       <div className="mt-6 space-y-2">
         {filtered.map((r) => (
-          <div key={r.id} className="flex flex-wrap items-center justify-between gap-2 rounded-xl border bg-white p-4 dark:bg-card">
+          <div key={r.id} className="flex flex-wrap items-center justify-between gap-2 rounded-xl border bg-card p-4 dark:bg-card">
             <div className="min-w-0 flex-1">
               <span className="font-medium">{r.businesses?.name_ar}</span>
               <p className="mt-1 text-xs text-muted-foreground" dir="ltr">

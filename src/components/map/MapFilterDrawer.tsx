@@ -1,5 +1,6 @@
 import { useEffect, useCallback } from 'react'
 import { createPortal } from 'react-dom'
+import { gradients } from '@/theme/tokens'
 import type { MapFilterDrawerCategory } from '@/lib/mapFilterDrawerConfig'
 
 type Props = {
@@ -108,7 +109,7 @@ export function MapFilterDrawer({
             onClick={() => onApply(selectedOptions)}
             className="font-cairo flex-1 rounded-xl py-3 font-bold text-white transition-opacity hover:opacity-95"
             style={{
-              background: 'linear-gradient(135deg, #E91E8C, #FF6B35)',
+              background: gradients.primary,
             }}
           >
             تطبيق الفلتر

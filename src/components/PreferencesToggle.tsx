@@ -1,18 +1,12 @@
-import { Moon, Sun } from 'lucide-react'
+import { DarkModeToggle } from '@/components/DarkModeToggle'
 import { usePreferences } from '@/contexts/PreferencesContext'
 
+/** Dark mode + language — same row as notifications in headers that use this component. */
 export default function PreferencesToggle() {
-  const { dark, lang, toggleDark, setLang } = usePreferences()
+  const { lang, setLang } = usePreferences()
   return (
     <div className="flex items-center gap-2">
-      <button
-        type="button"
-        onClick={toggleDark}
-        className="flex h-9 w-9 items-center justify-center rounded-full border border-primary/20 bg-white/90 text-primary dark:bg-card"
-        aria-label={dark ? 'Light mode' : 'Dark mode'}
-      >
-        {dark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
-      </button>
+      <DarkModeToggle />
       <button
         type="button"
         onClick={() => setLang(lang === 'ar' ? 'en' : 'ar')}

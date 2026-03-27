@@ -15,7 +15,7 @@ import { isPrivilegedStaffClient } from '@/lib/privilegedStaff'
 import { usePreferences } from '@/contexts/PreferencesContext'
 import PreferencesToggle from '@/components/PreferencesToggle'
 import { OAuthSocialButtons } from '@/components/auth/OAuthSocialButtons'
-import { useI18n } from '@/hooks/useI18n'
+import { FallingPetals } from '@/components/animations/FallingPetals'
 
 function normalizeSaudiPhone(digits: string): string | null {
   const d = digits.replace(/\D/g, '')
@@ -31,7 +31,6 @@ function normalizeSaudiPhone(digits: string): string | null {
 
 export default function Auth() {
   const { lang } = usePreferences()
-  const { t: tr } = useI18n()
   const nav = useNavigate()
   const [phone, setPhone] = useState('')
   const [email, setEmail] = useState('')
@@ -167,10 +166,13 @@ export default function Auth() {
     nav('/home', { replace: true })
   }
 
+  const underlineInput = 'auth-input-underline h-12 rounded-none text-lg font-light text-foreground'
+
   return (
-    <div className="min-h-dvh bg-white px-6 py-12 dark:bg-rosera-dark">
-      <div className="mx-auto max-w-md">
-        <div className="rounded-3xl border border-rose-200 p-8 shadow-soft dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-white">
+    <div className="luxury-page-canvas relative min-h-dvh px-6 py-6">
+      <FallingPetals />
+      <div className="relative z-10 mx-auto max-w-md">
+        <div className="rounded-[20px] border border-primary/20 bg-card p-8 shadow-[0_8px_32px_rgba(139,26,74,0.2)]">
           <div className="mb-3 flex justify-end">
             <PreferencesToggle />
           </div>
@@ -179,117 +181,104 @@ export default function Auth() {
               src={ROSERA_LOGO_SRC}
               alt={lang === 'ar' ? 'روزيرا' : 'Rosera'}
               width={120}
-              className="mx-auto block h-auto w-[120px] max-w-full object-contain"
+              className="auth-logo-breathe mx-auto block h-auto w-[120px] max-w-full object-contain"
             />
-            <h1 className="mt-4 text-2xl font-extrabold text-gray-900 dark:text-white">{ui.title}</h1>
+            <h1 className="mt-6 font-serif text-2xl font-normal tracking-wide text-foreground">{ui.title}</h1>
           </div>
 
-          <OAuthSocialButtons disabled={loadingPhone || loadingVerify || loadingEmail} />
-
-          <div className="relative mt-8">
-            <div className="absolute inset-0 flex items-center">
-              <span className="w-full border-t border-gray-200 dark:border-gray-700" />
-            </div>
-            <div className="relative flex justify-center text-xs uppercase">
-              <span className="bg-white px-3 text-gray-500 dark:bg-gray-900 dark:text-gray-400">
-                {tr('auth.orDivider')}
-              </span>
-            </div>
-          </div>
-
-          <div className="mt-8 space-y-4">
-            <Label className="text-gray-900 dark:text-white">{ui.phone}</Label>
-            <div className="flex gap-2">
-              <div className="flex h-12 shrink-0 items-center gap-2 rounded-2xl border border-gray-200 bg-gray-50 px-4 dark:border-gray-700 dark:bg-gray-800">
-                <span>🇸🇦</span>
-                <span className="text-sm font-bold text-primary" dir="ltr">
-                  +966
-                </span>
-              </div>
-              <Input
-                dir="ltr"
-                className="h-12 flex-1 rounded-2xl border-gray-200 bg-gray-50 text-left text-lg tracking-wide text-gray-900 placeholder:text-gray-400 dark:border-gray-700 dark:bg-gray-800 dark:text-white"
-                placeholder="5xxxxxxxx"
-                inputMode="numeric"
-                autoComplete="tel"
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-                disabled={phoneOtpSent}
-              />
-            </div>
-            <p className="text-xs text-gray-500 dark:text-gray-400">{ui.format}</p>
-            {!phoneOtpSent ? (
-              <Button
-                className="h-12 w-full rounded-2xl bg-gradient-to-l from-[#9C27B0] to-[#E91E8C] text-base font-bold shadow-lg shadow-primary/25"
-                onClick={onPhone}
-                disabled={loadingPhone}
-              >
-                {loadingPhone ? (
-                  <span className="flex items-center justify-center gap-2">
-                    <Loader2 className="h-5 w-5 animate-spin" />
-                    جاري الإرسال...
-                  </span>
-                ) : (
-                  ui.sendOtp
-                )}
-              </Button>
-            ) : (
-              <>
-                <Label className="text-gray-900 dark:text-white">{ui.otpLabel}</Label>
+          <div className="mt-8 space-y-8">
+            <section className="space-y-4">
+              <Label className="text-sm font-normal text-muted-foreground">{ui.phone}</Label>
+              <div className="flex items-end gap-3">
+                <div className="flex h-12 shrink-0 items-center gap-2 px-1 text-accent" dir="ltr">
+                  <span aria-hidden>🇸🇦</span>
+                  <span className="text-sm font-light tracking-wide">+966</span>
+                </div>
                 <Input
                   dir="ltr"
-                  className="h-12 rounded-2xl border-gray-200 bg-gray-50 text-center text-2xl tracking-[0.5em] text-gray-900 placeholder:text-gray-400 dark:border-gray-700 dark:bg-gray-800 dark:text-white"
-                  placeholder="••••••"
+                  className={`${underlineInput} min-w-0 flex-1`}
+                  placeholder="5xxxxxxxx"
                   inputMode="numeric"
-                  autoComplete="one-time-code"
-                  maxLength={6}
-                  value={otpCode}
-                  onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                  autoComplete="tel"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  disabled={phoneOtpSent}
                 />
+              </div>
+              <p className="text-xs font-light text-muted-foreground">{ui.format}</p>
+              {!phoneOtpSent ? (
                 <Button
-                  className="h-12 w-full rounded-2xl bg-gradient-to-l from-[#9C27B0] to-[#E91E8C] text-base font-bold shadow-lg shadow-primary/25"
-                  onClick={onVerifyOtp}
-                  disabled={loadingVerify}
+                  className="h-12 w-full text-base font-normal shadow-[0_4px_24px_rgba(139,26,74,0.35)]"
+                  onClick={onPhone}
+                  disabled={loadingPhone}
                 >
-                  {loadingVerify ? (
+                  {loadingPhone ? (
                     <span className="flex items-center justify-center gap-2">
                       <Loader2 className="h-5 w-5 animate-spin" />
-                      {ui.verifying}
+                      جاري الإرسال...
                     </span>
                   ) : (
-                    ui.verify
+                    ui.sendOtp
                   )}
                 </Button>
-                <button
-                  type="button"
-                  className="w-full text-center text-sm font-semibold text-primary"
-                  onClick={() => {
-                    setPhoneOtpSent(false)
-                    setOtpCode('')
-                  }}
-                >
-                  {lang === 'ar' ? 'تعديل الرقم' : 'Change number'}
-                </button>
-              </>
-            )}
+              ) : (
+                <>
+                  <Label className="text-sm font-normal text-muted-foreground">{ui.otpLabel}</Label>
+                  <Input
+                    dir="ltr"
+                    className={`${underlineInput} text-center text-2xl tracking-[0.5em]`}
+                    placeholder="••••••"
+                    inputMode="numeric"
+                    autoComplete="one-time-code"
+                    maxLength={6}
+                    value={otpCode}
+                    onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                  />
+                  <Button
+                    className="h-12 w-full text-base font-normal shadow-[0_4px_24px_rgba(139,26,74,0.35)]"
+                    onClick={onVerifyOtp}
+                    disabled={loadingVerify}
+                  >
+                    {loadingVerify ? (
+                      <span className="flex items-center justify-center gap-2">
+                        <Loader2 className="h-5 w-5 animate-spin" />
+                        {ui.verifying}
+                      </span>
+                    ) : (
+                      ui.verify
+                    )}
+                  </Button>
+                  <button
+                    type="button"
+                    className="w-full text-center text-sm font-normal text-accent"
+                    onClick={() => {
+                      setPhoneOtpSent(false)
+                      setOtpCode('')
+                    }}
+                  >
+                    {lang === 'ar' ? 'تعديل الرقم' : 'Change number'}
+                  </button>
+                </>
+              )}
+            </section>
 
             <form
-              className="rounded-2xl border border-gray-200 bg-gray-50 p-4 dark:border-gray-700 dark:bg-gray-800"
+              className="space-y-4 rounded-[20px] border border-primary/20 bg-muted/50 p-5"
               autoComplete="on"
               onSubmit={(e) => {
                 e.preventDefault()
                 void onEmailLogin()
               }}
             >
-              <p className="mb-3 text-sm font-bold text-gray-900 dark:text-white">{ui.emailLogin}</p>
-              <div className="space-y-2">
+              <p className="text-sm font-normal text-foreground">{ui.emailLogin}</p>
+              <div className="space-y-1">
                 <Input
                   id="auth-email"
                   name="email"
                   type="email"
                   dir="ltr"
                   autoComplete="email"
-                  className="h-11 rounded-xl border-gray-200 bg-gray-50 text-gray-900 placeholder:text-gray-400 dark:border-gray-700 dark:bg-gray-900 dark:text-white"
+                  className="auth-input-underline h-11 font-light"
                   placeholder="you@example.com"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
@@ -301,14 +290,14 @@ export default function Auth() {
                     type={showPassword ? 'text' : 'password'}
                     dir="ltr"
                     autoComplete="current-password"
-                    className="h-11 rounded-xl border-gray-200 bg-gray-50 pe-11 text-gray-900 placeholder:text-gray-400 dark:border-gray-700 dark:bg-gray-900 dark:text-white"
+                    className="auth-input-underline h-11 pe-11 font-light"
                     placeholder="••••••••"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                   />
                   <button
                     type="button"
-                    className="absolute end-2 top-1/2 -translate-y-1/2 rounded-lg p-1.5 text-gray-500 hover:bg-gray-200/80 dark:hover:bg-gray-700"
+                    className="absolute end-0 top-1/2 -translate-y-1/2 rounded-full p-1.5 text-muted-foreground transition-colors hover:bg-muted/90"
                     onClick={() => setShowPassword((s) => !s)}
                     aria-label={showPassword ? 'إخفاء كلمة المرور' : 'إظهار كلمة المرور'}
                   >
@@ -318,8 +307,8 @@ export default function Auth() {
               </div>
               <Button
                 type="submit"
-                variant="outline"
-                className="mt-3 h-11 w-full rounded-xl border-primary/25"
+                variant="secondary"
+                className="mt-1 h-11 w-full border-accent bg-transparent text-accent hover:bg-muted/80"
                 disabled={loadingEmail}
               >
                 {loadingEmail ? (
@@ -334,20 +323,41 @@ export default function Auth() {
                   </span>
                 )}
               </Button>
-              <Link to="/auth/email" className="mt-2 block text-center text-xs font-semibold text-primary hover:underline">
+              <Link
+                to="/auth/email"
+                className="mt-2 block text-center text-xs font-normal text-accent underline-offset-4 hover:underline"
+              >
                 إنشاء حساب جديد / خيارات متقدمة
               </Link>
             </form>
+
+            <div className="relative flex items-center gap-2" aria-hidden>
+              <span className="h-px flex-1 bg-primary/25" />
+              <span
+                className="shrink-0 text-[13px] font-medium text-muted-foreground"
+                dir={lang === 'ar' ? 'rtl' : 'ltr'}
+              >
+                {lang === 'ar' ? '── أو ──' : '— or —'}
+              </span>
+              <span className="h-px flex-1 bg-primary/25" />
+            </div>
+
+            <OAuthSocialButtons disabled={loadingPhone || loadingVerify || loadingEmail} />
+
             <button
               type="button"
               onClick={guest}
-              className="w-full pt-4 text-center text-sm font-semibold text-primary"
+              className="w-full pt-2 text-center text-sm font-normal text-accent"
             >
               {ui.guest}
             </button>
-            <div className="mt-8 flex flex-wrap justify-center gap-4 text-xs text-gray-500 dark:text-gray-400">
-              <Link to="/privacy" className="hover:text-primary">سياسة الخصوصية</Link>
-              <Link to="/terms" className="hover:text-primary">الشروط والأحكام</Link>
+            <div className="mt-8 flex flex-wrap justify-center gap-4 text-xs text-muted-foreground">
+              <Link to="/privacy" className="text-accent hover:text-accent/90">
+                سياسة الخصوصية
+              </Link>
+              <Link to="/terms" className="text-accent hover:text-accent/90">
+                الشروط والأحكام
+              </Link>
             </div>
           </div>
         </div>

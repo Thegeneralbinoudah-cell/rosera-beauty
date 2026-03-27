@@ -2,6 +2,7 @@ import { useEffect, useState, useMemo } from 'react'
 import { supabase } from '@/lib/supabase'
 import { formatPrice } from '@/lib/utils'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer, CartesianGrid } from 'recharts'
+import { colors } from '@/theme/tokens'
 
 type BookingRow = {
   total_price: number | null
@@ -103,11 +104,11 @@ export default function AdminRevenue() {
       </p>
 
       <div className="mt-6 grid gap-4 sm:grid-cols-3">
-        <div className="rounded-xl border bg-white p-4 dark:bg-card">
+        <div className="rounded-xl border bg-card p-4 dark:bg-card">
           <p className="text-xs font-semibold text-muted-foreground">حجوزات (مكتملة / مؤكدة)</p>
           <p className="mt-1 text-2xl font-extrabold tabular-nums">{totals.count.toLocaleString('ar-SA')}</p>
         </div>
-        <div className="rounded-xl border bg-white p-4 dark:bg-card">
+        <div className="rounded-xl border bg-card p-4 dark:bg-card">
           <p className="text-xs font-semibold text-muted-foreground">مجمّع المبيعات (GMV)</p>
           <p className="mt-1 text-2xl font-extrabold tabular-nums text-foreground">
             {formatPrice(totals.gmv)}
@@ -121,7 +122,7 @@ export default function AdminRevenue() {
         </div>
       </div>
 
-      <div className="mt-8 h-80 w-full rounded-xl border bg-white p-4 dark:bg-card">
+      <div className="mt-8 h-80 w-full rounded-xl border bg-card p-4 dark:bg-card">
         <p className="mb-2 text-sm font-bold text-muted-foreground">شهرياً — GMV وعمولة المنصة</p>
         <ResponsiveContainer width="100%" height="88%">
           <BarChart data={byMonth}>
@@ -132,14 +133,14 @@ export default function AdminRevenue() {
               formatter={(v, name) => [`${Number(v ?? 0).toLocaleString('ar-SA')} ر.س`, name === 'revenue' ? 'GMV' : 'عمولة']}
             />
             <Legend />
-            <Bar dataKey="revenue" fill="#E8B4D4" radius={[6, 6, 0, 0]} name="GMV" />
-            <Bar dataKey="commission" fill="#E91E8C" radius={[6, 6, 0, 0]} name="عمولة" />
+            <Bar dataKey="revenue" fill={colors.chartRevenue} radius={[6, 6, 0, 0]} name="GMV" />
+            <Bar dataKey="commission" fill={colors.chartPrimary} radius={[6, 6, 0, 0]} name="عمولة" />
           </BarChart>
         </ResponsiveContainer>
       </div>
 
       <div className="mt-8 grid gap-6 md:grid-cols-2">
-        <div className="rounded-xl border bg-white p-4 dark:bg-card">
+        <div className="rounded-xl border bg-card p-4 dark:bg-card">
           <p className="font-bold text-primary">حسب المدينة</p>
           <ul className="mt-4 space-y-3">
             {byRegion.map((r) => (
@@ -151,7 +152,7 @@ export default function AdminRevenue() {
                 <p className="text-xs text-muted-foreground">عمولة: {formatPrice(r.commission)}</p>
                 <div className="mt-1 h-2 overflow-hidden rounded-full bg-muted">
                   <div
-                    className="h-full rounded-full bg-gradient-to-l from-[#9C27B0] to-[#E91E8C]"
+                    className="h-full rounded-full gradient-primary"
                     style={{ width: `${r.pct}%` }}
                   />
                 </div>
@@ -159,14 +160,14 @@ export default function AdminRevenue() {
             ))}
           </ul>
         </div>
-        <div className="rounded-xl border bg-white p-4 dark:bg-card">
+        <div className="rounded-xl border bg-card p-4 dark:bg-card">
           <p className="font-bold text-primary">أعلى الصالونات عمولةً</p>
           <ol className="mt-4 list-decimal space-y-2 pe-4 text-sm">
             {topSalons.map((s) => (
               <li key={s.name} className="flex flex-col gap-0.5 border-b border-border/60 pb-2 last:border-0">
                 <div className="flex justify-between gap-2 font-semibold">
                   <span>{s.name}</span>
-                  <span className="whitespace-nowrap text-primary">{formatPrice(s.commission)}</span>
+                  <span className="whitespace-nowrap text-accent">{formatPrice(s.commission)}</span>
                 </div>
                 <span className="text-xs text-muted-foreground">GMV: {formatPrice(s.gmv)}</span>
               </li>

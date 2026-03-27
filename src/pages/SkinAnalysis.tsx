@@ -300,7 +300,7 @@ export default function SkinAnalysis() {
           <motion.div
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
-            className="mt-10 space-y-6 rounded-2xl border bg-white p-6 shadow-sm dark:bg-card"
+            className="mt-10 space-y-6 rounded-2xl border bg-card p-6 shadow-sm dark:bg-card"
           >
             <div>
               <h3 className="font-bold text-primary">نوع البشرة (تقديري)</h3>
@@ -368,7 +368,7 @@ export default function SkinAnalysis() {
                       className="rounded-xl border border-primary/15 bg-primary/[0.04] p-3 dark:border-primary/25 dark:bg-primary/10"
                     >
                       <div className="flex flex-wrap items-center gap-2">
-                        <span className="rounded-full bg-gradient-to-l from-[#9C27B0]/90 to-[#E91E8C]/90 px-2.5 py-0.5 text-[10px] font-bold text-white">
+                        <span className="rounded-full gradient-primary px-2.5 py-0.5 text-[10px] font-bold text-white">
                           موصى به لك
                         </span>
                         {sponsored && (
@@ -417,7 +417,7 @@ export default function SkinAnalysis() {
             )}
 
             <div className="flex flex-col gap-2">
-              <Button asChild className="w-full bg-gradient-to-l from-[#9C27B0] to-[#E91E8C]">
+              <Button asChild className="w-full gradient-primary">
                 <Link to={searchHref}>احجزي خدمة مناسبة</Link>
               </Button>
               <Button variant="secondary" asChild className="w-full">

@@ -140,14 +140,14 @@ export default function VerifyOtp() {
   }
 
   return (
-    <div className="relative min-h-dvh overflow-hidden bg-gradient-to-br from-[#fce4ec] via-[#f3e5f5] to-[#e1bee7] px-6 py-12 dark:from-[#1a0a14] dark:via-rosera-dark dark:to-[#1a0a28]">
-      <div className="pointer-events-none absolute -start-24 -top-24 h-64 w-64 rounded-full bg-[#E91E8C]/20 blur-3xl" />
-      <div className="pointer-events-none absolute -bottom-24 -end-24 h-72 w-72 rounded-full bg-[#9C27B0]/25 blur-3xl" />
+    <div className="relative min-h-dvh overflow-hidden bg-gradient-to-br from-muted via-background to-primary/10 px-6 py-12 dark:from-card dark:via-rosera-dark dark:to-card">
+      <div className="pointer-events-none absolute -start-24 -top-24 h-64 w-64 rounded-full bg-primary/20 blur-3xl" />
+      <div className="pointer-events-none absolute -bottom-24 -end-24 h-72 w-72 rounded-full bg-accent/25 blur-3xl" />
 
       <div className="relative mx-auto max-w-md">
-        <div className="rounded-3xl border border-white/60 bg-white/90 p-8 shadow-[0_20px_60px_-15px_rgba(233,30,140,0.25)] backdrop-blur-md dark:border-primary/20 dark:bg-card/95">
+        <div className="rounded-3xl border border-white/60 bg-white/90 p-8 shadow-[0_20px_60px_-15px_rgb(212_165_165/0.28)] backdrop-blur-md dark:border-primary/20 dark:bg-card/95">
           <div className="mb-2 text-center text-4xl">💜</div>
-          <h1 className="text-center text-2xl font-extrabold text-transparent bg-clip-text bg-gradient-to-l from-[#9C27B0] to-[#E91E8C]">
+          <h1 className="text-center text-2xl font-extrabold text-transparent bg-clip-text bg-gradient-to-br from-primary to-accent">
             {t('otp.title')}
           </h1>
           <p className="mt-3 text-center text-sm leading-relaxed text-rosera-gray">
@@ -169,7 +169,7 @@ export default function VerifyOtp() {
                 ref={(el) => {
                   refs.current[i] = el
                 }}
-                className="h-14 w-12 rounded-2xl border-2 border-[#E91E8C]/35 bg-white text-center text-2xl font-bold shadow-inner transition focus:border-[#9C27B0] focus:ring-2 focus:ring-[#9C27B0]/30 dark:bg-card"
+                className="h-14 w-12 rounded-2xl border-2 border-primary/35 bg-white text-center text-2xl font-bold shadow-inner transition focus:border-primary focus:ring-2 focus:ring-primary/30 dark:bg-card"
                 maxLength={1}
                 value={d}
                 onChange={(e) => setD(i, e.target.value)}
@@ -187,13 +187,13 @@ export default function VerifyOtp() {
             type="button"
             disabled={sec > 0}
             onClick={resend}
-            className={`mt-2 w-full text-center text-sm font-bold ${sec > 0 ? 'text-rosera-gray' : 'text-[#9C27B0]'}`}
+            className={`mt-2 w-full text-center text-sm font-bold ${sec > 0 ? 'text-rosera-gray' : 'text-primary'}`}
           >
             {t('otp.resend')}
           </button>
 
           <Button
-            className="mt-8 h-12 w-full rounded-2xl bg-gradient-to-l from-[#9C27B0] to-[#E91E8C] text-base font-bold shadow-lg"
+            className="mt-8 h-12 w-full rounded-2xl gradient-primary text-base font-bold shadow-lg"
             onClick={verify}
             disabled={loading}
           >

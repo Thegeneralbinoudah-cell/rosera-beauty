@@ -148,7 +148,7 @@ export default function SalonDashboard() {
       label: 'إجمالي الحجوزات',
       value: totalBookings.toLocaleString('ar-SA'),
       icon: CalendarHeart,
-      tone: 'from-pink-50 to-white dark:from-pink-950/30 dark:to-card',
+      tone: 'from-primary-subtle/90 to-white dark:from-primary/12 dark:to-card',
     },
     {
       label: 'إيرادات مكتملة',
@@ -161,19 +161,19 @@ export default function SalonDashboard() {
       value: rating.toFixed(1),
       sub: `${reviewCount} تقييم`,
       icon: Star,
-      tone: 'from-fuchsia-50 to-white dark:from-fuchsia-950/20 dark:to-card',
+      tone: 'from-primary-subtle/80 to-white dark:from-primary/15 dark:to-card',
     },
     {
       label: 'حجوزات قادمة',
       value: upcoming.length.toLocaleString('ar-SA'),
       icon: TrendingUp,
-      tone: 'from-pink-50/90 to-white dark:from-pink-950/20 dark:to-card',
+      tone: 'from-primary-subtle/80 to-white dark:from-primary/15 dark:to-card',
     },
   ]
 
   return (
     <div className="space-y-6">
-      <Card className="overflow-hidden border-0 bg-gradient-to-l from-[#f8bbd0] via-[#f48fb1] to-[#ec407a] p-5 text-white shadow-lg shadow-pink-200/40 dark:shadow-none">
+      <Card className="overflow-hidden border-0 gradient-primary p-5 text-white shadow-lg shadow-primary/25 dark:shadow-none">
         <p className="text-sm font-medium text-white/90">مرحباً بكِ</p>
         <h1 className="mt-1 text-2xl font-extrabold leading-tight">{salon?.name_ar ?? 'صالونك'}</h1>
         <p className="mt-2 text-sm text-white/85">{format(new Date(), 'EEEE d MMMM yyyy', { locale: ar })}</p>
@@ -181,7 +181,7 @@ export default function SalonDashboard() {
           <Button
             size="sm"
             variant="secondary"
-            className="rounded-xl border-0 bg-white/95 text-[#ad1457] hover:bg-white"
+            className="rounded-xl border-0 bg-white/95 text-primary hover:bg-white"
             asChild
           >
             <Link to="/salon/profile">ملف الصالون</Link>
@@ -193,9 +193,9 @@ export default function SalonDashboard() {
       </Card>
 
       {salon && subAutoRenew !== null ? (
-        <Card className="border-pink-100/80 p-4 dark:border-border">
+        <Card className="border-primary/15 p-4 dark:border-border">
           <div className="flex items-start gap-3">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-pink-100/80 text-[#c2185b] dark:bg-primary/15 dark:text-primary">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary-subtle text-primary dark:bg-primary/15 dark:text-primary">
               <RefreshCw className="h-5 w-5" />
             </div>
             <div className="min-w-0 flex-1">
@@ -217,7 +217,7 @@ export default function SalonDashboard() {
                   onCheckedChange={(v) => void onToggleAutoRenew(v)}
                 />
               </div>
-              <Button variant="link" className="mt-1 h-auto p-0 text-xs font-semibold text-[#c2185b]" asChild>
+              <Button variant="link" className="mt-1 h-auto p-0 text-xs font-semibold text-primary" asChild>
                 <Link to="/salon/subscription">تفاصيل الاشتراك</Link>
               </Button>
             </div>
@@ -230,17 +230,17 @@ export default function SalonDashboard() {
           <Card
             key={label}
             className={cn(
-              'border-pink-100/80 bg-gradient-to-br p-4 shadow-sm dark:border-border',
+              'border-primary/15 bg-gradient-to-br p-4 shadow-sm dark:border-border',
               tone
             )}
           >
             <div className="flex items-start justify-between gap-2">
               <div>
                 <p className="text-xs font-semibold text-muted-foreground">{label}</p>
-                <p className="mt-1 text-2xl font-extrabold tabular-nums text-[#880e4f] dark:text-[#f48fb1]">{value}</p>
+                <p className="mt-1 text-2xl font-extrabold tabular-nums text-foreground">{value}</p>
                 {sub ? <p className="text-xs text-muted-foreground">{sub}</p> : null}
               </div>
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-pink-100/80 text-[#c2185b] dark:bg-primary/15 dark:text-primary">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary-subtle text-primary dark:bg-primary/15 dark:text-primary">
                 <Icon className="h-5 w-5" />
               </div>
             </div>
@@ -248,10 +248,10 @@ export default function SalonDashboard() {
         ))}
       </div>
 
-      <Card className="border-pink-100/80 p-4 dark:border-border">
+      <Card className="border-primary/15 p-4 dark:border-border">
         <div className="flex items-center justify-between gap-2">
           <h2 className="text-lg font-extrabold text-foreground">الحجوزات القادمة</h2>
-          <Button variant="ghost" size="sm" className="gap-1 text-[#c2185b]" asChild>
+          <Button variant="ghost" size="sm" className="gap-1 text-primary" asChild>
             <Link to="/salon/bookings">
               الكل
               <ChevronLeft className="h-4 w-4 rotate-180" />
@@ -265,7 +265,7 @@ export default function SalonDashboard() {
             {upcoming.map((b) => (
               <li
                 key={b.id}
-                className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-pink-100/60 bg-white/80 px-3 py-2.5 dark:border-border dark:bg-card"
+                className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-primary/15 bg-white/80 px-3 py-2.5 dark:border-border dark:bg-card"
               >
                 <div>
                   <p className="font-bold text-foreground">{clientNames[b.user_id] ?? 'عميلة'}</p>

@@ -1,17 +1,16 @@
-@import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Almarai:wght@300;400;500;700&family=Cormorant+Garamond:ital,wght@0,400;0,500;1,400&display=swap');
 
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 .font-cairo {
-  font-family: 'Cairo', sans-serif;
+  font-family: 'Almarai', sans-serif;
 }
 
 /**
- * ROSERA Premium UI — luxury beauty (Sephora-level cues)
- * Font: Tajawal · Canvas: soft blush · Primary: pink #f472b6 · Accent: gold #fbbf24
- * Spacing scale: 8 / 12 / 16 / 24 / 32 px (use gap-2…gap-8, p-2…p-8, m-2…m-8)
+ * ROSERA Premium UI — original beauty theme (soft blush · pink #f472b6 · gold #fbbf24)
+ * Tailwind: HSL via `hsl(var(--*))`; hex aliases: `--color-*` for inline / map / FAB.
  */
 
 @layer base {
@@ -29,13 +28,41 @@
   }
 
   :root {
-    /* Spacing — 8 / 12 / 16 / 24 / 32 px (ds-2 … ds-6) */
     --space-1: 0.25rem;
-    --space-2: 0.5rem; /* 8 */
-    --space-3: 0.75rem; /* 12 */
-    --space-4: 1rem; /* 16 */
-    --space-5: 1.5rem; /* 24 */
-    --space-6: 2rem; /* 32 */
+    --space-2: 0.5rem;
+    --space-3: 0.75rem;
+    --space-4: 1rem;
+    --space-5: 1.5rem;
+    --space-6: 2rem;
+    --space-7: 2rem;
+    --space-8: 2.5rem;
+
+    --rose-rgb: 244 114 182;
+    --gold-rgb: 251 191 36;
+
+    /* Hex aliases — FAB, calendar, gradients using var(--color-*) */
+    --color-primary: #f472b6;
+    --color-primary-hover: #ec4899;
+    --color-secondary: #fdf2f8;
+    --color-accent: #fbbf24;
+    --color-accent-light: #fcd34d;
+    --color-background: #fff8fb;
+    --color-surface: #ffffff;
+    --color-surface-2: #fdf2f8;
+    --color-text-primary: #3f2d36;
+    --color-text-secondary: #6b5a63;
+    --color-border: rgba(244, 114, 182, 0.22);
+    --color-glow: rgba(251, 191, 36, 0.28);
+    --bg-primary: var(--color-background);
+    --bg-card: var(--color-surface);
+    --gold-light: var(--color-accent-light);
+    --rose-gold: #f9a8d4;
+    --text-dark: var(--color-text-primary);
+    --text-muted: var(--color-text-secondary);
+    --chip-bg: rgba(244, 114, 182, 0.12);
+    --border-brand: var(--color-border);
+    --luxury-rose-wash: rgba(244, 114, 182, 0.08);
+    --luxury-muted-wash: rgba(251, 191, 36, 0.06);
 
     /* Soft warm blush canvas — cards stay clean white */
     --background: 340 90% 98.2%;
@@ -45,7 +72,6 @@
     --popover: 0 0% 100%;
     --popover-foreground: 330 28% 18%;
 
-    /* Primary pink #f472b6 */
     --primary: 330 81% 70%;
     --primary-foreground: 0 0% 100%;
     --primary-hover: 330 78% 64%;
@@ -58,9 +84,9 @@
     --muted: 340 30% 95%;
     --muted-foreground: 330 12% 42%;
 
-    /* Accent — soft gold wash (menus, hovers); solid gold = hsl(var(--gold)) */
     --accent: 43 85% 94%;
     --accent-foreground: 330 28% 18%;
+    --accent-light: 43 90% 80%;
 
     --destructive: 0 72% 55%;
     --destructive-foreground: 0 0% 100%;
@@ -81,7 +107,6 @@
     --neutral-warm-100: 30 35% 95%;
     --neutral-warm-200: 28 25% 88%;
 
-    /* Radius — sm / md / lg / xl / 2xl */
     --radius-sm: 0.5rem;
     --radius-md: 0.625rem;
     --radius-lg: 0.75rem;
@@ -91,7 +116,6 @@
     --radius-full: 9999px;
     --radius: var(--radius-xl);
 
-    /* Depth — soft lift, pink/gold bloom on hover */
     --shadow-xs: 0 1px 2px rgb(0 0 0 / 0.04);
     --shadow-sm: 0 4px 18px rgb(244 114 182 / 0.14), 0 2px 8px rgb(0 0 0 / 0.045);
     --shadow-md: 0 10px 28px rgb(244 114 182 / 0.2), 0 4px 14px rgb(251 191 36 / 0.08);
@@ -100,16 +124,14 @@
     --shadow-inner-soft: inset 0 1px 0 hsl(0 0% 100% / 0.7);
     --shadow-nav: 0 -8px 32px rgb(0 0 0 / 0.06), 0 0 24px rgb(244 114 182 / 0.08);
 
-    /* Semantic shadow aliases */
+    --shadow-card: var(--shadow-sm);
     --shadow-subtle: var(--shadow-xs);
     --shadow-medium: var(--shadow-sm);
     --shadow-elevated: var(--shadow-md);
     --shadow-floating: var(--shadow-lg);
 
-    /* Overlays */
     --overlay-scrim: 220 18% 12%;
 
-    /* Motion */
     --duration-instant: 100ms;
     --duration-fast: 150ms;
     --duration-normal: 200ms;
@@ -119,6 +141,24 @@
   }
 
   .dark {
+    --color-primary: #f472b6;
+    --color-primary-hover: #f9a8d4;
+    --color-secondary: #1e293b;
+    --color-accent: #fbbf24;
+    --color-accent-light: #fcd34d;
+    --color-background: #0f172a;
+    --color-surface: #1e293b;
+    --color-surface-2: #334155;
+    --color-text-primary: #f1f5f9;
+    --color-text-secondary: #94a3b8;
+    --color-border: rgba(244, 114, 182, 0.2);
+    --color-glow: rgba(251, 191, 36, 0.2);
+    --chip-bg: rgba(244, 114, 182, 0.15);
+    --border-brand: var(--color-border);
+    --rose-gold: #f9a8d4;
+    --luxury-rose-wash: rgba(244, 114, 182, 0.1);
+    --luxury-muted-wash: rgba(15, 23, 42, 0.5);
+
     --background: 224 42% 6%;
     --foreground: 210 36% 96%;
     --card: 224 40% 9%;
@@ -168,6 +208,7 @@
     --shadow-inner-soft: inset 0 1px 0 hsl(0 0% 100% / 0.06);
     --shadow-nav: 0 -8px 32px rgb(0 0 0 / 0.32), 0 0 20px rgb(244 114 182 / 0.08);
 
+    --shadow-card: var(--shadow-sm);
     --shadow-subtle: var(--shadow-xs);
     --shadow-medium: var(--shadow-sm);
     --shadow-elevated: var(--shadow-md);
@@ -196,10 +237,13 @@
   h3 {
     @apply text-heading-3 font-semibold leading-snug tracking-luxury-tight text-foreground;
   }
+
+  svg.lucide {
+    stroke-width: 1.25;
+  }
 }
 
 @layer components {
-  /** Category / filter chips — outline idle · gradient selected */
   .category-chip {
     @apply shrink-0 rounded-full border-2 border-primary/20 bg-card/95 px-3 py-1.5 text-xs font-bold text-foreground shadow-sm transition-all duration-200 ease-out;
     @apply hover:border-primary/40 hover:shadow-md;
@@ -215,27 +259,21 @@
     @apply gradient-rosera border-transparent text-white shadow-md;
   }
 
-  /** صفحة — spacing 16px grid + safe area */
   .ds-page {
-    @apply w-full px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-4 sm:px-6 sm:pt-6;
+    @apply w-full px-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] pt-6 sm:px-8 sm:pt-8;
   }
-  /** مسافة بين أقسام — 24px */
   .ds-section {
     @apply space-y-6 py-6;
   }
-  /** حشوة داخل بطاقة — 24px */
   .ds-card-padding {
     @apply p-6;
   }
-  /** رأس صفحة / قسم */
   .ds-header {
     @apply mb-6 flex flex-col gap-1 sm:mb-8;
   }
-  /** عناصر قائمة */
   .ds-list {
     @apply flex flex-col gap-3 sm:gap-4;
   }
-  /** مسافة آمنة سفلية فوق الشريط الثابت */
   .ds-safe-bottom {
     padding-bottom: max(5rem, env(safe-area-inset-bottom));
   }
@@ -244,13 +282,11 @@
     @apply ds-page min-h-dvh;
   }
 
-  /** بطاقة موحّدة — صالون، منتج، حجز */
   .luxury-card {
     @apply rounded-3xl border border-border/40 bg-card p-6 text-card-foreground shadow-elevated transition-all duration-200 ease-out;
     @apply hover:border-primary/25 hover:shadow-floating;
   }
 
-  /** رأس صفحات العميل — زجاجي ناعم */
   .luxury-screen-header {
     @apply sticky top-0 z-10 border-b border-border/40 bg-background/90 px-4 py-4 shadow-sm backdrop-blur-md backdrop-saturate-150 dark:bg-card/90;
     box-shadow: 0 1px 0 hsl(43 70% 88% / 0.35);
@@ -259,24 +295,186 @@
     box-shadow: 0 1px 0 hsl(330 30% 22% / 0.5);
   }
 
-  /** عناوين أقسام — هرمية واضحة */
   .luxury-section-heading {
-    @apply text-heading-2 font-bold tracking-luxury-tight text-foreground;
+    @apply font-serif text-heading-2 font-semibold tracking-wide text-foreground;
   }
 
-  /** زر / صندوق بحث بطولي — الصفحة الرئيسية والخرائط */
   .luxury-hero-search {
-    @apply relative flex w-full items-center gap-3 rounded-3xl border border-primary/20 bg-white px-4 py-4 text-start shadow-elevated ring-1 ring-gold/10 transition-all duration-200 hover:border-primary/30 hover:shadow-floating active:scale-[0.99] dark:bg-card/95 dark:ring-gold/5;
+    @apply relative flex w-full max-w-full items-center gap-3 rounded-3xl border border-primary/20 bg-white px-4 py-4 text-start shadow-elevated ring-1 ring-gold/10 transition-all duration-200 hover:border-primary/30 hover:shadow-floating active:scale-[0.99] dark:bg-card/95 dark:ring-gold/5;
   }
 
-  /** خلفية صفحة فاخرة خفيفة */
+  /** Soft pink/blush page canvas */
+  .luxury-bg {
+    background:
+      radial-gradient(ellipse 120% 80% at 50% 0%, rgb(244 114 182 / 0.08) 0%, transparent 55%),
+      radial-gradient(ellipse 80% 50% at 100% 15%, rgb(251 191 36 / 0.06) 0%, transparent 45%),
+      hsl(var(--background));
+  }
+  .dark .luxury-bg {
+    background:
+      radial-gradient(ellipse 120% 80% at 50% 0%, rgb(244 114 182 / 0.12) 0%, transparent 55%),
+      radial-gradient(ellipse 80% 50% at 100% 15%, rgb(251 191 36 / 0.05) 0%, transparent 45%),
+      hsl(var(--background));
+  }
+
   .luxury-page-canvas {
-    @apply min-h-dvh bg-gradient-to-b from-background via-background to-primary/[0.045];
+    @apply luxury-bg min-h-dvh;
+  }
+
+  .auth-input-underline {
+    @apply rounded-none border-0 border-b border-primary/35 bg-transparent px-0 py-3 text-foreground shadow-none transition-colors;
+    @apply placeholder:text-muted-foreground/70 focus-visible:border-primary focus-visible:outline-none focus-visible:ring-0;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .motion-stagger > * {
+      animation: none !important;
+      animation-delay: 0s !important;
+      opacity: 1 !important;
+      transform: none !important;
+    }
+  }
+
+  .auth-logo-breathe {
+    animation: auth-logo-breathe 3.2s ease-in-out infinite;
+    filter: drop-shadow(0 0 22px rgb(244 114 182 / 0.35));
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .auth-logo-breathe {
+      animation: none;
+      opacity: 1;
+    }
+  }
+
+  .luxury-star-shimmer {
+    background: linear-gradient(
+      95deg,
+      transparent 0%,
+      rgba(253, 242, 248, 0.5) 40%,
+      rgba(251, 191, 36, 0.45) 55%,
+      transparent 100%
+    );
+    opacity: 0;
+    transform: translateX(-100%);
+  }
+  .luxury-star-shimmer--run {
+    animation: luxury-star-shimmer-sweep 0.65s ease-out forwards;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .luxury-star-shimmer--run {
+      animation: none;
+      opacity: 0;
+      transform: none;
+    }
+  }
+}
+
+@keyframes splash-brand-enter {
+  from {
+    opacity: 0;
+    transform: scale(0.94) translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+@keyframes auth-logo-breathe {
+  0%,
+  100% {
+    opacity: 0.8;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+@keyframes luxury-star-shimmer-sweep {
+  0% {
+    transform: translateX(-100%);
+    opacity: 0;
+  }
+  30% {
+    opacity: 0.9;
+  }
+  100% {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+}
+
+@keyframes luxury-ripple {
+  from {
+    transform: translate(-50%, -50%) scale(0);
+    opacity: 1;
+  }
+  to {
+    transform: translate(-50%, -50%) scale(3);
+    opacity: 0;
+  }
+}
+
+.luxury-ripple-el {
+  width: 28px;
+  height: 28px;
+  background: rgb(244 114 182 / 0.35);
+  animation: luxury-ripple 600ms ease-out forwards;
+  will-change: transform, opacity;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .luxury-ripple-el {
+    animation: none;
+    opacity: 0;
+  }
+}
+
+@keyframes petal-fall {
+  0% {
+    transform: translate3d(-50%, -8vh, 0) rotate(0deg);
+    opacity: var(--petal-op, 0.45);
+  }
+  100% {
+    transform: translate3d(calc(-50% + var(--petal-drift, 0px)), 110vh, 0) rotate(220deg);
+    opacity: var(--petal-op, 0.45);
+  }
+}
+
+.petal-fall {
+  animation-name: petal-fall;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+  will-change: transform;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .petal-fall {
+    animation: none;
+    opacity: 0;
   }
 }
 
 @layer utilities {
-  /** Standard motion — no hard jumps */
+  @media (prefers-reduced-motion: reduce) {
+    .animate-page-enter {
+      animation: none !important;
+      opacity: 1 !important;
+      transform: none !important;
+    }
+  }
+
+  .splash-brand-enter-css {
+    animation: splash-brand-enter 0.68s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .splash-brand-enter-css {
+      animation: none;
+      opacity: 1;
+      transform: none;
+    }
+  }
+
   .ui-transition {
     @apply transition-all duration-200 ease-out;
   }
@@ -297,7 +495,7 @@
   }
 
   .icon-circle-pink {
-    @apply inline-flex shrink-0 items-center justify-center rounded-full bg-primary/10 text-accent-foreground ring-1 ring-primary/20 transition-all duration-200 ease-out dark:bg-primary/15 dark:text-pink-200 dark:ring-primary/25;
+    @apply inline-flex shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary ring-1 ring-primary/20 transition-all duration-200 ease-out dark:bg-primary/15 dark:ring-primary/25;
     box-shadow: 0 0 20px rgb(244 114 182 / 0.22);
   }
   .dark .icon-circle-pink {
@@ -306,6 +504,37 @@
 
   .pb-safe {
     padding-bottom: max(5rem, env(safe-area-inset-bottom));
+  }
+
+  /** Primary CTA — pink → gold (original) */
+  .gradient-primary,
+  .gradient-rosera {
+    background: linear-gradient(135deg, hsl(330 81% 70%) 0%, hsl(330 75% 72%) 42%, hsl(43 96% 56%) 100%);
+    border: 1px solid rgb(244 114 182 / 0.45);
+    border-radius: 9999px;
+    color: hsl(0 0% 100%) !important;
+    font-weight: 600;
+    text-shadow: 0 1px 2px hsl(330 40% 20% / 0.15);
+    box-shadow: 0 6px 20px rgb(244 114 182 / 0.35), 0 2px 8px rgb(251 191 36 / 0.2);
+  }
+  .dark .gradient-primary,
+  .dark .gradient-rosera {
+    background: linear-gradient(
+      135deg,
+      hsl(var(--primary-active)) 0%,
+      hsl(var(--primary)) 45%,
+      hsl(43 88% 54%) 100%
+    );
+    color: hsl(0 0% 100%) !important;
+    box-shadow: 0 8px 28px rgb(244 114 182 / 0.25);
+  }
+
+  .luxury-img-cover {
+    @apply relative overflow-hidden rounded-3xl;
+  }
+  .luxury-img-cover::after {
+    content: '';
+    @apply pointer-events-none absolute inset-0 bg-gradient-to-t from-background/90 via-transparent to-transparent;
   }
 }
 
@@ -381,27 +610,4 @@
 .rosera-google-map-root .gm-style > div:first-child {
   width: 100% !important;
   height: 100% !important;
-}
-
-/** Primary CTA — pink → gold, soft shadow */
-.gradient-rosera {
-  background: linear-gradient(
-    135deg,
-    hsl(330 81% 70%) 0%,
-    hsl(330 75% 72%) 42%,
-    hsl(43 96% 56%) 100%
-  );
-  color: hsl(0 0% 100%);
-  text-shadow: 0 1px 2px hsl(330 40% 20% / 0.15);
-  box-shadow: 0 6px 20px rgb(244 114 182 / 0.35), 0 2px 8px rgb(251 191 36 / 0.2);
-}
-.dark .gradient-rosera {
-  background: linear-gradient(
-    135deg,
-    hsl(var(--primary-active)) 0%,
-    hsl(var(--primary)) 45%,
-    hsl(43 88% 54%) 100%
-  );
-  color: hsl(0 0% 100%);
-  box-shadow: 0 8px 28px rgb(244 114 182 / 0.25);
 }

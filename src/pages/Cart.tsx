@@ -17,7 +17,7 @@ export default function Cart() {
         <div className="text-8xl">🛍️</div>
         <h2 className="mt-6 text-xl font-bold">سلتك فارغة</h2>
         <p className="mt-2 text-rosera-gray">أضيفي منتجات من متجر الجمال</p>
-        <Button asChild className="mt-8 rounded-2xl bg-gradient-to-l from-[#9C27B0] to-[#E91E8C]">
+        <Button asChild className="mt-8 rounded-2xl gradient-primary">
           <Link to="/store">تسوقي الآن</Link>
         </Button>
       </div>
@@ -26,7 +26,7 @@ export default function Cart() {
 
   return (
     <div className="min-h-dvh bg-rosera-light pb-32 dark:bg-rosera-dark">
-      <header className="sticky top-0 z-10 border-b border-primary/10 bg-white px-4 py-4 dark:bg-card">
+      <header className="sticky top-0 z-10 border-b border-primary/10 bg-card px-4 py-4">
         <h1 className="text-xl font-extrabold">السلة</h1>
       </header>
       <div className="mx-auto max-w-lg px-4 py-6">
@@ -40,7 +40,7 @@ export default function Cart() {
               />
               <div className="min-w-0 flex-1">
                 <p className="font-bold line-clamp-2">{item.name_ar}</p>
-                <p className="text-primary font-bold">{formatPrice(item.price)}</p>
+                <p className="font-bold text-accent">{formatPrice(item.price)}</p>
                 <div className="mt-2 flex items-center gap-2">
                   <button
                     type="button"
@@ -75,7 +75,7 @@ export default function Cart() {
           <Input className="rounded-2xl flex-1" placeholder="كود الخصم" />
           <Button variant="outline" className="rounded-2xl shrink-0">تطبيق</Button>
         </div>
-        <div className="mt-4 rounded-2xl border border-primary/10 bg-white p-4 dark:bg-card">
+        <div className="mt-4 rounded-2xl border border-primary/10 bg-card p-4">
           <div className="flex justify-between text-sm">
             <span className="text-rosera-gray">المجموع الفرعي</span>
             <span>{formatPrice(subtotal)}</span>
@@ -86,11 +86,11 @@ export default function Cart() {
           </div>
           <div className="mt-4 flex justify-between text-lg font-bold">
             <span>المجموع الكلي</span>
-            <span className="text-primary">{formatPrice(subtotal + SHIPPING)}</span>
+            <span className="text-accent">{formatPrice(subtotal + SHIPPING)}</span>
           </div>
         </div>
 
-        <Button asChild className="mt-6 h-12 w-full rounded-2xl bg-gradient-to-l from-[#9C27B0] to-[#E91E8C] text-base font-bold">
+        <Button asChild className="mt-6 h-12 w-full rounded-2xl gradient-primary text-base font-bold">
           <Link to="/checkout">إتمام الطلب</Link>
         </Button>
       </div>

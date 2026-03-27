@@ -94,26 +94,26 @@ export default function Store() {
   return (
     <div className="min-h-dvh bg-background pb-28">
       {/* Hero */}
-      <div className="relative overflow-hidden border-b border-[#F9A8C9]/20 bg-gradient-to-b from-[#FDF2F8] via-white to-[#FFFBFC] px-4 pb-6 pt-4 dark:from-card dark:via-rosera-dark dark:to-rosera-dark dark:border-border">
+      <div className="relative overflow-hidden border-b border-primary/20 bg-gradient-to-b from-primary-subtle/50 via-white to-background px-4 pb-6 pt-4 dark:from-card dark:via-background dark:to-background dark:border-border">
         <div
-          className="pointer-events-none absolute -end-16 -top-20 h-48 w-48 rounded-full bg-[#F9A8C9]/25 blur-3xl"
+          className="pointer-events-none absolute -end-16 -top-20 h-48 w-48 rounded-full bg-primary/25 blur-3xl"
           aria-hidden
         />
         <div
-          className="pointer-events-none absolute -start-10 top-10 h-36 w-36 rounded-full bg-[#FBCFE8]/40 blur-2xl"
+          className="pointer-events-none absolute -start-10 top-10 h-36 w-36 rounded-full bg-primary/20 blur-2xl"
           aria-hidden
         />
 
         <div className="relative mx-auto max-w-lg">
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0 pt-1">
-              <p className="font-cairo text-xs font-semibold tracking-wide text-[#BE185D]/90 dark:text-primary/90">
+              <p className="font-cairo text-xs font-semibold tracking-wide text-primary/90 dark:text-primary/90">
                 Rosera Beauty
               </p>
-              <h1 className="font-cairo mt-1 text-2xl font-extrabold tracking-tight text-[#374151] dark:text-foreground">
+              <h1 className="font-cairo mt-1 text-2xl font-extrabold tracking-tight text-foreground">
                 {t('store.title')}
               </h1>
-              <p className="font-cairo mt-1.5 max-w-[260px] text-sm leading-relaxed text-[#6B7280] dark:text-muted-foreground">
+              <p className="font-cairo mt-1.5 max-w-[260px] text-sm leading-relaxed text-muted-foreground">
                 {t('store.subtitle')}
               </p>
             </div>
@@ -122,11 +122,11 @@ export default function Store() {
 
           <div className="relative mt-5">
             <Search
-              className="pointer-events-none absolute start-3.5 top-1/2 h-[18px] w-[18px] -translate-y-1/2 text-[#BE185D]/50"
+              className="pointer-events-none absolute start-3.5 top-1/2 h-[18px] w-[18px] -translate-y-1/2 text-primary/50"
               aria-hidden
             />
             <Input
-              className="h-12 rounded-2xl border-[#F9A8C9]/25 bg-white/90 pe-4 ps-11 text-[15px] shadow-sm backdrop-blur-sm placeholder:text-[#9CA3AF] focus-visible:border-[#F9A8C9]/50 focus-visible:ring-[#F9A8C9]/30 dark:bg-card"
+              className="h-12 rounded-2xl border-primary/25 bg-white/90 pe-4 ps-11 text-[15px] shadow-sm backdrop-blur-sm placeholder:text-muted-foreground focus-visible:border-primary/50 focus-visible:ring-primary/30 dark:bg-card"
               placeholder={t('store.searchPlaceholder')}
               value={q}
               onChange={(e) => setQ(e.target.value)}
@@ -136,7 +136,7 @@ export default function Store() {
       </div>
 
       {/* Categories */}
-      <div className="sticky top-0 z-10 border-b border-[#F9A8C9]/15 bg-[#FFFBFC]/95 py-3 backdrop-blur-md dark:border-border dark:bg-rosera-dark/95">
+      <div className="sticky top-0 z-10 border-b border-primary/15 bg-background/95 py-3 backdrop-blur-md dark:border-border dark:bg-card/95">
         <div className="scrollbar-hide flex gap-2 overflow-x-auto px-4 pb-0.5">
           {CATEGORY_DEFS.map(({ key, tKey, Icon }) => {
             const active = cat === key
@@ -151,11 +151,11 @@ export default function Store() {
                 className={cn(
                   'flex shrink-0 items-center gap-2 rounded-2xl border px-3.5 py-2.5 font-cairo text-sm font-bold transition-all duration-200 active:scale-[0.98]',
                   active
-                    ? 'border-transparent bg-gradient-to-l from-[#F9A8C9] to-[#FBCFE8] text-[#374151] shadow-soft dark:from-primary dark:to-[#F472B6]/40 dark:text-[#1f2937]'
-                    : 'border-[#E5E7EB] bg-white/90 text-[#6B7280] hover:border-[#F9A8C9]/40 hover:bg-[#FDF2F8]/80 dark:border-border dark:bg-card dark:text-muted-foreground dark:hover:bg-muted/50'
+                    ? 'border-transparent gradient-primary text-primary-foreground shadow-soft'
+                    : 'border-border bg-white/90 text-muted-foreground hover:border-primary/40 hover:bg-primary-subtle/60 dark:border-border dark:bg-card dark:hover:bg-muted/50'
                 )}
               >
-                <Icon className={cn('h-4 w-4 shrink-0', active ? 'text-[#BE185D]' : 'opacity-70')} strokeWidth={2.25} />
+                <Icon className={cn('h-4 w-4 shrink-0', active ? 'text-primary-foreground' : 'opacity-70')} strokeWidth={2.25} />
                 {t(tKey)}
               </button>
             )
@@ -167,7 +167,7 @@ export default function Store() {
         {loading ? (
           <div className="grid grid-cols-2 gap-3 sm:gap-4">
             {[1, 2, 3, 4, 5, 6].map((i) => (
-              <div key={i} className="overflow-hidden rounded-3xl border border-[#F9A8C9]/15 bg-white dark:border-border dark:bg-card">
+              <div key={i} className="overflow-hidden rounded-3xl border border-primary/15 bg-white dark:border-border dark:bg-card">
                 <Skeleton className="aspect-[4/5] w-full rounded-none" />
                 <div className="space-y-2 p-3.5">
                   <Skeleton className="h-3 w-16" />

@@ -16,6 +16,7 @@ import { boundsToLatLngBox, type LatLngBoundsBox } from '@/lib/fetchSalonsInBoun
 import { getGoogleMapsMapId } from '@/lib/googleMapsEnv'
 import { GOOGLE_MAPS_API_KEY_EMBEDDED } from '@/config/googleMapsApiKey'
 import { clearStaleGoogleMapsScript } from '@/lib/googleMapsLoaderBootstrap'
+import { colors, rgb } from '@/theme/tokens'
 
 const CLUSTER_ICON_CACHE = new Map<string, string>()
 
@@ -29,7 +30,7 @@ function easeOutCubic(t: number): number {
   return 1 - (1 - t) ** 3
 }
 
-/** دائرة متدرجة وردي → ذهبي + ظل ناعم + عدد واضح */
+/** Cluster bubble — rose gradient (brand pins), white count; gold reserved for UI */
 function getClusterIconDataUrl(count: number): string {
   const tier = clusterSizeTier(count)
   const key = `${tier}:${count}`
@@ -48,13 +49,13 @@ function getClusterIconDataUrl(count: number): string {
   const cx = display / 2
   const cy = display / 2
   const rad = display / 2 - 5
-  ctx.shadowColor = 'rgba(236, 72, 153, 0.38)'
+  ctx.shadowColor = `rgba(${rgb.rose.replace(/ /g, ', ')}, 0.4)`
   ctx.shadowBlur = 14
   ctx.shadowOffsetY = 4
   const grd = ctx.createLinearGradient(cx - rad, cy - rad, cx + rad, cy + rad)
-  grd.addColorStop(0, '#f9a8d4')
-  grd.addColorStop(0.45, '#ec4899')
-  grd.addColorStop(1, '#f59e0b')
+  grd.addColorStop(0, colors.mapPinSuggestion)
+  grd.addColorStop(0.45, colors.mapPinRose)
+  grd.addColorStop(1, colors.mapPinTop)
   ctx.beginPath()
   ctx.arc(cx, cy, rad, 0, Math.PI * 2)
   ctx.fillStyle = grd
@@ -66,7 +67,7 @@ function getClusterIconDataUrl(count: number): string {
   ctx.stroke()
   const fontSize = tier === 'sm' ? 12 : tier === 'md' ? 14 : 16
   ctx.font = `bold ${fontSize}px system-ui, -apple-system, sans-serif`
-  ctx.fillStyle = '#ffffff'
+  ctx.fillStyle = colors.white
   ctx.textAlign = 'center'
   ctx.textBaseline = 'middle'
   ctx.fillText(String(count), cx, cy + 0.5)
@@ -505,16 +506,16 @@ function GoogleMapViewInner({
                   : 1.4
         const fill =
           variant === 'selected'
-            ? '#b91c1c'
+            ? colors.mapPinNeutral
             : variant === 'top'
-              ? '#dc2626'
+              ? colors.mapPinTop
               : variant === 'boost'
-                ? '#ea580c'
+                ? colors.mapPinBoost
                 : variant === 'suggestion'
-                  ? '#db2777'
-                  : '#ef4444'
+                  ? colors.mapPinSuggestion
+                  : colors.mapPinRose
         const stroke =
-          variant === 'boost' || variant === 'suggestion' ? '#fbbf24' : '#ffffff'
+          variant === 'boost' || variant === 'suggestion' ? colors.mapPinBoost : colors.white
         const strokeW = variant === 'selected' ? 2.5 : variant === 'boost' || variant === 'suggestion' ? 2.5 : 2
         return {
           path: pinPath,
@@ -596,23 +597,23 @@ function GoogleMapViewInner({
           isHi ? 12000 : isPriority ? 9000 : isSug ? 6500 : isTop ? 500 : 100
 
         if (useAdvancedMarkers) {
-          const fill =
-            variant === 'selected'
-              ? '#b91c1c'
-              : variant === 'top'
-                ? '#dc2626'
-                : variant === 'boost'
-                  ? '#ea580c'
-                  : variant === 'suggestion'
-                    ? '#db2777'
-                    : '#ef4444'
+        const fill =
+          variant === 'selected'
+            ? colors.mapPinNeutral
+            : variant === 'top'
+              ? colors.mapPinTop
+              : variant === 'boost'
+                ? colors.mapPinBoost
+                : variant === 'suggestion'
+                  ? colors.mapPinSuggestion
+                  : colors.mapPinRose
           const stroke =
-            variant === 'boost' || variant === 'suggestion' ? '#fbbf24' : '#ffffff'
+            variant === 'boost' || variant === 'suggestion' ? colors.mapPinBoost : colors.white
           const pin = new markerLib.PinElement({
             background: fill,
             borderColor: stroke,
             glyph: row.pinRatingLabel,
-            glyphColor: '#ffffff',
+            glyphColor: colors.white,
             scale: pinScaleForVariant(variant),
           })
           attachHoverAdvanced(pin.element)
@@ -640,7 +641,7 @@ function GoogleMapViewInner({
           zIndex: z,
           label: {
             text: row.pinRatingLabel,
-            color: '#ffffff',
+            color: colors.white,
             fontSize: isHi ? '12px' : isTop || isBoostOnly || isSug ? '12px' : '11px',
             fontWeight: 'bold',
             className: 'rosera-map-pin-rating-label rosera-map-pin-rating-label--on-red',
@@ -773,8 +774,8 @@ function GoogleMapViewInner({
         dot.style.width = '18px'
         dot.style.height = '18px'
         dot.style.borderRadius = '50%'
-        dot.style.background = '#2563eb'
-        dot.style.border = '3px solid #fff'
+        dot.style.background = colors.mapUserBlue
+        dot.style.border = `3px solid ${colors.white}`
         dot.style.boxShadow = '0 1px 4px rgba(0,0,0,0.35)'
         userMarkerRef.current = new markerLib.AdvancedMarkerElement({
           position: { lat: userLat, lng: userLng },
@@ -791,9 +792,9 @@ function GoogleMapViewInner({
           icon: {
             path: google.maps.SymbolPath.CIRCLE,
             scale: 11,
-            fillColor: '#2563eb',
+            fillColor: colors.mapUserBlue,
             fillOpacity: 1,
-            strokeColor: '#fff',
+            strokeColor: colors.white,
             strokeWeight: 3,
           },
           zIndex: 9999,

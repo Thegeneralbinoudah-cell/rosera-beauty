@@ -29,6 +29,8 @@ import { useCartStore } from '@/stores/cartStore'
 import { ensureUserProfile } from '@/lib/ensureUserProfile'
 import { STORAGE_KEYS } from '@/lib/utils'
 import { fetchRosySalonBookingPreview } from '@/lib/roseySalonBookingPreview'
+import { invokeRozyAdvisor, VISION_FAIL_AR } from '@/lib/rozyVisionChatInvoke'
+import type { RozyVisionChatResult, RozyVisionChatAdvisorMode } from '@/lib/rozyVisionChatTypes'
 
 const ROSY_PREMIUM_TOP_LINE = 'هذا من أفضل الصالونات المميزة ⭐\n'
 
@@ -72,6 +74,9 @@ export function appendMedicalDisclaimerToReply(reply: string): string {
   return `${t}\n\n${FACE_SCAN_MEDICAL_DISCLAIMER}`
 }
 
+/** مفتاح كيان محفوظ في `chat_messages.rosey_entities` لنتيجة تحليل المستشار. */
+export const ROZY_VISION_ADVISOR_ENTITY_KEY = 'rozy_vision_advisor_v1'
+
 export type ChatRow = {
   id: string
   message: string
@@ -80,6 +85,8 @@ export type ChatRow = {
   salons?: RozySalonCard[]
   products?: RozyProductCard[]
   actions?: RozyChatAction[]
+  /** نتيجة `invokeRozyAdvisor` — للعرض الغني في واجهة المحادثة فقط */
+  visionAdvisorResult?: RozyVisionChatResult
 }
 
 export type RoziBookingAction = {
@@ -210,6 +217,10 @@ type ApiMsg = { role: 'user' | 'assistant'; content: string }
 export type RozySendMessageOptions = {
   /** رد صوتي عبر ElevenLabs/المتصفح بعد رد المساعد */
   fromVoice?: boolean
+  /**
+   * مع صورة: يتجاوز rozi-chat ويستدعي `rozi-vision` أوضاع المستشار فقط.
+   */
+  visionAdvisorMode?: RozyVisionChatAdvisorMode
 }
 
 /** رسائل قصيرة توافق على إضافة أول منتج مُقترَح من آخر رد لروزي */
@@ -448,6 +459,7 @@ type ChatRowDb = {
   rosey_salons?: unknown
   rosey_products?: unknown
   rosey_actions?: unknown
+  rosey_entities?: unknown
 }
 
 function mapRowsFromDb(data: ChatRowDb[] | null): ChatRow[] {
@@ -456,6 +468,17 @@ function mapRowsFromDb(data: ChatRowDb[] | null): ChatRow[] {
     const salons = !isUser ? parseSalonCards(r.rosey_salons) : undefined
     const products = !isUser ? parseProductCards(r.rosey_products) : undefined
     const actions = !isUser ? parseChatActions(r.rosey_actions) : undefined
+    let visionAdvisorResult: RozyVisionChatResult | undefined
+    if (!isUser && r.rosey_entities && typeof r.rosey_entities === 'object' && !Array.isArray(r.rosey_entities)) {
+      const raw = (r.rosey_entities as Record<string, unknown>)[ROZY_VISION_ADVISOR_ENTITY_KEY]
+      if (raw && typeof raw === 'object' && !Array.isArray(raw)) {
+        const o = raw as Record<string, unknown>
+        const m = o.mode
+        if (m === 'hand' || m === 'face' || m === 'hair_color' || m === 'haircut' || m === 'hand_nail' || m === 'skin_analysis') {
+          visionAdvisorResult = raw as RozyVisionChatResult
+        }
+      }
+    }
     return {
       id: r.id,
       message: isUser ? (r.message || '') : (r.response || r.message || ''),
@@ -464,6 +487,7 @@ function mapRowsFromDb(data: ChatRowDb[] | null): ChatRow[] {
       salons,
       products,
       actions,
+      visionAdvisorResult,
     }
   })
 }
@@ -521,7 +545,9 @@ export function useChat(userId: string | undefined, options?: UseChatOptions) {
     userEdgeTurnsWhileCartRef.current = 0
     const { data, error } = await supabase
       .from('chat_messages')
-      .select('id, message, response, is_user, created_at, rosey_salons, rosey_products, rosey_actions')
+      .select(
+        'id, message, response, is_user, created_at, rosey_salons, rosey_products, rosey_actions, rosey_entities',
+      )
       .eq('user_id', userId)
       .order('created_at', { ascending: true })
 
@@ -697,10 +723,73 @@ export function useChat(userId: string | undefined, options?: UseChatOptions) {
             char_bucket: charBucket,
           })
         }
-      } catch (e) {
+        } catch (e) {
         console.error('Chat insert exception (user message):', e)
         toast.error('تعذر حفظ رسالتكِ. حاولي مرة أخرى.')
         setMessages((m) => m.filter((x) => x.id !== userRow.id))
+        return
+      }
+
+      if (image && opts?.visionAdvisorMode) {
+        setSending(true)
+        setSendingImage(true)
+        const ttsOwner = salonOwnerSalesMode ? ('salon_owner_sales' as const) : undefined
+        try {
+          const pack = await invokeRozyAdvisor(opts.visionAdvisorMode, image.base64, image.mime)
+          const assistantLabel = 'نتيجة تحليل روزي الذكي ✨'
+          const botRow: ChatRow = {
+            id: crypto.randomUUID(),
+            message: assistantLabel,
+            is_user: false,
+            created_at: new Date().toISOString(),
+            visionAdvisorResult: pack,
+          }
+          setMessages((m) => [...m, botRow])
+          captureRosyReplyGenerated('rozy_vision_advisor', { intent: pack.mode, had_error: false })
+          scheduleAssistantTts(assistantLabel, ttsOwner)
+          try {
+            const { error: insBotErr } = await supabase.from('chat_messages').insert({
+              user_id: uid,
+              message: String(assistantLabel),
+              response: String(assistantLabel),
+              is_user: false,
+              rosey_intent: 'rozy_vision_advisor_v1',
+              rosey_entities: { [ROZY_VISION_ADVISOR_ENTITY_KEY]: pack },
+              rosey_action: null,
+            } as never)
+            if (insBotErr) logChatInsertError('assistant message (rozy vision advisor)', insBotErr)
+          } catch (insEx) {
+            console.error('Chat insert exception (rozy vision advisor):', insEx)
+          }
+        } catch {
+          const failMsg = VISION_FAIL_AR
+          const botRow: ChatRow = {
+            id: crypto.randomUUID(),
+            message: failMsg,
+            is_user: false,
+            created_at: new Date().toISOString(),
+          }
+          setMessages((m) => [...m, botRow])
+          captureRosyReplyGenerated('rozy_vision_advisor', { intent: null, had_error: true })
+          scheduleAssistantTts(failMsg, ttsOwner)
+          try {
+            const { error: insBotErr } = await supabase.from('chat_messages').insert({
+              user_id: uid,
+              message: String(failMsg),
+              response: String(failMsg),
+              is_user: false,
+              rosey_intent: 'rozy_vision_advisor_error',
+              rosey_entities: {},
+              rosey_action: null,
+            } as never)
+            if (insBotErr) logChatInsertError('assistant message (rozy vision advisor error)', insBotErr)
+          } catch (insEx) {
+            console.error('Chat insert exception (rozy vision advisor error):', insEx)
+          }
+        } finally {
+          setSending(false)
+          setSendingImage(false)
+        }
         return
       }
 

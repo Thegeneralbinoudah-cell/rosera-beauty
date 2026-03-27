@@ -1,6 +1,7 @@
 import { Component, type ErrorInfo, type ReactNode } from 'react'
 import { MapPinOff } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { colors } from '@/theme/colors'
 
 type Props = { children: ReactNode; fallback?: ReactNode }
 
@@ -31,9 +32,12 @@ export class MapErrorBoundary extends Component<Props, State> {
 
 export function MapFallback({ onRetry }: { onRetry?: () => void }) {
   return (
-    <div className="flex min-h-0 min-w-0 flex-1 flex-col items-center justify-center gap-4 bg-gradient-to-b from-[#fff5fb] to-white px-6 py-12 text-center dark:from-card dark:to-rosera-dark">
+    <div
+      className="flex min-h-0 min-w-0 flex-1 flex-col items-center justify-center gap-4 bg-gradient-to-b to-white px-6 py-12 text-center dark:from-card dark:to-rosera-dark"
+      style={{ backgroundImage: `linear-gradient(to bottom, ${colors.surface}, white)` }}
+    >
       <div className="flex h-16 w-16 items-center justify-center rounded-full bg-primary/15 ring-2 ring-primary/25">
-        <MapPinOff className="h-8 w-8 text-[#BE185D]" aria-hidden />
+        <MapPinOff className="h-8 w-8 text-primary" aria-hidden />
       </div>
       <div className="max-w-sm space-y-2">
         <p className="text-base font-bold text-foreground">تعذّر تحميل الخريطة</p>

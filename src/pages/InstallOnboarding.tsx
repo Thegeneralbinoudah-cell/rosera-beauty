@@ -6,6 +6,7 @@ import { isStandaloneDisplayMode, shouldShowIOSInstallGuide } from '@/lib/pwaIns
 import { tr } from '@/lib/i18n'
 import { usePreferences } from '@/contexts/PreferencesContext'
 import { cn } from '@/lib/utils'
+import { colors } from '@/theme/colors'
 
 export default function InstallOnboarding() {
   const { lang } = usePreferences()
@@ -17,7 +18,10 @@ export default function InstallOnboarding() {
 
   return (
     <div
-      className="relative min-h-dvh overflow-hidden bg-gradient-to-b from-[#fff8fb] via-white to-[#fff9f0] pb-12 pt-[max(1.5rem,env(safe-area-inset-top))] dark:from-rose-950/30 dark:via-background dark:to-amber-950/10"
+      className="relative min-h-dvh overflow-hidden bg-gradient-to-b via-white pb-12 pt-[max(1.5rem,env(safe-area-inset-top))] dark:from-rose-950/30 dark:via-background dark:to-amber-950/10"
+      style={{
+        backgroundImage: `linear-gradient(to bottom, ${colors.surface}, white, ${colors.secondary})`,
+      }}
       dir={lang === 'ar' ? 'rtl' : 'ltr'}
     >
       <div

@@ -31,6 +31,8 @@ export const supabase: SupabaseClient = createClient(url, key, {
     persistSession: true,
     autoRefreshToken: true,
     detectSessionInUrl: true,
+    /** Required for OAuth (Apple, Google, etc.): stores code verifier so `/auth/callback` can exchange `?code=` */
+    flowType: 'pkce',
   },
 })
 
@@ -41,6 +43,8 @@ export type Business = {
   name_en?: string
   description_ar?: string
   category: string
+  /** Canonical app filter: salon | clinic | spa | makeup | skincare (optional; backfilled in DB) */
+  category_value?: string | null
   category_label?: string | null
   city: string
   region?: string | null

@@ -196,15 +196,15 @@ export default function AdminMonetization() {
       </div>
 
       <div className="grid gap-4 sm:grid-cols-3">
-        <div className="rounded-xl border bg-white p-4 dark:bg-card">
+        <div className="rounded-xl border bg-card p-4 dark:bg-card">
           <p className="text-xs font-bold text-rosera-gray">إجمالي العمولات (من العيّنة المحمّلة)</p>
           <p className="mt-2 text-2xl font-extrabold text-primary">{stats.totalCommission.toLocaleString('ar-SA')} ر.س</p>
         </div>
-        <div className="rounded-xl border bg-white p-4 dark:bg-card">
+        <div className="rounded-xl border bg-card p-4 dark:bg-card">
           <p className="text-xs font-bold text-rosera-gray">دفعات نشطة حالياً</p>
-          <p className="mt-2 text-2xl font-extrabold text-[#9C27B0]">{stats.activeBoosts}</p>
+          <p className="mt-2 text-2xl font-extrabold text-primary">{stats.activeBoosts}</p>
         </div>
-        <div className="rounded-xl border bg-white p-4 dark:bg-card">
+        <div className="rounded-xl border bg-card p-4 dark:bg-card">
           <p className="text-xs font-bold text-rosera-gray">اشتراكات B2B نشطة</p>
           <p className="mt-2 text-2xl font-extrabold text-emerald-700 dark:text-emerald-400">
             {stats.activeSubs.toLocaleString('ar-SA')}
@@ -216,12 +216,12 @@ export default function AdminMonetization() {
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2">
-        <div className="rounded-xl border bg-white p-5 dark:bg-card">
+        <div className="rounded-xl border bg-card p-5 dark:bg-card">
           <p className="font-bold text-primary">صالونات بعلامة «مميّز» في المنصة</p>
           <p className="mt-2 text-3xl font-extrabold tabular-nums">{featuredSalonCount.toLocaleString('ar-SA')}</p>
           <p className="mt-2 text-xs text-rosera-gray">يُرفع ترتيبهم في القوائم والتوصيات مع خطط الاشتراك.</p>
         </div>
-        <div className="rounded-xl border bg-white p-5 dark:bg-card">
+        <div className="rounded-xl border bg-card p-5 dark:bg-card">
           <p className="font-bold text-primary">أعلى الصالونات حجوزاً (مرجعية)</p>
           <ol className="mt-3 list-decimal space-y-1 pe-4 text-sm">
             {topByBookings.length === 0 ? (
@@ -241,7 +241,7 @@ export default function AdminMonetization() {
         </div>
       </div>
 
-      <div className="rounded-xl border bg-white p-6 dark:bg-card">
+      <div className="rounded-xl border bg-card p-6 dark:bg-card">
         <h2 className="text-lg font-bold">أعلى الصالونات — عمولة المنصّة</h2>
         <ol className="mt-4 list-decimal space-y-2 pe-5 text-sm">
           {stats.top.length === 0 ? (
@@ -257,7 +257,7 @@ export default function AdminMonetization() {
         </ol>
       </div>
 
-      <form onSubmit={(e) => void onSubmitBoost(e)} className="rounded-xl border bg-white p-6 dark:bg-card">
+      <form onSubmit={(e) => void onSubmitBoost(e)} className="rounded-xl border bg-card p-6 dark:bg-card">
         <h2 className="text-lg font-bold">تفعيل دفع (بعد استلام الدفع)</h2>
         <p className="mt-1 text-xs text-rosera-gray">
           يُنشئ سجلًا في boosts ويُفعَّل فورًا. لا تكديس: لكل صالون/منتج يُدمَج الأقوى في الترتيب.
@@ -352,7 +352,7 @@ export default function AdminMonetization() {
         </Button>
       </form>
 
-      <div className="rounded-xl border bg-white p-6 dark:bg-card">
+      <div className="rounded-xl border bg-card p-6 dark:bg-card">
         <h2 className="text-lg font-bold">آخر الدفعات</h2>
         <ul className="mt-4 space-y-2 text-sm">
           {recentBoosts.length === 0 ? (

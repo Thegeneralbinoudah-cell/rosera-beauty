@@ -109,11 +109,11 @@ export default function SalonProfile() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-extrabold text-[#880e4f] dark:text-[#f48fb1]">ملف الصالون</h1>
+        <h1 className="text-2xl font-extrabold text-foreground">ملف الصالون</h1>
         <p className="mt-1 text-sm text-muted-foreground">البيانات الظاهرة لعملائك في التطبيق</p>
       </div>
 
-      <Card className="space-y-4 border-pink-100/80 p-4 dark:border-border">
+      <Card className="space-y-4 border-primary/15 p-4 dark:border-border">
         <div className="space-y-2">
           <Label htmlFor="sn">اسم الصالون</Label>
           <Input id="sn" value={name_ar} onChange={(e) => setNameAr(e.target.value)} className="rounded-xl" />
@@ -147,7 +147,7 @@ export default function SalonProfile() {
           <Input id="sa" value={address_ar} onChange={(e) => setAddressAr(e.target.value)} className="rounded-xl" />
         </div>
         <Button
-          className="w-full rounded-xl bg-gradient-to-l from-[#9C27B0] to-[#E91E8C]"
+          className="w-full rounded-xl gradient-primary"
           disabled={saving}
           onClick={() => void save()}
         >

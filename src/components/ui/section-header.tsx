@@ -27,8 +27,8 @@ export function SectionHeader({
         className
       )}
     >
-      <div className="min-w-0 flex-1 space-y-1">
-        <h2 className="text-heading-2 font-bold tracking-luxury-tight text-foreground">{title}</h2>
+      <div className="min-w-0 flex-1 space-y-1 border-s-4 border-accent ps-3">
+        <h2 className="text-heading-2 font-semibold tracking-luxury-tight text-foreground">{title}</h2>
         {description ? (
           <p
             className={cn(

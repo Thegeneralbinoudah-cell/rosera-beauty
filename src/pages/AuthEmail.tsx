@@ -43,7 +43,7 @@ async function redirectAfterEmailLogin(nav: (path: string, opts?: { replace: boo
 }
 
 export default function AuthEmail() {
-  const { t } = useI18n()
+  const { t, lang } = useI18n()
   const nav = useNavigate()
   const [mode, setMode] = useState<'login' | 'signup'>('login')
   const [email, setEmail] = useState('')
@@ -114,7 +114,7 @@ export default function AuthEmail() {
   const submit = mode === 'login' ? onLogin : onSignUp
 
   return (
-    <div className="min-h-dvh bg-white px-6 py-12 dark:bg-rosera-dark">
+    <div className="min-h-dvh bg-background px-6 py-12 dark:bg-rosera-dark">
       <div className="mx-auto max-w-md">
         <div className="rounded-3xl border border-rose-200 bg-white p-8 shadow-soft dark:border-primary/20 dark:bg-card">
           <div className="mb-3 flex justify-end">
@@ -150,21 +150,6 @@ export default function AuthEmail() {
             </div>
           ) : (
             <>
-              <div className="mt-8">
-                <OAuthSocialButtons disabled={loading} />
-              </div>
-
-              <div className="relative mt-8">
-                <div className="absolute inset-0 flex items-center">
-                  <span className="w-full border-t border-primary/15" />
-                </div>
-                <div className="relative flex justify-center text-xs uppercase">
-                  <span className="bg-white px-3 text-rosera-gray dark:bg-card">
-                    {t('auth.orDivider')}
-                  </span>
-                </div>
-              </div>
-
               <form
                 className="mt-8 space-y-4"
                 autoComplete="on"
@@ -243,14 +228,14 @@ export default function AuthEmail() {
                 )}
                 {mode === 'login' && (
                   <div className="text-left">
-                    <Link to="/forgot-password" className="text-sm font-semibold text-primary hover:underline">
+                    <Link to="/forgot-password" className="text-sm font-semibold text-accent hover:underline">
                       {t('authEmail.forgotPassword')}
                     </Link>
                   </div>
                 )}
                 <Button
                   type="submit"
-                  className="h-12 w-full rounded-2xl bg-gradient-to-l from-[#9C27B0] to-[#E91E8C] text-base font-bold shadow-lg shadow-primary/25"
+                  className="h-12 w-full rounded-2xl gradient-primary text-base font-bold shadow-lg shadow-primary/25"
                   disabled={loading}
                 >
                   {loading ? (
@@ -266,11 +251,24 @@ export default function AuthEmail() {
                 </Button>
               </form>
 
+              <div className="relative my-6 flex items-center gap-2" aria-hidden>
+                <span className="h-px flex-1 bg-muted-foreground/35" />
+                <span
+                  className="shrink-0 text-[13px] font-medium text-muted-foreground"
+                  dir={lang === 'ar' ? 'rtl' : 'ltr'}
+                >
+                  {lang === 'ar' ? '── أو ──' : '— or —'}
+                </span>
+                <span className="h-px flex-1 bg-muted-foreground/35" />
+              </div>
+
+              <OAuthSocialButtons disabled={loading} />
+
               <div className="mt-6 space-y-3">
                 <button
                   type="button"
                   onClick={() => nav('/auth', { replace: true })}
-                  className="flex w-full items-center justify-center gap-2 rounded-2xl border border-primary/20 bg-white py-3 text-sm font-semibold text-foreground hover:bg-primary/5 dark:bg-card"
+                  className="flex w-full items-center justify-center gap-2 rounded-2xl border border-primary/20 bg-card py-3 text-sm font-semibold text-foreground hover:bg-primary/10"
                 >
                   {t('authEmail.phoneLogin')}
                 </button>
@@ -307,10 +305,10 @@ export default function AuthEmail() {
           )}
 
           <div className="mt-8 flex flex-wrap justify-center gap-4 text-xs text-rosera-gray">
-            <Link to="/privacy" className="hover:text-primary">
+            <Link to="/privacy" className="text-accent hover:text-accent/90">
               {t('authEmail.privacy')}
             </Link>
-            <Link to="/terms" className="hover:text-primary">
+            <Link to="/terms" className="text-accent hover:text-accent/90">
               {t('authEmail.terms')}
             </Link>
           </div>

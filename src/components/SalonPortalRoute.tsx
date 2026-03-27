@@ -8,7 +8,7 @@ export default function SalonPortalRoute({ children }: { children: ReactNode }) 
 
   if (loading) {
     return (
-      <div className="flex min-h-dvh items-center justify-center bg-[#fef7f9] p-8 dark:bg-background" dir="rtl">
+      <div className="flex min-h-dvh items-center justify-center bg-background p-8 dark:bg-background" dir="rtl">
         جاري التحميل…
       </div>
     )

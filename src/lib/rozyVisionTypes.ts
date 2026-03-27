@@ -1,4 +1,4 @@
-/** Strict JSON shape returned by `rozy-vision` Edge Function (validated server-side). */
+/** Strict JSON shape returned by `rozi-vision` Edge Function (validated server-side). */
 export type RozyVisionMode = 'hand' | 'face'
 
 export type RozyVisionConfidence = 'high' | 'medium' | 'low'

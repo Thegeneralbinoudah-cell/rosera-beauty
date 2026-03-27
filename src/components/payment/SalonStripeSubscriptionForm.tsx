@@ -4,6 +4,7 @@ import { Elements, PaymentElement, useElements, useStripe } from '@stripe/react-
 import { supabase } from '@/lib/supabase'
 import { Button } from '@/components/ui/button'
 import { Loader2 } from 'lucide-react'
+import { colors } from '@/theme/tokens'
 
 function CheckoutInner({
   returnUrl,
@@ -53,7 +54,7 @@ function CheckoutInner({
       <Button
         type="submit"
         disabled={!stripe || busy || disabled}
-        className="w-full rounded-xl bg-gradient-to-l from-[#9C27B0] to-[#E91E8C]"
+        className="w-full rounded-xl gradient-primary"
       >
         {busy ? (
           <>
@@ -144,7 +145,7 @@ export default function SalonStripeSubscriptionForm({
           appearance: {
             theme: 'stripe',
             variables: {
-              colorPrimary: '#9B2257',
+              colorPrimary: colors.primary,
               borderRadius: '12px',
             },
           },

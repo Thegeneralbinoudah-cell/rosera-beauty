@@ -19,7 +19,7 @@ export default function Invite() {
   return (
     <div className="min-h-dvh bg-rosera-light px-4 py-8 dark:bg-rosera-dark">
       <h1 className="text-center text-2xl font-bold">ادعي صديقاتكِ 👑</h1>
-      <div className="mx-auto mt-10 max-w-md rounded-2xl border bg-white p-8 text-center dark:bg-card">
+      <div className="mx-auto mt-10 max-w-md rounded-2xl border bg-card p-8 text-center dark:bg-card">
         <p className="text-rosera-gray">رمز الدعوة الشخصي</p>
         <p className="mt-2 text-3xl font-extrabold tracking-widest text-primary">{code}</p>
         <div className="mt-8 flex flex-col gap-3">

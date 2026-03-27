@@ -89,32 +89,32 @@ export default function SalonAnalytics() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-extrabold text-[#880e4f] dark:text-[#f48fb1]">التحليلات</h1>
+        <h1 className="text-2xl font-extrabold text-foreground">التحليلات</h1>
         <p className="mt-1 text-sm text-muted-foreground">آخر 14 يوماً — تفاعل العملاء مع صفحة صالونك</p>
       </div>
 
       <div className="grid gap-3 sm:grid-cols-2">
-        <Card className="border-pink-100/80 bg-gradient-to-br from-pink-50/90 to-white p-4 dark:border-border dark:from-pink-950/20 dark:to-card">
+        <Card className="border-primary/15 bg-gradient-to-br from-primary-subtle/80 to-white p-4 dark:border-border dark:from-primary/15 dark:to-card">
           <div className="flex items-center gap-3">
-            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-pink-100 text-[#c2185b] dark:bg-primary/15 dark:text-primary">
+            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary-subtle text-primary dark:bg-primary/15 dark:text-primary">
               <Eye className="h-5 w-5" />
             </div>
             <div>
               <p className="text-xs font-semibold text-muted-foreground">المشاهدات</p>
-              <p className="text-2xl font-extrabold tabular-nums text-[#880e4f] dark:text-[#f48fb1]">
+              <p className="text-2xl font-extrabold tabular-nums text-foreground">
                 {loading ? '…' : views.toLocaleString('ar-SA')}
               </p>
             </div>
           </div>
         </Card>
-        <Card className="border-pink-100/80 bg-gradient-to-br from-rose-50/90 to-white p-4 dark:border-border dark:from-rose-950/20 dark:to-card">
+        <Card className="border-primary/15 bg-gradient-to-br from-gold-subtle/90 to-white p-4 dark:border-border dark:from-accent/15 dark:to-card">
           <div className="flex items-center gap-3">
-            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-rose-100 text-rose-800 dark:bg-rose-950/40 dark:text-rose-200">
+            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-gold-subtle text-accent dark:bg-accent/20 dark:text-accent">
               <MousePointerClick className="h-5 w-5" />
             </div>
             <div>
               <p className="text-xs font-semibold text-muted-foreground">النقرات</p>
-              <p className="text-2xl font-extrabold tabular-nums text-[#880e4f] dark:text-[#f48fb1]">
+              <p className="text-2xl font-extrabold tabular-nums text-foreground">
                 {loading ? '…' : clicks.toLocaleString('ar-SA')}
               </p>
             </div>
@@ -122,21 +122,21 @@ export default function SalonAnalytics() {
         </Card>
       </div>
 
-      <Card className="border-pink-100/80 p-4 dark:border-border">
+      <Card className="border-primary/15 p-4 dark:border-border">
         <div className="mb-4 flex items-center gap-2">
-          <CalendarCheck className="h-5 w-5 text-[#c2185b]" />
+          <CalendarCheck className="h-5 w-5 text-primary" />
           <h2 className="font-extrabold text-foreground">الحجوزات حسب اليوم</h2>
         </div>
         {loading ? (
           <p className="py-8 text-center text-sm text-muted-foreground">جاري التحميل…</p>
         ) : (
-          <div className="flex h-44 items-end gap-0.5 border-b border-pink-100/60 pb-1 sm:gap-1 dark:border-border">
+          <div className="flex h-44 items-end gap-0.5 border-b border-primary/15 pb-1 sm:gap-1 dark:border-border">
             {bookingsByDay.map(({ date, count }) => {
               const barPx = Math.round((count / maxBook) * 120)
               return (
                 <div key={date} className="flex min-w-0 flex-1 flex-col items-center justify-end gap-1">
                   <div
-                    className="w-full max-w-[1.75rem] rounded-t-md bg-gradient-to-t from-[#f8bbd0] to-[#ec407a] dark:from-primary/40 dark:to-primary/70"
+                    className="w-full max-w-[1.75rem] rounded-t-md bg-gradient-to-t from-accent to-primary dark:from-primary/50 dark:to-accent/90"
                     style={{ height: `${Math.max(6, barPx)}px` }}
                     title={`${date}: ${count}`}
                   />

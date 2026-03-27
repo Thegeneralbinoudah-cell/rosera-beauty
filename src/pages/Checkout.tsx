@@ -125,7 +125,7 @@ export default function Checkout() {
         <p className="mt-2 text-rosera-gray">
           {t('checkout.orderId')} <span className="font-mono font-bold">{orderId.slice(0, 8)}</span>
         </p>
-        <Button className="mt-8 rounded-2xl bg-gradient-to-l from-[#9C27B0] to-[#E91E8C]" onClick={() => nav('/home')}>
+        <Button className="mt-8 rounded-2xl gradient-primary" onClick={() => nav('/home')}>
           {t('checkout.backHome')}
         </Button>
       </div>
@@ -134,7 +134,7 @@ export default function Checkout() {
 
   return (
     <div className="min-h-dvh bg-rosera-light pb-28 dark:bg-rosera-dark">
-      <header className="sticky top-0 z-10 border-b border-primary/10 bg-white px-4 py-4 dark:bg-card">
+      <header className="sticky top-0 z-10 border-b border-primary/10 bg-card px-4 py-4">
         <h1 className="text-xl font-extrabold">{t('checkout.title')}</h1>
       </header>
       <div className="mx-auto max-w-lg space-y-6 px-4 py-6">
@@ -165,14 +165,14 @@ export default function Checkout() {
             ))}
           </div>
         </div>
-        <div className="rounded-2xl border border-primary/10 bg-white p-4 dark:bg-card">
+        <div className="rounded-2xl border border-primary/10 bg-card p-4">
           <p className="text-rosera-gray">
             {t('checkout.subtotal')} {formatPrice(subtotal)}
           </p>
           <p className="text-rosera-gray">
             {t('checkout.shipping')} {formatPrice(SHIPPING)}
           </p>
-          <p className="mt-2 text-lg font-bold text-primary">
+          <p className="mt-2 text-lg font-bold text-accent">
             {t('checkout.total')} {formatPrice(totalWithShipping)}
           </p>
         </div>

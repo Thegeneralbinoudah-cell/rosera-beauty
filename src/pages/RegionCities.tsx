@@ -5,6 +5,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { useI18n } from '@/hooks/useI18n'
 import { usePreferences } from '@/contexts/PreferencesContext'
 import { useCities } from '@/hooks/useCities'
+import { colors } from '@/theme/colors'
 
 export default function RegionCities() {
   const { t } = useI18n()
@@ -50,7 +51,10 @@ export default function RegionCities() {
               >
                 <Link
                   to={`/city/${city.id}`}
-                  className="flex items-center justify-between rounded-2xl border border-primary/15 bg-gradient-to-l from-white via-[#fff5fb] to-[#fce4ec]/50 p-4 shadow-sm ring-1 ring-[#f8bbd0]/30 transition hover:shadow-[0_12px_28px_-12px_rgba(233,30,140,0.25)] dark:from-card dark:via-card dark:to-card dark:ring-primary/10"
+                  className="flex items-center justify-between rounded-2xl border border-primary/15 bg-gradient-to-l from-white via-transparent p-4 shadow-sm ring-1 ring-primary/30 transition hover:shadow-[0_12px_28px_-12px_rgb(212_165_165_/_0.25)] dark:from-card dark:via-card dark:to-card dark:ring-primary/10"
+                  style={{
+                    backgroundImage: `linear-gradient(to left, white, ${colors.surface}, color-mix(in srgb, ${colors.primary} 50%, transparent))`,
+                  }}
                 >
                   <div>
                     <p className="font-bold text-foreground">{city.name_ar}</p>

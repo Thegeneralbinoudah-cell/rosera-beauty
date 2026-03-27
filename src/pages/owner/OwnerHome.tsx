@@ -54,9 +54,9 @@ export default function OwnerHome() {
 
   return (
     <div>
-      <Card className="mb-8 overflow-hidden border-0 bg-gradient-to-l from-[#9C27B0] to-[#E91E8C] p-6 text-white shadow-lg">
+      <Card className="mb-8 overflow-hidden border-0 gradient-primary p-6 text-white shadow-lg">
         <p className="text-sm opacity-90">مرحباً بكِ في</p>
-        <h1 className="mt-1 text-2xl font-extrabold">{salon?.name_ar ?? 'صالونك'}</h1>
+        <h1 className="mt-1 text-2xl font-semibold text-foreground">{salon?.name_ar ?? 'صالونك'}</h1>
         <p className="mt-2 text-sm opacity-90">{format(new Date(), 'EEEE d MMMM yyyy', { locale: ar })}</p>
       </Card>
       <div className="grid gap-4 sm:grid-cols-2">
@@ -70,11 +70,11 @@ export default function OwnerHome() {
         </Card>
         <Card className="p-6">
           <p className="text-sm text-rosera-gray">إجمالي الإيرادات (مكتملة)</p>
-          <p className="text-3xl font-extrabold text-primary">{stats.revenue.toLocaleString('ar-SA')} ر.س</p>
+          <p className="text-3xl font-extrabold text-accent">{stats.revenue.toLocaleString('ar-SA')} ر.س</p>
         </Card>
         <Card className="p-6">
           <p className="text-sm text-rosera-gray">التقييمات</p>
-          <p className="text-3xl font-extrabold text-[#9B2257]">⭐ {stats.rating.toFixed(1)}</p>
+          <p className="text-3xl font-extrabold text-primary">⭐ {stats.rating.toFixed(1)}</p>
           <p className="text-sm text-rosera-gray">{stats.reviews} تقييم</p>
         </Card>
       </div>

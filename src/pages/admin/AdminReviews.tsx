@@ -25,7 +25,7 @@ export default function AdminReviews() {
       <h1 className="text-2xl font-bold">إدارة التقييمات</h1>
       <div className="mt-6 space-y-3">
         {rows.map((r) => (
-          <div key={r.id} className="rounded-xl border bg-white p-4 dark:bg-card">
+          <div key={r.id} className="rounded-xl border bg-card p-4 dark:bg-card">
             <p className="font-bold">{r.rating}★</p>
             <p className="text-sm text-rosera-gray">{r.comment}</p>
             <div className="mt-2 flex gap-2">

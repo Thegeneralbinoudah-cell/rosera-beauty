@@ -34,7 +34,7 @@ function MiniSalonCard({
             </span>
             {distLabel ? (
               <span className="inline-flex items-center gap-0.5">
-                <MapPin className="h-3.5 w-3.5 text-[#BE185D]/80" aria-hidden />
+                <MapPin className="h-3.5 w-3.5 text-primary/80" aria-hidden />
                 {distLabel}
               </span>
             ) : null}
@@ -43,7 +43,7 @@ function MiniSalonCard({
         <Button
           type="button"
           size="sm"
-          className="h-11 w-full rounded-xl bg-gradient-to-l from-[#9C27B0] to-[#E91E8C] text-white shadow-sm transition-transform active:scale-95"
+          className="h-11 w-full rounded-xl gradient-primary text-white shadow-sm transition-transform active:scale-95"
           onClick={onBook}
         >
           {t('aiChat.bookNow')}
@@ -79,7 +79,7 @@ export function RosyStructuredAssistant({
       ) : null}
       {actions && actions.length > 0 ? (
         <div className="flex flex-col gap-2">
-          <p className="text-center text-xs font-medium text-[#BE185D]">{t('aiChat.ctaClosing')}</p>
+          <p className="text-center text-xs font-medium text-primary">{t('aiChat.ctaClosing')}</p>
           <div className="flex flex-col gap-2">
             {actions.map((a) => (
               <Button
@@ -106,12 +106,12 @@ export function RosyStructuredAssistant({
                     a.kind === 'negotiated_book' ||
                     a.kind === 'add_to_cart' ||
                     a.kind === 'go_to_checkout') &&
-                    'bg-gradient-to-l from-[#9C27B0] to-[#E91E8C] text-white shadow-sm hover:opacity-[0.98]',
+                    'gradient-primary text-white shadow-sm hover:opacity-[0.98]',
                   (a.kind === 'map' ||
                     a.kind === 'store' ||
                     a.kind === 'view_product' ||
                     a.kind === 'salon_detail') &&
-                    'border-pink-500/25 text-[#BE185D] hover:bg-pink-50 dark:border-pink-400/20 dark:hover:bg-pink-950/30'
+                    'border-pink-500/25 text-primary hover:bg-pink-50 dark:border-pink-400/20 dark:hover:bg-pink-950/30'
                 )}
                 onClick={() => onAction(a)}
               >

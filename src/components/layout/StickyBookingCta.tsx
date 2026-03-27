@@ -27,14 +27,14 @@ export function StickyBookingCta() {
     >
       <div
         className={cn(
-          'pointer-events-auto mx-auto flex max-w-lg items-center gap-2 rounded-2xl border border-[#F9A8C9]/25',
+          'pointer-events-auto mx-auto flex max-w-lg items-center gap-2 rounded-2xl border border-primary/25',
           'bg-white/85 py-2 pe-[calc(0.75rem+env(safe-area-inset-right,0px))] ps-3 shadow-[0_-8px_32px_-8px_rgba(249,168,201,0.18)] backdrop-blur-md',
           'dark:border-border dark:bg-rosera-dark/85',
           /* Physical left — FloatingBackButton uses `left`; avoids overlap under dir=rtl */
           'pl-[calc(3.75rem+env(safe-area-inset-left,0px))]'
         )}
       >
-        <p className="min-w-0 flex-1 text-start font-cairo text-xs font-semibold leading-snug tracking-tight text-[#374151] dark:text-foreground sm:text-[13px]">
+        <p className="min-w-0 flex-1 text-start font-cairo text-xs font-semibold leading-snug tracking-tight text-foreground sm:text-[13px]">
           {t('cta.bookBanner')}
         </p>
         <Link

@@ -6,7 +6,13 @@ import { ensureUserProfile } from '@/lib/ensureUserProfile'
 import { runPostAuthRedirect } from '@/lib/postAuthRedirect'
 import { useAuth } from '@/contexts/AuthContext'
 import { toast } from 'sonner'
-import { describeOAuthFailure, extractOAuthCodeFromLocation } from '@/lib/oauthAuth'
+import {
+  describeOAuthFailure,
+  extractOAuthCodeFromLocation,
+  getSupabaseOAuthProviderRedirectUri,
+  isRedirectUriMismatchMessage,
+} from '@/lib/oauthAuth'
+import { useI18n } from '@/hooks/useI18n'
 
 function parseOAuthErrorFromUrl(): string | null {
   try {
@@ -33,6 +39,7 @@ function parseOAuthErrorFromUrl(): string | null {
 export default function AuthCallback() {
   const nav = useNavigate()
   const { refreshProfile } = useAuth()
+  const { t } = useI18n()
   const [phase, setPhase] = useState<'working' | 'done'>('working')
 
   useEffect(() => {
@@ -41,32 +48,37 @@ export default function AuthCallback() {
     ;(async () => {
       const oauthErr = parseOAuthErrorFromUrl()
       if (oauthErr) {
-        toast.error(oauthErr)
+        if (isRedirectUriMismatchMessage(oauthErr)) {
+          const u = getSupabaseOAuthProviderRedirectUri()
+          toast.error(u ? t('auth.oauthRedirectUriMismatch', { url: u }) : t('auth.oauthRedirectUriMismatchGeneric'))
+        } else {
+          toast.error(oauthErr)
+        }
         nav('/auth', { replace: true })
         return
       }
 
       try {
+        const code = extractOAuthCodeFromLocation()
+
         const { data: sessionData, error: sessionErr } = await supabase.auth.getSession()
-        if (sessionErr) {
+        if (sessionErr && !code) {
           toast.error(describeOAuthFailure(sessionErr) || 'تعذر استعادة الجلسة')
           nav('/auth', { replace: true })
           return
         }
+
         let session = sessionData.session
         if (cancelled) return
 
-        if (!session?.user) {
-          const code = extractOAuthCodeFromLocation()
-          if (code) {
-            const { data: exchanged, error: exchangeErr } = await supabase.auth.exchangeCodeForSession(code)
-            if (exchangeErr) {
-              toast.error(describeOAuthFailure(exchangeErr) || 'تعذر إكمال تسجيل الدخول')
-              nav('/auth', { replace: true })
-              return
-            }
-            session = exchanged.session ?? null
+        if (!session?.user && code) {
+          const { data, error } = await supabase.auth.exchangeCodeForSession(code)
+          if (error) {
+            toast.error(describeOAuthFailure(error) || 'تعذر إكمال تسجيل الدخول')
+            nav('/auth', { replace: true })
+            return
           }
+          session = data.session ?? null
         }
 
         if (!session?.user) {
@@ -78,14 +90,14 @@ export default function AuthCallback() {
 
         const user = session?.user
         if (!user) {
-          toast.error('لم يكتمل تسجيل الدخول — لا توجد جلسة. جرّبي مرة أخرى أو استخدمي البريد أو الجوال.')
+          toast.error(t('auth.oauthCallbackNoSession'))
           nav('/auth', { replace: true })
           return
         }
 
         const profileOk = await ensureUserProfile(user)
         if (!profileOk) {
-          toast.error('تعذر إعداد ملفكِ الشخصي. يمكنكِ المحاولة من الإعدادات لاحقاً.')
+          toast.error(t('auth.oauthProfileSetupFailed'))
         }
 
         await refreshProfile()
@@ -104,13 +116,13 @@ export default function AuthCallback() {
     return () => {
       cancelled = true
     }
-  }, [nav, refreshProfile])
+  }, [nav, refreshProfile, t])
 
   return (
     <div className="flex min-h-dvh flex-col items-center justify-center gap-4 bg-background px-6">
       <Loader2 className="h-10 w-10 animate-spin text-primary" aria-hidden />
       <p className="text-sm font-medium text-muted-foreground">
-        {phase === 'working' ? 'جاري تسجيل الدخول…' : 'جاري التوجيه…'}
+        {phase === 'working' ? t('auth.oauthCallbackWorking') : t('auth.oauthCallbackRedirecting')}
       </p>
     </div>
   )

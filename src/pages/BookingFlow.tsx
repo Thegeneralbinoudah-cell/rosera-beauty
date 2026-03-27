@@ -9,13 +9,17 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { Calendar } from '@/components/ui/calendar'
 import { startOfToday } from 'date-fns'
 import { formatPrice, cn } from '@/lib/utils'
+import { fireBookingConfetti } from '@/lib/bookingConfetti'
+import { CountUp } from '@/components/ui/CountUp'
 import { toast } from 'sonner'
 import PaymentForm, { type PaymentResult } from '@/components/payment/PaymentForm'
 import { trackEvent } from '@/lib/analytics'
-import { captureProductEvent } from '@/lib/posthog'
+import { captureBookingFailed, captureProductEvent } from '@/lib/posthog'
 import { preferenceMetaFromBusiness } from '@/lib/roseyUserPreference'
 import { pickBestActiveOffer, type OfferRow, type SalonActiveOffer } from '@/lib/offers'
 import { platformCommissionSar } from '@/lib/bookingCommission'
+import { pickDefaultServiceIdForBooking } from '@/lib/salonRosyRecommendation'
+import { colors } from '@/theme/tokens'
 
 function addDays(d: Date, n: number) {
   const x = new Date(d)
@@ -100,6 +104,9 @@ export default function BookingFlow() {
       initialStep?: 1 | 2 | 3 | 4 | 5
       /** من زر «احجزي بالسعر الجديد» في روزي — يُطبَّق فقط إن سمح الصالون */
       rosyNegotiation?: { discountPercent: number }
+      /** من معاينة ألوان الأظافر في Rosy Vision */
+      rosyNailColor?: string
+      rosyNailHex?: string
     }
   }
   const fromRosy = searchParams.get('source') === 'rosy'
@@ -132,10 +139,13 @@ export default function BookingFlow() {
   const [salonOffer, setSalonOffer] = useState<SalonActiveOffer | null>(null)
   /** فشل إنشاء حجز pending قبل Moyasar (من خطوة الموعد) */
   const [paymentPrepError, setPaymentPrepError] = useState<string | null>(null)
-  const rosyScrollDoneRef = useRef(false)
+  const bookingServiceScrollDoneRef = useRef(false)
   const rosyQuickStepRef = useRef(false)
   const bookingStartedTrackedRef = useRef(false)
   const bookingCompleteTrackedRef = useRef(false)
+  const bookingConfettiFiredRef = useRef(false)
+
+  const selectedIdsKey = useMemo(() => [...selectedIds].sort().join(','), [selectedIds])
 
   useEffect(() => {
     setStep(1)
@@ -188,6 +198,7 @@ export default function BookingFlow() {
         if (svcErr) {
           console.error('[BookingFlow] services', svcErr)
           setServicesFetchFailed(true)
+          captureBookingFailed('services_load', { salon_id: salonId })
           toast.error('تعذر تحميل الخدمات — يمكنكِ إعادة المحاولة')
         } else {
           setServicesFetchFailed(false)
@@ -221,9 +232,12 @@ export default function BookingFlow() {
         setStaffFetchFailed(staffErr)
         setSelectedStaffId(null)
         setSalonOffer(pickBestActiveOffer((offRows ?? []) as OfferRow[]))
-        const pre = loc.state?.preselect
+        const pre = loc.state?.preselect?.trim()
+        const defaultSvcId = pickDefaultServiceIdForBooking(list)
         if (pre && list.some((s) => s.id === pre && s.business_id === salonId)) {
           setSelectedIds(new Set([pre]))
+        } else if (defaultSvcId) {
+          setSelectedIds(new Set([defaultSvcId]))
         } else {
           setSelectedIds(new Set())
         }
@@ -248,6 +262,7 @@ export default function BookingFlow() {
         setSalonLoadFailed(true)
         setB(null)
         setServices([])
+        captureBookingFailed('salon_load', { salon_id: salonId })
         toast.error('تعذر تحميل بيانات الصالون')
       } finally {
         if (c && advanceReady) setSalonDataReady(true)
@@ -275,10 +290,20 @@ export default function BookingFlow() {
         .filter((s) => s.is_active !== false && s.is_demo !== true)
         .sort((a, b) => a.name_ar.localeCompare(b.name_ar, 'ar'))
       setServices(list)
-      setSelectedIds((prev) => new Set([...prev].filter((id) => list.some((s) => s.id === id && s.business_id === salonId))))
+      setSelectedIds((prev) => {
+        const next = new Set(
+          [...prev].filter((id) => list.some((s) => s.id === id && s.business_id === salonId)),
+        )
+        if (next.size === 0 && list.length > 0) {
+          const def = pickDefaultServiceIdForBooking(list)
+          if (def) next.add(def)
+        }
+        return next
+      })
     } catch (e) {
       console.error('[BookingFlow] refetch services', e)
       setServicesFetchFailed(true)
+      captureBookingFailed('services_refetch', { salon_id: salonId })
       toast.error('تعذر تحميل الخدمات — يمكنكِ إعادة المحاولة')
     } finally {
       setRefetchingServices(false)
@@ -308,9 +333,10 @@ export default function BookingFlow() {
   }, [salonId])
 
   useEffect(() => {
-    rosyScrollDoneRef.current = false
     rosyQuickStepRef.current = false
     bookingStartedTrackedRef.current = false
+    /** New salon / new flow — allow confetti once when this booking completes */
+    bookingConfettiFiredRef.current = false
   }, [salonId])
 
   useEffect(() => {
@@ -328,22 +354,49 @@ export default function BookingFlow() {
     })
   }, [success, fromRosy, salonGateway])
 
+  useEffect(() => {
+    if (!success) return
+    if (bookingConfettiFiredRef.current) return
+    bookingConfettiFiredRef.current = true
+    const id = requestAnimationFrame(() => fireBookingConfetti())
+    return () => cancelAnimationFrame(id)
+  }, [success])
+
+  const rosyNailColorLabel = loc.state?.rosyNailColor?.trim() || ''
+  const rosyNailHex = loc.state?.rosyNailHex?.trim() || ''
+
+  /** تمييز الخدمة الممرَّرة من صفحة الصالون / روزي (preselect) */
   const highlightServiceId = useMemo(() => {
-    if (!fromRosy || !salonId) return null
-    const pre = loc.state?.preselect
-    if (pre && services.some((s) => s.id === pre && s.business_id === salonId)) return pre
-    const first = services.find((s) => s.business_id === salonId)
-    return first?.id ?? null
-  }, [fromRosy, loc.state?.preselect, services, salonId])
+    const pre = loc.state?.preselect?.trim()
+    if (!pre || !salonId) return null
+    if (services.some((s) => s.id === pre && s.business_id === salonId)) return pre
+    return null
+  }, [loc.state?.preselect, services, salonId])
 
   useEffect(() => {
-    if (!fromRosy || services.length === 0 || rosyScrollDoneRef.current) return
-    rosyScrollDoneRef.current = true
-    const t = window.setTimeout(() => {
+    bookingServiceScrollDoneRef.current = false
+  }, [salonId, loc.state?.preselect])
+
+  /** تمرير إلى قائمة الخدمات ثم إلى الصف المختار — بدون حلقات ثقيلة */
+  useEffect(() => {
+    if (!salonDataReady || services.length === 0 || bookingServiceScrollDoneRef.current) return
+    const pre = loc.state?.preselect?.trim()
+    const firstSelected = [...selectedIds][0]
+    const scrollToId =
+      pre && services.some((s) => s.id === pre) ? pre : firstSelected && services.some((s) => s.id === firstSelected) ? firstSelected : null
+    if (!scrollToId) return
+    bookingServiceScrollDoneRef.current = true
+    const t0 = window.setTimeout(() => {
       document.getElementById('rosey-booking-services')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-    }, 280)
-    return () => window.clearTimeout(t)
-  }, [fromRosy, services.length])
+    }, fromRosy ? 120 : 80)
+    const t1 = window.setTimeout(() => {
+      document.getElementById(`booking-service-${scrollToId}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    }, fromRosy ? 420 : 320)
+    return () => {
+      window.clearTimeout(t0)
+      window.clearTimeout(t1)
+    }
+  }, [salonDataReady, services.length, fromRosy, loc.state?.preselect, selectedIdsKey, services, selectedIds])
 
   useEffect(() => {
     const raw = loc.state?.initialStep
@@ -355,7 +408,7 @@ export default function BookingFlow() {
     if (!hasValid) return
     rosyQuickStepRef.current = true
     setStep(3)
-  }, [loc.state?.initialStep, services.length, selectedIds.size, services, salonId, servicesFetchFailed])
+  }, [loc.state?.initialStep, services.length, selectedIds, services, salonId, servicesFetchFailed])
 
   const selectedServices = useMemo(() => {
     if (!salonId) return []
@@ -402,7 +455,6 @@ export default function BookingFlow() {
     })
   }
 
-  const selectedIdsKey = useMemo(() => [...selectedIds].sort().join(','), [selectedIds])
   const subtotal = selectedServices.reduce((a, s) => a + Number(s.price), 0)
 
   useEffect(() => {
@@ -442,8 +494,15 @@ export default function BookingFlow() {
     paymentAmount?: number,
     paymentMethod = 'moyasar'
   ) => {
-    if (!user || !salonId || selectedServices.length === 0) return null
-    if (selectedServices.some((s) => s.business_id !== salonId)) return null
+    if (!user || !salonId) return null
+    if (selectedServices.length === 0) {
+      captureBookingFailed('booking_insert_no_service', { salon_id: salonId ?? '' })
+      return null
+    }
+    if (selectedServices.some((s) => s.business_id !== salonId)) {
+      captureBookingFailed('booking_insert_service_salon_mismatch', { salon_id: salonId })
+      return null
+    }
     if (paymentStatus === 'paid' && !(paymentId && String(paymentId).trim())) {
       console.error('[BookingFlow] blocked insert: payment_status=paid requires non-empty payment_id', {
         salonId,
@@ -504,6 +563,11 @@ export default function BookingFlow() {
 
   const onPaymentSuccess = async (result: PaymentResult) => {
     if (result.payment_status !== 'free') return
+    if (servicesFetchFailed || services.length === 0 || selectedServices.length === 0) {
+      toast.error('اختر خدمة واحدة على الأقل من الخطوة الأولى ثم أعيدي الدفع')
+      setStep(1)
+      return
+    }
     setLoading(true)
     try {
       const res = await insertBooking('free', null, finalTotal, 'free')
@@ -512,8 +576,13 @@ export default function BookingFlow() {
         setBookingRef(res.id)
         setSuccessPlatformFeeSar(res.platformFeeSar)
         setSuccess(true)
+      } else {
+        toast.error('تعذر إتمام الحجز — تأكدي من اختيار خدمة صالحة ثم أعيدي المحاولة')
+        setStep(1)
+        captureBookingFailed('free_insert_null', { salon_id: salonId ?? '' })
       }
     } catch (e: unknown) {
+      captureBookingFailed('free_confirm', salonId ? { salon_id: salonId } : undefined)
       toast.error(e instanceof Error ? e.message : 'فشل الحجز')
     } finally {
       setLoading(false)
@@ -544,11 +613,13 @@ export default function BookingFlow() {
         } else {
           const msg = 'تعذر تجهيز طلب الدفع — أعيدي المحاولة'
           setPaymentPrepError(msg)
+          captureBookingFailed('pending_insert', { salon_id: salonId })
           toast.error(msg)
         }
       } catch (e: unknown) {
         const msg = e instanceof Error ? e.message : 'فشل إنشاء الحجز'
         setPaymentPrepError(msg)
+        captureBookingFailed('payment_prep', { salon_id: salonId })
         toast.error('تعذر تجهيز الدفع — تحققي من الاتصال وأعيدي المحاولة')
       } finally {
         setLoading(false)
@@ -572,8 +643,13 @@ export default function BookingFlow() {
         setBookingRef(res.id)
         setSuccessPlatformFeeSar(res.platformFeeSar)
         setSuccess(true)
+      } else {
+        toast.error('تعذر إتمام الحجز — اختر خدمة واحدة على الأقل ثم أعيدي التأكيد')
+        setStep(1)
+        captureBookingFailed('cash_insert_null', { salon_id: salonId ?? '' })
       }
     } catch (e: unknown) {
+      captureBookingFailed('cash_confirm', { salon_id: salonId ?? '' })
       toast.error(e instanceof Error ? e.message : 'فشل الحجز')
     } finally {
       setLoading(false)
@@ -671,7 +747,8 @@ export default function BookingFlow() {
         </p>
         {successPlatformFeeSar != null && successPlatformFeeSar > 0 ? (
           <p className="mt-3 text-center text-base font-bold text-primary">
-            رسوم الخدمة: {formatPrice(successPlatformFeeSar)}
+            رسوم الخدمة:{' '}
+            <CountUp value={successPlatformFeeSar} format={(n) => formatPrice(n)} />
           </p>
         ) : null}
         <Button
@@ -690,7 +767,7 @@ export default function BookingFlow() {
         <button type="button" onClick={goBack} className="font-semibold text-primary transition-colors hover:text-primary-hover">
           ← رجوع
         </button>
-        <h1 className="mt-2 text-heading-3 font-bold">حجز — {b.name_ar}</h1>
+        <h1 className="mt-2 text-heading-3 font-semibold tracking-wide">حجز — {b.name_ar}</h1>
         <p className="mt-1 text-sm text-muted-foreground">
           الخطوة {displayStepNum} من {displayStepTotal} · {BOOKING_PHASES[bookingPhase - 1].label}
         </p>
@@ -736,6 +813,26 @@ export default function BookingFlow() {
                     <p className="mt-1 text-sm text-muted-foreground">اختر خدمة واحدة على الأقل للمتابعة — لا يمكن الحجز بدون خدمة.</p>
                   </div>
                 </div>
+
+                {fromRosy && rosyNailColorLabel ? (
+                  <div
+                    className="flex items-center gap-3 rounded-2xl border border-gold/35 bg-gradient-to-l from-amber-50/90 via-card to-primary-subtle/50 p-3 shadow-sm ring-1 ring-gold/20 dark:from-amber-950/30 dark:via-card dark:to-card"
+                    role="status"
+                  >
+                    <span
+                      className="h-11 w-11 shrink-0 rounded-xl border-2 border-white shadow-md ring-1 ring-black/10"
+                      style={{
+                        backgroundColor: rosyNailHex && /^#[0-9A-Fa-f]{6}$/.test(rosyNailHex) ? rosyNailHex : colors.nailFallback,
+                      }}
+                      aria-hidden
+                    />
+                    <div className="min-w-0 text-start">
+                      <p className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">لون روزي المختار</p>
+                      <p className="truncate text-sm font-extrabold text-foreground">{rosyNailColorLabel}</p>
+                      <p className="mt-0.5 text-[11px] text-muted-foreground">تم تمييز خدمة المناكير المقترحة أدناه — يمكنكِ تغييرها.</p>
+                    </div>
+                  </div>
+                ) : null}
 
                 {refetchingServices && services.length === 0 ? (
                   <div className="space-y-3 py-1">
@@ -824,10 +921,14 @@ export default function BookingFlow() {
                           {group.items.map((s) => (
                             <label
                               key={s.id}
+                              id={`booking-service-${s.id}`}
                               className={cn(
                                 'luxury-card flex cursor-pointer items-start gap-4 p-4 transition-all duration-200',
                                 selectedIds.has(s.id) && 'border-primary/40 bg-primary-subtle/50 shadow-md ring-2 ring-primary/25',
-                                highlightServiceId === s.id && 'ring-2 ring-primary/50 ring-offset-2 ring-offset-background'
+                                highlightServiceId === s.id &&
+                                  (rosyNailColorLabel
+                                    ? 'ring-2 ring-amber-500/70 ring-offset-2 ring-offset-background shadow-lg'
+                                    : 'ring-2 ring-primary/50 ring-offset-2 ring-offset-background'),
                               )}
                             >
                               <input
@@ -863,13 +964,13 @@ export default function BookingFlow() {
                       {subtotal > finalTotal + 0.005 ? (
                         <>
                           <p className="text-sm text-muted-foreground line-through">قبل الخصم: {formatPrice(subtotal)}</p>
-                          <p className="text-lg font-bold text-primary">بعد العرض: {formatPrice(finalTotal)}</p>
+                          <p className="text-lg font-bold text-accent">بعد العرض: {formatPrice(finalTotal)}</p>
                         </>
                       ) : (
-                        <p className="text-lg font-bold text-primary">المجموع: {formatPrice(finalTotal)}</p>
+                        <p className="text-lg font-bold text-accent">المجموع: {formatPrice(finalTotal)}</p>
                       )}
                       {rosyAppliedNegotiationPct > 0 ? (
-                        <p className="text-xs font-semibold text-[#BE185D]">
+                        <p className="text-xs font-semibold text-primary">
                           خصم روزي ✨ {rosyAppliedNegotiationPct}% (يُطبَّق بعد عروض الصالون إن وُجدت)
                         </p>
                       ) : null}
@@ -1141,20 +1242,20 @@ export default function BookingFlow() {
                   {subtotal > finalTotal + 0.005 ? (
                     <>
                       <p className="text-sm text-rosera-gray line-through">{formatPrice(subtotal)}</p>
-                      <p className="text-xl font-bold text-primary">{formatPrice(finalTotal)}</p>
+                      <p className="text-xl font-bold text-accent">{formatPrice(finalTotal)}</p>
                     </>
                   ) : (
-                    <p className="text-xl font-bold text-primary">{formatPrice(finalTotal)}</p>
+                    <p className="text-xl font-bold text-accent">{formatPrice(finalTotal)}</p>
                   )}
                   {rosyAppliedNegotiationPct > 0 ? (
-                    <p className="mt-2 text-xs font-semibold text-[#BE185D]">خصم روزي ✨ {rosyAppliedNegotiationPct}%</p>
+                    <p className="mt-2 text-xs font-semibold text-primary">خصم روزي ✨ {rosyAppliedNegotiationPct}%</p>
                   ) : null}
                 </div>
               </div>
               {salonGateway === 'moyasar' && !PAYMENT_MODE_FREE ? (
                 <div className="luxury-card border-primary/30 bg-gradient-to-b from-primary-subtle/50 to-card p-6 text-center">
                   <p className="text-sm font-medium text-muted-foreground">المبلغ المستحق</p>
-                  <p className="mt-2 text-3xl font-extrabold tabular-nums text-primary">{formatPrice(finalTotal)}</p>
+                  <p className="mt-2 text-3xl font-extrabold tabular-nums text-accent">{formatPrice(finalTotal)}</p>
                   <p className="mt-2 text-xs text-muted-foreground">الدفع عبر بوابة آمنة — لا نخزّن بيانات البطاقة</p>
                 </div>
               ) : null}
@@ -1225,6 +1326,7 @@ export default function BookingFlow() {
                       onSuccess={onPaymentSuccess}
                       onError={(msg) => {
                         console.error('[BookingFlow payment]', msg)
+                        captureBookingFailed('payment_widget', salonId ? { salon_id: salonId } : undefined)
                         toast.error(msg)
                       }}
                       disabled={loading || (!PAYMENT_MODE_FREE && !pendingRefId)}

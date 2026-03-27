@@ -229,7 +229,7 @@ export default function OwnerSubscription() {
         {active ? (
           <div className="mt-3 space-y-2 text-sm">
             <div className="flex flex-wrap items-center gap-2">
-              <Badge className="bg-gradient-to-l from-[#9C27B0] to-[#E91E8C]">
+              <Badge className="gradient-primary">
                 {SALON_SUBSCRIPTION_PLANS[active.plan as SalonSubscriptionPlan]?.labelAr ?? active.plan}
               </Badge>
               <span className="text-muted-foreground">{Number(active.price).toFixed(0)} ر.س / شهر</span>
@@ -291,10 +291,10 @@ export default function OwnerSubscription() {
                   </Badge>
                 ) : null}
               </div>
-              <p className="mt-1 text-2xl font-black tabular-nums text-[#9B2257]">{cfg.priceSar} ر.س</p>
+              <p className="mt-1 text-2xl font-black tabular-nums text-primary">{cfg.priceSar} ر.س</p>
               <p className="mt-2 flex-1 text-xs text-muted-foreground">{cfg.hintAr}</p>
               <Button
-                className="mt-4 w-full rounded-xl bg-gradient-to-l from-[#9C27B0] to-[#E91E8C]"
+                className="mt-4 w-full rounded-xl gradient-primary"
                 disabled={busy || isCurrent}
                 onClick={() => void startCheckout(plan)}
               >

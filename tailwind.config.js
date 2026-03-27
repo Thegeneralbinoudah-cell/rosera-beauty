@@ -1,5 +1,5 @@
 /** @type {import('tailwindcss').Config} */
-/** ROSERA — design tokens (see src/index.css :root) */
+/** ROSERA — original pink/gold theme via `src/index.css` (`--color-*` + HSL). TS hex: `src/theme/colors.ts`. */
 export default {
   darkMode: ['class'],
   content: ['./index.html', './src/**/*.{js,ts,jsx,tsx}'],
@@ -33,6 +33,7 @@ export default {
         accent: {
           DEFAULT: 'hsl(var(--accent))',
           foreground: 'hsl(var(--accent-foreground))',
+          light: 'hsl(var(--accent-light))',
         },
         card: {
           DEFAULT: 'hsl(var(--card))',
@@ -70,6 +71,11 @@ export default {
           gray: 'hsl(var(--muted-foreground))',
         },
         overlay: 'hsl(var(--overlay-scrim) / 0.5)',
+        /** Brand — direct CSS var access */
+        empress: {
+          border: 'var(--color-border)',
+          glow: 'var(--color-glow)',
+        },
       },
       spacing: {
         'ds-1': 'var(--space-1)',
@@ -96,11 +102,13 @@ export default {
         '2xl': 'var(--radius-2xl)',
         '3xl': 'var(--radius-3xl)',
         full: 'var(--radius-full)',
+        card: '1.25rem',
       },
       fontFamily: {
-        sans: ['Tajawal', 'Cairo', 'system-ui', 'sans-serif'],
-        cairo: ['Tajawal', 'Cairo', 'system-ui', 'sans-serif'],
-        display: ['Tajawal', 'Cairo', 'system-ui', 'sans-serif'],
+        sans: ['Almarai', 'system-ui', 'sans-serif'],
+        cairo: ['Almarai', 'system-ui', 'sans-serif'],
+        display: ['Cormorant Garamond', 'Georgia', 'serif'],
+        serif: ['Cormorant Garamond', 'Georgia', 'serif'],
       },
       fontSize: {
         /** Typography scale — Arabic-first */
@@ -137,8 +145,24 @@ export default {
           '0%': { opacity: '0', transform: 'translateY(10px)' },
           '100%': { opacity: '1', transform: 'translateY(0)' },
         },
+        /** Staggered cards / list items — fade + float up */
+        'fade-in-up': {
+          '0%': { opacity: '0', transform: 'translateY(12px)' },
+          '100%': { opacity: '1', transform: 'translateY(0)' },
+        },
+        /** Rosie FAB — champagne glow pulse every ~3s */
+        'rosy-fab-champagne': {
+          '0%, 100%': {
+            boxShadow:
+              '0 8px 28px rgba(0,0,0,0.22), 0 0 0 0 rgba(212, 175, 55, 0.35), 0 0 18px rgba(212, 175, 55, 0.2)',
+          },
+          '50%': {
+            boxShadow:
+              '0 10px 32px rgba(0,0,0,0.26), 0 0 0 6px rgba(212, 175, 55, 0.12), 0 0 28px rgba(212, 175, 55, 0.45)',
+          },
+        },
         'list-item-in': {
-          '0%': { opacity: '0', transform: 'translateY(8px)' },
+          '0%': { opacity: '0', transform: 'translateY(12px)' },
           '100%': { opacity: '1', transform: 'translateY(0)' },
         },
         'skeleton-pulse': {
@@ -151,10 +175,10 @@ export default {
         },
         'rosey-pulse-soft': {
           '0%, 100%': {
-            filter: 'drop-shadow(0 0 18px rgba(244, 114, 182, 0.32)) drop-shadow(0 10px 22px rgba(190, 24, 93, 0.12))',
+            filter: 'drop-shadow(0 0 18px rgb(212 165 165 / 0.35)) drop-shadow(0 10px 22px rgb(197 160 89 / 0.15))',
           },
           '50%': {
-            filter: 'drop-shadow(0 0 26px rgba(251, 191, 36, 0.38)) drop-shadow(0 12px 26px rgba(244, 114, 182, 0.18))',
+            filter: 'drop-shadow(0 0 26px rgb(197 160 89 / 0.38)) drop-shadow(0 12px 26px rgb(212 165 165 / 0.22))',
           },
         },
         'rosy-float-breathe': {
@@ -173,11 +197,43 @@ export default {
           '0%': { transform: 'translateX(-100%)' },
           '100%': { transform: 'translateX(100%)' },
         },
+        /** Rosy assistant FAB — idle glow, listen ring, speak breathe (UI only) */
+        'rosy-fab-idle-glow': {
+          '0%, 100%': {
+            boxShadow:
+              '0 0 0 1px rgb(197 160 89 / 0.22), 0 8px 28px rgb(212 165 165 / 0.28), 0 0 36px rgb(197 160 89 / 0.18)',
+          },
+          '50%': {
+            boxShadow:
+              '0 0 0 1px rgb(197 160 89 / 0.35), 0 10px 32px rgb(212 165 165 / 0.34), 0 0 44px rgb(197 160 89 / 0.26)',
+          },
+        },
+        'rosy-fab-listen-ring': {
+          '0%, 100%': { transform: 'scale(1)', opacity: '0.55' },
+          '50%': { transform: 'scale(1.06)', opacity: '0.95' },
+        },
+        'rosy-fab-speak-breathe': {
+          '0%, 100%': { transform: 'scale(1)' },
+          '50%': { transform: 'scale(1.035)' },
+        },
+        /** Gold ripple on FAB press (matches Rosie FAB spec) */
+        'rosy-fab-gold-ripple': {
+          '0%': {
+            boxShadow:
+              '0 4px 20px rgba(197, 160, 89, 0.35), 0 0 0 0 rgba(197, 160, 89, 0.45)',
+          },
+          '100%': {
+            boxShadow:
+              '0 4px 20px rgba(197, 160, 89, 0.35), 0 0 0 22px rgba(197, 160, 89, 0)',
+          },
+        },
       },
       animation: {
-        'page-enter': 'page-enter 200ms cubic-bezier(0.22, 1, 0.36, 1) both',
-        'premium-in': 'page-enter 200ms cubic-bezier(0.22, 1, 0.36, 1) both',
-        'list-item-in': 'list-item-in 200ms cubic-bezier(0.22, 1, 0.36, 1) both',
+        'page-enter': 'page-enter 300ms ease both',
+        'fade-in-up': 'fade-in-up 0.5s ease forwards',
+        'premium-in': 'page-enter 300ms ease-out both',
+        'rosy-fab-champagne': 'rosy-fab-champagne 3s ease-in-out infinite',
+        'list-item-in': 'list-item-in 280ms cubic-bezier(0.22, 1, 0.36, 1) both',
         'skeleton-pulse': 'skeleton-pulse 1.4s cubic-bezier(0.22, 1, 0.36, 1) infinite',
         'rosy-voice-wave': 'rosy-voice-wave 0.52s ease-in-out infinite',
         'rosey-pulse-soft': 'rosey-pulse-soft 2.6s ease-in-out infinite',
@@ -185,6 +241,10 @@ export default {
         'rosy-click-burst': 'rosy-click-burst 300ms ease-out forwards',
         'rosy-spark-fly': 'rosy-spark-fly 300ms ease-out forwards',
         'map-shimmer': 'map-shimmer 1.6s ease-in-out infinite',
+        'rosy-fab-idle-glow': 'rosy-fab-idle-glow 3.2s ease-in-out infinite',
+        'rosy-fab-listen-ring': 'rosy-fab-listen-ring 2.1s ease-in-out infinite',
+        'rosy-fab-speak-breathe': 'rosy-fab-speak-breathe 2.4s ease-in-out infinite',
+        'rosy-fab-gold-ripple': 'rosy-fab-gold-ripple 0.55s ease-out',
       },
       boxShadow: {
         xs: 'var(--shadow-xs)',
@@ -211,9 +271,9 @@ export default {
     require('tailwindcss-animate'),
     function ({ addUtilities }) {
       const staggerDelays = {}
-      for (let i = 1; i <= 24; i++) {
+      for (let i = 1; i <= 40; i++) {
         staggerDelays[`.motion-stagger > *:nth-child(${i})`] = {
-          animationDelay: `${(i - 1) * 50}ms`,
+          animationDelay: `${(i - 1) * 80}ms`,
         }
       }
       addUtilities({
@@ -223,7 +283,8 @@ export default {
           '&::-webkit-scrollbar': { display: 'none' },
         },
         '.motion-stagger > *': {
-          animation: 'list-item-in 200ms cubic-bezier(0.22, 1, 0.36, 1) both',
+          animation: 'fade-in-up 0.5s ease forwards',
+          opacity: '0',
         },
         ...staggerDelays,
       })

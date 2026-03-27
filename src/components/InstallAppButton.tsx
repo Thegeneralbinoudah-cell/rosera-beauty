@@ -37,7 +37,7 @@ export function InstallAppButton({
 
   const isPremium = variant === 'premium'
   const premiumClass =
-    'rounded-2xl border-2 border-amber-300/90 bg-gradient-to-r from-[#fce7f3] via-[#fff7ed] to-[#fef3c7] text-rose-950 shadow-[0_10px_36px_-12px_rgba(219,39,119,0.45),0_0_0_1px_rgba(251,191,36,0.35)_inset] hover:from-pink-200/95 hover:via-rose-50 hover:to-amber-100 dark:border-amber-600/50 dark:from-pink-950/55 dark:via-rose-950/35 dark:to-amber-950/30 dark:text-rose-50'
+    'rounded-2xl border-2 border-amber-300/90 bg-gradient-to-r from-primary/25 via-secondary to-accent/35 text-rose-950 shadow-[0_10px_36px_-12px_rgba(212,165,165,0.45),0_0_0_1px_rgba(197,160,89,0.35)_inset] hover:from-primary/35 hover:via-secondary hover:to-accent/45 dark:border-amber-600/50 dark:from-primary/25 dark:via-secondary/30 dark:to-accent/25 dark:text-rose-50'
 
   if (shouldShowIOSInstallGuide()) {
     return (

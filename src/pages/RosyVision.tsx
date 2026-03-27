@@ -9,12 +9,14 @@ import {
   MAX_ROZY_VISION_IMAGE_BYTES,
   RozyVisionInvokeAbortedError,
 } from '@/lib/rozyVision'
+import { captureVisionFailed } from '@/lib/posthog'
 import type {
   RozyVisionFaceShape,
   RozyVisionMode,
   RozyVisionResult,
   RozyVisionUndertone,
 } from '@/lib/rozyVisionTypes'
+import { colors } from '@/theme/colors'
 import {
   ConfidenceBadge,
   ColorSwatches,
@@ -86,12 +88,22 @@ export default function RosyVision() {
   /** Nearest salon + matched manicure/hair service for direct booking (set by RosyVisionSalonSuggestions) */
   const [rozyBookTarget, setRozyBookTarget] = useState<{ salonId: string; serviceId: string } | null>(null)
   const userPos = useRosyVisionUserPosition()
+  const previewUrlRef = useRef<string | null>(null)
+
+  useEffect(() => {
+    previewUrlRef.current = previewUrl
+  }, [previewUrl])
 
   useEffect(() => {
     mountedRef.current = true
     return () => {
       mountedRef.current = false
       invokeAbortRef.current?.abort()
+      const u = previewUrlRef.current
+      if (u) {
+        URL.revokeObjectURL(u)
+        previewUrlRef.current = null
+      }
     }
   }, [])
 
@@ -198,6 +210,10 @@ export default function RosyVision() {
       if (!mountedRef.current) return
       if (err instanceof RozyVisionInvokeAbortedError) return
       const msg = err instanceof Error ? err.message : 'تعذر التحليل'
+      captureVisionFailed('invoke', {
+        mode,
+        err_name: err instanceof Error ? err.name.slice(0, 48) : 'unknown',
+      })
       setInvokeError(msg)
       toast.error(msg)
     } finally {
@@ -214,7 +230,10 @@ export default function RosyVision() {
 
   return (
     <div
-      className="min-h-dvh bg-gradient-to-b from-[#fff7fb] via-background to-[#fce4ec]/30 pb-[calc(7rem+env(safe-area-inset-bottom,0px)+4rem)] pt-[max(1rem,calc(env(safe-area-inset-top,0px)+0.75rem))] ps-[max(1rem,env(safe-area-inset-left,0px))] pe-[max(1rem,env(safe-area-inset-right,0px))] dark:from-rosera-dark dark:via-background dark:to-rosera-dark"
+      className="min-h-dvh bg-gradient-to-b via-background pb-[calc(7rem+env(safe-area-inset-bottom,0px)+4rem)] pt-[max(1rem,calc(env(safe-area-inset-top,0px)+0.75rem))] ps-[max(1rem,env(safe-area-inset-left,0px))] pe-[max(1rem,env(safe-area-inset-right,0px))] dark:from-rosera-dark dark:via-background dark:to-rosera-dark"
+      style={{
+        backgroundImage: `linear-gradient(to bottom, ${colors.surface}, hsl(var(--background)), color-mix(in srgb, ${colors.primary} 30%, transparent))`,
+      }}
       aria-busy={loading}
     >
       <div className="mx-auto max-w-lg">
@@ -291,7 +310,7 @@ export default function RosyVision() {
         </label>
 
         <Button
-          className="mt-6 w-full min-h-[44px] touch-manipulation rounded-2xl bg-gradient-to-l from-[#9C27B0] to-[#E91E8C] text-base font-bold"
+          className="mt-6 w-full min-h-[44px] touch-manipulation rounded-2xl gradient-primary text-base font-bold"
           disabled={!file || loading}
           onClick={() => void run()}
         >
@@ -339,6 +358,14 @@ export default function RosyVision() {
               </p>
             </ResultCard>
 
+            {mode === 'hand' && result.recommendedColors.length > 0 ? (
+              <HandNailPreviewCard
+                lines={result.recommendedColors}
+                imageUrl={previewUrl}
+                bookTarget={result.qualityOk ? rozyBookTarget : null}
+              />
+            ) : null}
+
             {personalization ? <RozyVisionRememberCard data={personalization} /> : null}
 
             {result.retryTips.length > 0 ? (
@@ -357,10 +384,6 @@ export default function RosyVision() {
                   ))}
                 </ul>
               </ResultCard>
-            ) : null}
-
-            {mode === 'hand' && result.recommendedColors.length > 0 ? (
-              <HandNailPreviewCard lines={result.recommendedColors} imageUrl={previewUrl} />
             ) : null}
 
             {result.qualityOk ? (

@@ -1,7 +1,23 @@
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { STORAGE_KEYS } from '@/lib/utils'
+import { persistThemeMode, THEME_MODE_KEY } from '@/lib/themeStorage'
 
 type Lang = 'ar' | 'en'
+
+function readInitialLang(): Lang {
+  if (typeof window === 'undefined') return 'ar'
+  const savedLang = (localStorage.getItem(STORAGE_KEYS.lang) as Lang | null) ?? 'ar'
+  return savedLang === 'en' ? 'en' : 'ar'
+}
+
+function readInitialDark(): boolean {
+  if (typeof window === 'undefined') return false
+  const themeMode = localStorage.getItem(THEME_MODE_KEY)
+  const legacyDark = localStorage.getItem(STORAGE_KEYS.dark)
+  if (themeMode === 'dark') return true
+  if (themeMode === 'light') return false
+  return legacyDark === '1'
+}
 
 type PreferencesContextType = {
   dark: boolean
@@ -14,20 +30,13 @@ type PreferencesContextType = {
 const PreferencesContext = createContext<PreferencesContextType | null>(null)
 
 export function PreferencesProvider({ children }: { children: ReactNode }) {
-  const [dark, setDarkState] = useState(false)
-  const [lang, setLangState] = useState<Lang>('ar')
-
-  useEffect(() => {
-    const savedDark = localStorage.getItem(STORAGE_KEYS.dark)
-    const savedLang = (localStorage.getItem(STORAGE_KEYS.lang) as Lang | null) ?? 'ar'
-    const initialDark = savedDark === '1'
-    setDarkState(initialDark)
-    setLangState(savedLang === 'en' ? 'en' : 'ar')
-  }, [])
+  const [dark, setDarkState] = useState(readInitialDark)
+  const [lang, setLangState] = useState<Lang>(readInitialLang)
 
   useEffect(() => {
     document.documentElement.classList.toggle('dark', dark)
     localStorage.setItem(STORAGE_KEYS.dark, dark ? '1' : '')
+    void persistThemeMode(dark)
   }, [dark])
 
   useEffect(() => {

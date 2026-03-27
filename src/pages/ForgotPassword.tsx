@@ -34,7 +34,7 @@ export default function ForgotPassword() {
   return (
     <div className="min-h-dvh bg-rosera-light px-6 py-12 dark:bg-rosera-dark">
       <div className="mx-auto max-w-md">
-        <Link to="/auth" className="text-sm text-primary">
+        <Link to="/auth" className="text-sm text-accent">
           ← رجوع
         </Link>
         <h1 className="mt-6 text-2xl font-bold">نسيتِ كلمة المرور؟</h1>

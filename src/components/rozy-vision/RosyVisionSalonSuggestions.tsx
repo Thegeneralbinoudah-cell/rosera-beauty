@@ -36,7 +36,6 @@ export function RosyVisionSalonSuggestions({
   onBookTargetChange,
 }: Props) {
   const nav = useNavigate()
-  const boostKey = useMemo(() => JSON.stringify(boostKeywords), [boostKeywords])
   const [loading, setLoading] = useState(false)
   const [biz, setBiz] = useState<Awaited<ReturnType<typeof fetchRosyVisionSalonRecommendations>>['businesses']>(
     [],
@@ -46,13 +45,9 @@ export function RosyVisionSalonSuggestions({
   >([])
 
   useEffect(() => {
-    if (!enabled) {
-      setBiz([])
-      setServices([])
-      return
-    }
+    if (!enabled) return
     let c = true
-    setLoading(true)
+    queueMicrotask(() => setLoading(true))
     void fetchRosyVisionSalonRecommendations({ mode, userPos, boostKeywords })
       .then((pack) => {
         if (!c) return
@@ -70,7 +65,7 @@ export function RosyVisionSalonSuggestions({
     return () => {
       c = false
     }
-  }, [enabled, mode, userPos?.lat, userPos?.lng, boostKey])
+  }, [enabled, mode, userPos, boostKeywords])
 
   const bookTarget = useMemo(
     () => (biz.length && services.length ? pickRozyVisionBookTarget(biz, services) : null),
@@ -149,7 +144,7 @@ export function RosyVisionSalonSuggestions({
           type="button"
           className={cn(
             'min-h-[48px] flex-1 rounded-xl font-bold shadow-lg',
-            'bg-gradient-to-l from-[#c026d3] via-primary to-[#db2777] text-white',
+            'bg-gradient-to-l from-destructive via-primary to-accent text-white',
           )}
           disabled={loading || (biz.length > 0 && !bookTarget)}
           onClick={goDirectBooking}

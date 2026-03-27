@@ -101,13 +101,13 @@ export default function Favorites() {
   return (
     <div className="min-h-dvh bg-rosera-light px-4 py-6 dark:bg-rosera-dark">
       <h1 className="text-2xl font-bold">{t('favorites.title')}</h1>
-      <div className="mt-6 grid gap-4 sm:grid-cols-2">
+      <div className="motion-stagger mt-6 grid gap-4 sm:grid-cols-2">
         {orderedList.map((b) => (
           <div key={b.id} className="relative">
             <BusinessCard b={b} isFeaturedAd={featuredAdIds.has(b.id)} />
             <button
               type="button"
-              className="absolute top-2 end-2 flex h-10 w-10 items-center justify-center rounded-full bg-white shadow-md"
+              className="absolute top-2 end-2 flex h-10 w-10 items-center justify-center rounded-full bg-card shadow-md"
               onClick={() => remove(b.id)}
               aria-label="إزالة"
             >

@@ -13,6 +13,7 @@ import {
   CartesianGrid,
   Cell,
 } from 'recharts'
+import { colors } from '@/theme/tokens'
 
 const PERF_TYPES = ['view_salon', 'booking_click'] as const
 
@@ -220,9 +221,9 @@ export default function AdminAnalytics() {
 
   const chartData = useMemo(
     () => [
-      { key: 'views', label: 'Views', labelAr: 'مشاهدات الصالون', value: views, fill: '#E91E8C' },
-      { key: 'book', label: 'Bookings', labelAr: 'نقرات الحجز', value: bookingClicks, fill: '#9C27B0' },
-      { key: 'ai', label: 'AI', labelAr: 'توصيات AI', value: aiViews, fill: '#f06292' },
+      { key: 'views', label: 'Views', labelAr: 'مشاهدات الصالون', value: views, fill: colors.chartPrimary },
+      { key: 'book', label: 'Bookings', labelAr: 'نقرات الحجز', value: bookingClicks, fill: colors.chartAccent },
+      { key: 'ai', label: 'AI', labelAr: 'توصيات AI', value: aiViews, fill: colors.chartAccent },
     ],
     [views, bookingClicks, aiViews]
   )
@@ -230,7 +231,7 @@ export default function AdminAnalytics() {
   return (
     <div className="space-y-8 pb-10">
       <div>
-        <h1 className="text-2xl font-bold text-[#1F1F1F] dark:text-foreground">التحليلات</h1>
+        <h1 className="text-2xl font-bold text-foreground">التحليلات</h1>
         <p className="mt-1 text-sm text-rosera-gray">أحداث المستخدمين من جدول user_events</p>
       </div>
 
@@ -248,42 +249,42 @@ export default function AdminAnalytics() {
           </>
         ) : (
           <>
-            <Card className="border-primary/15 bg-gradient-to-br from-white to-[#fce4ec]/50 p-6 shadow-sm dark:from-card dark:to-card">
+            <Card className="border-primary/15 bg-gradient-to-br from-white to-primary-subtle/50 p-6 shadow-sm dark:from-card dark:to-card">
               <p className="text-3xl" aria-hidden>
                 👁️
               </p>
               <p className="mt-2 text-xs font-bold uppercase tracking-wide text-rosera-gray">Views</p>
-              <p className="mt-1 text-2xl font-extrabold tabular-nums text-[#1F1F1F] dark:text-foreground">
+              <p className="mt-1 text-2xl font-extrabold tabular-nums text-foreground">
                 {views.toLocaleString('ar-SA')}
               </p>
               <p className="mt-1 text-xs text-rosera-gray">view_salon</p>
             </Card>
-            <Card className="border-primary/15 bg-gradient-to-br from-white to-[#f3e5f5]/60 p-6 shadow-sm dark:from-card dark:to-card">
+            <Card className="border-primary/15 bg-gradient-to-br from-white to-primary-subtle/60 p-6 shadow-sm dark:from-card dark:to-card">
               <p className="text-3xl" aria-hidden>
                 📅
               </p>
               <p className="mt-2 text-xs font-bold uppercase tracking-wide text-rosera-gray">Bookings</p>
-              <p className="mt-1 text-2xl font-extrabold tabular-nums text-[#1F1F1F] dark:text-foreground">
+              <p className="mt-1 text-2xl font-extrabold tabular-nums text-foreground">
                 {bookingClicks.toLocaleString('ar-SA')}
               </p>
               <p className="mt-1 text-xs text-rosera-gray">booking_click</p>
             </Card>
-            <Card className="border-primary/15 bg-gradient-to-br from-white to-[#fff5fb] p-6 shadow-sm dark:from-card dark:to-card">
+            <Card className="border-primary/15 bg-gradient-to-br from-white to-gold-subtle/50 p-6 shadow-sm dark:from-card dark:to-card">
               <p className="text-3xl" aria-hidden>
                 ✨
               </p>
               <p className="mt-2 text-xs font-bold uppercase tracking-wide text-rosera-gray">AI clicks</p>
-              <p className="mt-1 text-2xl font-extrabold tabular-nums text-[#1F1F1F] dark:text-foreground">
+              <p className="mt-1 text-2xl font-extrabold tabular-nums text-foreground">
                 {aiViews.toLocaleString('ar-SA')}
               </p>
               <p className="mt-1 text-xs text-rosera-gray">ai_recommended_view</p>
             </Card>
-            <Card className="border-primary/15 bg-gradient-to-br from-white to-[#e8f5e9]/50 p-6 shadow-sm dark:from-card dark:to-card">
+            <Card className="border-primary/15 bg-gradient-to-br from-white to-success/50 p-6 shadow-sm dark:from-card dark:to-card">
               <p className="text-3xl" aria-hidden>
                 💰
               </p>
               <p className="mt-2 text-xs font-bold uppercase tracking-wide text-rosera-gray">Total Revenue</p>
-              <p className="mt-1 text-2xl font-extrabold tabular-nums text-[#1F1F1F] dark:text-foreground">
+              <p className="mt-1 text-2xl font-extrabold tabular-nums text-foreground">
                 {totalRevenue.toLocaleString('ar-SA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </p>
               <p className="mt-1 text-xs text-rosera-gray">SUM(total_price) · payment_status = paid</p>
@@ -293,7 +294,7 @@ export default function AdminAnalytics() {
       </div>
 
       <Card className="border-primary/10 p-4 shadow-sm dark:bg-card sm:p-6">
-        <p className="mb-4 text-sm font-bold text-[#1F1F1F] dark:text-foreground">حسب نوع الحدث</p>
+        <p className="mb-4 text-sm font-bold text-foreground">حسب نوع الحدث</p>
         {loading ? (
           <Skeleton className="h-72 w-full rounded-xl" />
         ) : (
@@ -325,7 +326,7 @@ export default function AdminAnalytics() {
       </Card>
 
       <Card className="border-primary/10 p-4 shadow-sm dark:bg-card sm:p-6">
-        <p className="mb-1 text-sm font-bold text-[#1F1F1F] dark:text-foreground">إيراد حسب الصالون</p>
+        <p className="mb-1 text-sm font-bold text-foreground">إيراد حسب الصالون</p>
         <p className="mb-4 text-xs text-rosera-gray">حجوزات مدفوعة — GROUP BY business_id — أعلى 15</p>
         {loading ? (
           <div className="space-y-3">
@@ -340,7 +341,7 @@ export default function AdminAnalytics() {
             <table className="w-full min-w-[480px] border-collapse text-sm">
               <thead>
                 <tr className="border-b border-primary/10 bg-muted/40 text-start">
-                  <th className="px-4 py-3 text-start font-bold text-[#1F1F1F] dark:text-foreground">الصالون</th>
+                  <th className="px-4 py-3 text-start font-bold text-foreground">الصالون</th>
                   <th className="px-4 py-3 text-end font-bold text-rosera-gray">الإيراد (ر.س)</th>
                 </tr>
               </thead>
@@ -350,7 +351,7 @@ export default function AdminAnalytics() {
                     key={row.business_id}
                     className="border-b border-primary/5 transition-colors hover:bg-primary/[0.03]"
                   >
-                    <td className="px-4 py-3 font-semibold text-[#1F1F1F] dark:text-foreground">
+                    <td className="px-4 py-3 font-semibold text-foreground">
                       <span className="line-clamp-2">{row.name_ar}</span>
                     </td>
                     <td className="px-4 py-3 text-end tabular-nums font-bold text-primary">
@@ -365,7 +366,7 @@ export default function AdminAnalytics() {
       </Card>
 
       <Card className="border-primary/10 p-4 shadow-sm dark:bg-card sm:p-6">
-        <p className="mb-1 text-sm font-bold text-[#1F1F1F] dark:text-foreground">Top Performing Salons</p>
+        <p className="mb-1 text-sm font-bold text-foreground">Top Performing Salons</p>
         <p className="mb-4 text-xs text-rosera-gray">
           view_salon + booking_click — مرتبة حسب نقرات الحجز — أعلى 10
         </p>
@@ -382,7 +383,7 @@ export default function AdminAnalytics() {
             <table className="w-full min-w-[640px] border-collapse text-sm">
               <thead>
                 <tr className="border-b border-primary/10 bg-muted/40 text-start">
-                  <th className="px-4 py-3 text-start font-bold text-[#1F1F1F] dark:text-foreground">Salon Name</th>
+                  <th className="px-4 py-3 text-start font-bold text-foreground">Salon Name</th>
                   <th className="px-4 py-3 text-end font-bold text-rosera-gray">Views 👁️</th>
                   <th className="px-4 py-3 text-end font-bold text-rosera-gray">Bookings 📅</th>
                   <th className="px-4 py-3 text-end font-bold text-rosera-gray">Conversion (%)</th>
@@ -398,7 +399,7 @@ export default function AdminAnalytics() {
                       key={row.entity_id}
                       className="border-b border-primary/5 transition-colors hover:bg-primary/[0.03]"
                     >
-                      <td className="px-4 py-3 font-semibold text-[#1F1F1F] dark:text-foreground">
+                      <td className="px-4 py-3 font-semibold text-foreground">
                         <span className="line-clamp-2">{row.name_ar}</span>
                       </td>
                       <td className="px-4 py-3 text-end tabular-nums text-foreground">

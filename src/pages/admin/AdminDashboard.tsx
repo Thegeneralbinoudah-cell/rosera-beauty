@@ -151,7 +151,7 @@ export default function AdminDashboard() {
 
   const locale = lang === 'en' ? 'en-US' : 'ar-SA'
   const items = [
-    { id: 'users', titleKey: 'admin.dashboard.users', v: stats.users, c: 'from-violet-500 to-purple-600' },
+    { id: 'users', titleKey: 'admin.dashboard.users', v: stats.users, c: 'from-primary to-accent' },
     { id: 'businesses', titleKey: 'admin.dashboard.businesses', v: stats.businesses, c: 'from-pink-500 to-rose-500' },
     { id: 'bookings', titleKey: 'admin.dashboard.bookings', v: stats.bookings, c: 'from-rose-600 to-orange-500' },
     {
@@ -199,11 +199,11 @@ export default function AdminDashboard() {
         <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
           <h2 className="text-lg font-bold text-foreground">{t('admin.dashboard.monetizationHub')}</h2>
           <div className="flex flex-wrap gap-2 text-sm font-semibold">
-            <Link to="/admin/monetization" className="text-primary underline">
+            <Link to="/admin/monetization" className="text-accent underline">
               {t('admin.dashboard.openMonetization')}
             </Link>
             <span className="text-muted-foreground">·</span>
-            <Link to="/admin/revenue" className="text-primary underline">
+            <Link to="/admin/revenue" className="text-accent underline">
               {t('admin.dashboard.openRevenue')}
             </Link>
           </div>
@@ -263,7 +263,7 @@ export default function AdminDashboard() {
       <Card className="mt-8 p-6">
         <div className="mb-4 flex items-center justify-between">
           <p className="font-bold text-primary">{t('admin.dashboard.recentBookings')}</p>
-          <Link to="/admin/bookings" className="text-sm font-semibold text-primary underline">
+          <Link to="/admin/bookings" className="text-sm font-semibold text-accent underline">
             {t('admin.dashboard.all')}
           </Link>
         </div>

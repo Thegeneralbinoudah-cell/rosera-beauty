@@ -37,7 +37,7 @@ export default function OwnerLayout() {
     <div className="min-h-dvh bg-rosera-light pb-20 md:pb-0 dark:bg-rosera-dark" dir="rtl">
       <aside className="fixed end-0 top-0 z-30 hidden h-full w-56 border-s bg-white pt-safe shadow-sm dark:bg-card md:block">
         <div className="border-b p-4 pt-[max(1rem,env(safe-area-inset-top))]">
-          <h2 className="font-extrabold text-[#E91E8C]">لوحة الصالون</h2>
+          <h2 className="font-extrabold text-primary">لوحة الصالون</h2>
         </div>
         <nav className="space-y-1 p-3">
           {links.map(({ to, label, end, icon: Icon }) => (
@@ -49,7 +49,7 @@ export default function OwnerLayout() {
                 cn(
                   'flex items-center gap-2 rounded-xl px-3 py-2.5 text-sm font-bold transition',
                   isActive
-                    ? 'bg-gradient-to-l from-[#9C27B0] to-[#E91E8C] text-white'
+                    ? 'gradient-primary text-white'
                     : 'text-rosera-gray hover:bg-muted'
                 )
               }
@@ -92,7 +92,7 @@ export default function OwnerLayout() {
             className={({ isActive }) =>
               cn(
                 'flex flex-1 flex-col items-center gap-0.5 py-1 text-[10px] font-bold',
-                isActive ? 'text-[#E91E8C]' : 'text-rosera-gray'
+                isActive ? 'text-primary' : 'text-rosera-gray'
               )
             }
           >
@@ -111,7 +111,7 @@ export default function OwnerLayout() {
         <button
           type="button"
           onClick={() => nav('/home')}
-          className="flex flex-1 flex-col items-center gap-0.5 py-1 text-[10px] font-bold text-[#E91E8C]"
+          className="flex flex-1 flex-col items-center gap-0.5 py-1 text-[10px] font-bold text-primary"
         >
           <Smartphone className="h-5 w-5" />
           التطبيق

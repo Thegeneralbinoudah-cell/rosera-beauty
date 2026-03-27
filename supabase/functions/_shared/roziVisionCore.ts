@@ -57,11 +57,27 @@ const MAX_NOTE_ITEMS = 6
 const MAX_RETRY_ITEMS = 8
 const MAX_NEXT_ITEMS = 6
 const MAX_SUMMARY_CHARS = 1400
+/** يطابق maxLength لعناصر النسق في json_schema. */
+const MAX_LIST_ITEM_CHARS = 200
 
 function strArr(x: unknown, maxLen: number): string[] {
+  const cap = (s: string) => s.trim().slice(0, MAX_LIST_ITEM_CHARS)
+  if (typeof x === 'string') {
+    const parts = x
+      .split(/[\n,،؛|•]+/)
+      .map((p) => cap(p))
+      .filter(Boolean)
+    return parts.slice(0, maxLen)
+  }
   if (!Array.isArray(x)) return []
   return x
-    .map((v) => (typeof v === 'string' ? v.trim().slice(0, 160) : ''))
+    .map((v) =>
+      typeof v === 'string'
+        ? cap(v)
+        : typeof v === 'number' && Number.isFinite(v)
+          ? cap(String(v))
+          : '',
+    )
     .filter(Boolean)
     .slice(0, maxLen)
 }
@@ -107,6 +123,35 @@ function clampConfidence(x: unknown): 'high' | 'medium' | 'low' {
   const s = typeof x === 'string' ? x.toLowerCase().trim() : ''
   if (s === 'high' || s === 'medium' || s === 'low') return s
   return 'low'
+}
+
+/** خفض درجة واحدة دون تجاوز «low» — يُستخدم عند ضعف اكتمال المخرجات. */
+function downConfidenceOneStep(c: RozyVisionResult['confidence']): RozyVisionResult['confidence'] {
+  if (c === 'high') return 'medium'
+  if (c === 'medium') return 'low'
+  return 'low'
+}
+
+/**
+ * مخرجات مفيدة + بنية متسقة: لا يرفع «high»، ولا يتجاوز حالة رفض الجودة.
+ * يُستدعى بعد تعبئة المصفوفات الافتراضية ليعكس المحتوى الفعلي.
+ */
+function structureSupportsMediumConfidence(
+  mode: VisionMode,
+  q: {
+    recommendedColors: string[]
+    colorsToAvoid: string[]
+    recommendedHairColors: string[]
+    recommendedHaircuts: string[]
+    summaryAr: string
+  },
+): boolean {
+  const sum = q.summaryAr.replace(/[\s\u200c\u200f]/g, '').length
+  if (sum < 40) return false
+  if (mode === 'hand') {
+    return q.recommendedColors.length >= 2 && q.colorsToAvoid.length >= 1
+  }
+  return q.recommendedHairColors.length >= 1 && q.recommendedHaircuts.length >= 1
 }
 
 function clampUndertone(x: unknown): RozyVisionResult['undertone'] {
@@ -175,9 +220,62 @@ function stripOverApologyArabic(s: string): string {
     .trim()
 }
 
+/** رفض واضح للجودة فقط — لا يعامل undefined/null كرفض (سلوك مستقر). */
+function isExplicitQualityReject(v: unknown): boolean {
+  if (v === false) return true
+  if (v === 0) return true
+  if (typeof v === 'string') {
+    const s = v.trim().toLowerCase()
+    return s === 'false' || s === 'no' || s === '0'
+  }
+  return false
+}
+
+/**
+ * بعد كل JSON.parse: استخراج آمن للحقول المعروفة فقط حتى لا تمر قيم غريبة النوع إلى التطبيع.
+ * strict:false يسمح أحياناً بانحراف بسيط — هذا يثبت الشكل قبل normalizeResult.
+ */
+function coerceParsedVision(parsed: unknown): RawVision {
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+    return {}
+  }
+  const o = parsed as Record<string, unknown>
+  const strOpt = (v: unknown): string | undefined => {
+    if (typeof v === 'string') return v
+    if (typeof v === 'number' && Number.isFinite(v)) return String(v)
+    return undefined
+  }
+  const boolOpt = (v: unknown): boolean | undefined => {
+    if (typeof v === 'boolean') return v
+    if (v === 1 || v === 0) return v === 1
+    if (typeof v === 'string') {
+      const s = v.trim().toLowerCase()
+      if (s === 'true' || s === 'yes' || s === '1') return true
+      if (s === 'false' || s === 'no' || s === '0') return false
+    }
+    return undefined
+  }
+
+  return {
+    mode: strOpt(o.mode),
+    confidence: strOpt(o.confidence),
+    qualityOk: boolOpt(o.qualityOk),
+    summaryAr: strOpt(o.summaryAr),
+    undertone: strOpt(o.undertone),
+    faceShape: strOpt(o.faceShape),
+    recommendedColors: o.recommendedColors,
+    colorsToAvoid: o.colorsToAvoid,
+    recommendedHairColors: o.recommendedHairColors,
+    recommendedHaircuts: o.recommendedHaircuts,
+    cautionNotes: o.cautionNotes,
+    retryTips: o.retryTips,
+    nextActions: o.nextActions,
+  }
+}
+
 function normalizeResult(raw: RawVision, mode: VisionMode): RozyVisionResult {
-  /** صريح false فقط يرفض؛ غياب الحقل يُعامل كمقبول بعد نجاح بوابة الجودة (توافق مع مخرجات سابقة). */
-  const qualityOk = raw.qualityOk !== false
+  /** رفض صريح فقط؛ غياب الحقل أو قيمة غير قابلة للتحليل تُعامل كمقبول بعد نجاح البوابة. */
+  const qualityOk = !isExplicitQualityReject(raw.qualityOk)
   let summaryAr =
     typeof raw.summaryAr === 'string' && raw.summaryAr.trim()
       ? stripOverApologyArabic(raw.summaryAr.trim())
@@ -252,9 +350,6 @@ function normalizeResult(raw: RawVision, mode: VisionMode): RozyVisionResult {
     if (mode === 'face' && undertone === 'uncertain' && confidence === 'high') {
       confidence = 'medium'
     }
-    if (mode === 'face' && (recommendedHairColors.length === 0 || recommendedHaircuts.length === 0)) {
-      if (confidence === 'high') confidence = 'medium'
-    }
   }
 
   if (summaryAr.length > MAX_SUMMARY_CHARS) {
@@ -286,6 +381,28 @@ function normalizeResult(raw: RawVision, mode: VisionMode): RozyVisionResult {
 
   if (qualityOk && summaryAr.replace(/[\s\u200c\u200f]/g, '').length < 90 && confidence === 'high') {
     confidence = 'medium'
+  }
+
+  /** اكتمال القوائم مقابل ما يعرضه الـ UI — خفض تدريجي؛ رفع «low»→«medium» فقط عند بنية سليمة. */
+  if (qualityOk) {
+    if (mode === 'hand' && recommendedColors.length < 2) {
+      confidence = downConfidenceOneStep(confidence)
+    }
+    if (mode === 'face' && (recommendedHairColors.length === 0 || recommendedHaircuts.length === 0)) {
+      confidence = downConfidenceOneStep(confidence)
+    }
+    if (
+      confidence === 'low' &&
+      structureSupportsMediumConfidence(mode, {
+        recommendedColors,
+        colorsToAvoid,
+        recommendedHairColors,
+        recommendedHaircuts,
+        summaryAr,
+      })
+    ) {
+      confidence = 'medium'
+    }
   }
 
   return {
@@ -329,6 +446,14 @@ warm | cool | neutral | uncertain
 - 4–8 عناصر "اسم عربي (#RRGGBB)" عند qualityOk=true؛ **uncertain** → لوحة آمنة هادئة فقط.
 - colorsToAvoid: 2–6 عناصر + سبب قصير عربي — ألوان تزيد تعارضاً محتملاً مع القراءة.
 
+## اتساق JSON (إلزامي — بدون strict)
+- أرجعي **كائناً واحداً** فقط؛ بلا Markdown ولا شرح خارج JSON.
+- **كل** المفاتيح الاثنا عشر في المثال أدناه يجب أن تظهر دائماً؛ لا تحذفي أي مفتاح ولا تستبدلي المصفوفة بـ null.
+- المصفوفات دائماً \`[]\` (فارغة أو مملوءة) — ليست null وليست مفقودة.
+- \`mode\` بالضبط \`"hand"\`؛ \`faceShape\` بالضبط \`"uncertain"\` لهذه المهمة.
+- \`summaryAr\`: نص عربي مفيد؛ **اختصري** إن طال (يفضّل ≤ ${MAX_SUMMARY_CHARS} حرفاً).
+- كل عنصر داخل أي مصفوفة: **فكرة واحدة** قصيرة؛ يفضّل ≤ ${MAX_LIST_ITEM_CHARS} حرفاً للعنصر الواحد.
+
 ## JSON فقط — جميع المفاتيح التالية دائماً (مصفوفات قد تكون فارغة):
 {"mode":"hand","confidence":"high|medium|low","qualityOk":true|false,"summaryAr":"…","undertone":"…","faceShape":"uncertain","recommendedColors":[],"colorsToAvoid":[],"recommendedHairColors":[],"recommendedHaircuts":[],"cautionNotes":[],"retryTips":[],"nextActions":[]}
 
@@ -361,6 +486,13 @@ oval | round | square | heart | uncertain
 
 ## undertone بشرة الوجه (تقريبي)
 warm | cool | neutral | uncertain — للإشارة فقط؛ لا تُجبري تخميناً قوياً من صورة سيئة.
+
+## اتساق JSON (إلزامي — بدون strict)
+- أرجعي **كائناً واحداً** فقط؛ بلا Markdown ولا نص قبل/بعد.
+- **كل** المفاتيح الاثنا عشر أدناه دائماً؛ لا null للمصفوفات ولا حذف لمفتاح.
+- \`mode\` بالضبط \`"face"\`؛ \`recommendedColors\` و \`colorsToAvoid\` دائماً \`[]\`.
+- \`summaryAr\` عربي وواضح؛ يفضّل ≤ ${MAX_SUMMARY_CHARS} حرفاً.
+- عناصر المصفوفات قصيرة؛ يفضّل ≤ ${MAX_LIST_ITEM_CHARS} حرفاً لكل عنصر.
 
 ## JSON فقط — المفاتيح كاملة دائماً:
 {"mode":"face","confidence":"high|medium|low","qualityOk":true|false,"summaryAr":"…","undertone":"…","faceShape":"…","recommendedColors":[],"colorsToAvoid":[],"recommendedHairColors":[],"recommendedHaircuts":[],"cautionNotes":[],"retryTips":[],"nextActions":[]}
@@ -530,10 +662,12 @@ async function openaiVisionJsonStrict(
   dataUrl: string,
   personalizationHint?: string,
 ): Promise<RawVision> {
+  const jsonShapeReminder =
+    'تذكير: أرجعي JSON فقط بكل المفاتيح الاثنا عشر؛ المصفوفات [] وليست null؛ mode الصحيح لهذه المهمة فقط.'
   const baseUserText =
     mode === 'hand'
-      ? 'حلّلي صورة اليد: إنديرتون الجلد (توازن بصري، لا تعتمدي على لون الوريد وحده) + جودة الإضاءة + ألوان طلاء بصيغة عربية + (#HEX). أرجعي JSON فقط.'
-      : 'حلّلي صورة الوجه: خط الفك، عرض/طول الوجه، توازن الوجنتين، ثم faceShape + ألوان شعر + قصات بصيغة توصية لطيفة (بدون ادعاءات مطلقة) + cautionNotes. أرجعي JSON فقط.'
+      ? `حلّلي صورة اليد: إنديرتون الجلد (توازن بصري، لا تعتمدي على لون الوريد وحده) + جودة الإضاءة + ألوان طلاء بصيغة عربية + (#HEX). أرجعي JSON فقط.\n\n${jsonShapeReminder}`
+      : `حلّلي صورة الوجه: خط الفك، عرض/طول الوجه، توازن الوجنتين، ثم faceShape + ألوان شعر + قصات بصيغة توصية لطيفة (بدون ادعاءات مطلقة) + cautionNotes. أرجعي JSON فقط.\n\n${jsonShapeReminder}`
   const hint = clampPersonalizationHint(personalizationHint)
   const userText = hint ? `${baseUserText}\n\n---\n${hint}` : baseUserText
 
@@ -578,7 +712,7 @@ async function openaiVisionJsonStrict(
     throw new Error('Empty vision JSON')
   }
   try {
-    return JSON.parse(raw) as RawVision
+    return coerceParsedVision(JSON.parse(raw))
   } catch {
     throw new Error('Vision model returned non-JSON')
   }

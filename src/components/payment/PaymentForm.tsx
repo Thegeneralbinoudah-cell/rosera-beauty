@@ -127,13 +127,20 @@ export default function PaymentForm({
   const containerRef = useRef<HTMLDivElement>(null)
   const [scriptLoaded, setScriptLoaded] = useState(false)
   const initOnceRef = useRef(false)
-  const [localError, setLocalError] = useState<string | null>(null)
   const [applePayAvailable] = useState(detectApplePayAvailable)
   const [appleMobile] = useState(detectAppleMobileDevice)
 
   const moyasarKeyOk = Boolean(
     MOYASAR_PK && (!IS_PRODUCTION || MOYASAR_PK.startsWith('pk_live_'))
   )
+
+  const formResetKey = `${refId ?? ''}|${amount}|${type}|${checkoutPaymentMethod}`
+  const [localError, setLocalError] = useState<string | null>(null)
+  const [prevFormResetKey, setPrevFormResetKey] = useState(formResetKey)
+  if (formResetKey !== prevFormResetKey) {
+    setPrevFormResetKey(formResetKey)
+    if (localError !== null) setLocalError(null)
+  }
 
   const reportError = useCallback(
     (msg: string) => {
@@ -142,10 +149,6 @@ export default function PaymentForm({
     },
     [onError]
   )
-
-  useEffect(() => {
-    setLocalError(null)
-  }, [refId, amount, type, checkoutPaymentMethod])
 
   const useMoyasar = Boolean(MOYASAR_PK && moyasarKeyOk && !PAYMENT_MODE_FREE)
 
@@ -230,7 +233,10 @@ export default function PaymentForm({
       window.Moyasar.init(opts)
     } catch (e) {
       initOnceRef.current = false
-      reportError(e instanceof Error ? e.message : 'فشل تهيئة الدفع')
+      const msg = e instanceof Error ? e.message : 'فشل تهيئة الدفع'
+      queueMicrotask(() => {
+        reportError(msg)
+      })
     }
   }, [
     type,
@@ -332,11 +338,11 @@ export default function PaymentForm({
             <span className="text-sm font-extrabold text-white">Apple Pay</span>
           </div>
         ) : null}
-        <div className="flex min-h-[44px] min-w-[7.5rem] flex-1 items-center justify-center gap-1.5 rounded-2xl border-2 border-[#4f008c]/25 bg-gradient-to-b from-violet-50/90 to-white px-3 py-2 text-center shadow-sm dark:from-violet-950/35 dark:to-card">
+        <div className="flex min-h-[44px] min-w-[7.5rem] flex-1 items-center justify-center gap-1.5 rounded-2xl border-2 border-accent/30 bg-gradient-to-b from-gold-subtle/90 to-white px-3 py-2 text-center shadow-sm dark:from-accent/20 dark:to-card">
           <span className="text-base" aria-hidden>
             📱
           </span>
-          <span className="text-sm font-bold text-[#4f008c] dark:text-violet-200">STC Pay</span>
+          <span className="text-sm font-bold text-accent dark:text-accent">STC Pay</span>
         </div>
       </div>
       {!scriptLoaded ? (
@@ -348,7 +354,7 @@ export default function PaymentForm({
       <div
         id={hostId}
         ref={containerRef}
-        className="mysr-form min-h-[280px] w-full max-w-full rounded-2xl border-2 border-primary/15 bg-white p-3 shadow-inner dark:border-primary/25 dark:bg-[#14141c] sm:p-5"
+        className="mysr-form min-h-[280px] w-full max-w-full rounded-2xl border-2 border-primary/15 bg-white p-3 shadow-inner dark:border-primary/25 dark:bg-card sm:p-5"
       />
     </div>
   )

@@ -14,18 +14,23 @@ export function CartHeaderButton({ className }: { className?: string }) {
 
   useEffect(() => {
     if (pulseKey === 0) return
-    setPulsing(true)
-    const id = window.setTimeout(() => setPulsing(false), 3200)
-    return () => window.clearTimeout(id)
+    const id0 = window.setTimeout(() => {
+      setPulsing(true)
+    }, 0)
+    const id1 = window.setTimeout(() => setPulsing(false), 3200)
+    return () => {
+      window.clearTimeout(id0)
+      window.clearTimeout(id1)
+    }
   }, [pulseKey])
 
   return (
     <Link
       to="/cart"
       className={cn(
-        'relative flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-[#F9A8C9]/35 bg-white/90 text-[#BE185D] shadow-sm backdrop-blur-sm transition-all duration-300 hover:border-[#F9A8C9]/60 hover:shadow-md active:scale-95 dark:border-border dark:bg-card dark:text-primary',
+        'relative flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-primary/35 bg-white/90 text-primary shadow-sm backdrop-blur-sm transition-all duration-300 hover:border-primary/60 hover:shadow-md active:scale-95 dark:border-border dark:bg-card dark:text-primary',
         pulsing &&
-          'z-[1] scale-[1.06] border-[#EC4899]/70 shadow-[0_0_0_3px_rgba(244,114,182,0.35),0_8px_24px_rgba(236,72,153,0.25)] ring-2 ring-[#F9A8C9]/90 ring-offset-2 ring-offset-white dark:ring-offset-card',
+          'z-[1] scale-[1.06] border-primary/50 shadow-[0_0_0_3px_rgb(212_165_165/0.35),0_8px_24px_rgb(212_165_165/0.25)] ring-2 ring-primary/90 ring-offset-2 ring-offset-white dark:ring-offset-card',
         className
       )}
       aria-label={t('store.cart')}
@@ -37,7 +42,7 @@ export function CartHeaderButton({ className }: { className?: string }) {
       {itemCount > 0 && (
         <span
           className={cn(
-            'absolute -top-1 -end-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-gradient-to-br from-[#F9A8C9] to-[#EC4899] px-1 text-[10px] font-extrabold text-[#374151] shadow-sm transition-transform duration-300',
+            'absolute -top-1 -end-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-gradient-to-br from-primary/40 to-accent px-1 text-[10px] font-extrabold text-foreground shadow-sm transition-transform duration-300',
             pulsing && 'scale-110 animate-pulse'
           )}
         >

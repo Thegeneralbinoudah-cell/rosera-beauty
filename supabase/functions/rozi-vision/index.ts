@@ -1,16 +1,23 @@
 /**
- * Rozi Vision — same pipeline as rozy-vision; on AI/network failure returns **200** with safe fallback JSON.
- * Does not log image data or base64 payloads.
+ * Rozi Vision AI — hand/face (legacy core) + advisor modes (structured JSON).
+ * Deploy as Edge Function slug `rozi-vision` (only canonical vision endpoint).
  */
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { readOpenAiApiKey, runVisionAnalysis, type VisionMode } from '../_shared/roziVisionCore.ts'
 import {
-  readOpenAiApiKey,
-  runVisionAnalysis,
-  safeFallbackResult,
-  type VisionMode,
-} from '../_shared/roziVisionCore.ts'
+  runHandNailAdvisor,
+  runHairColorAdvisor,
+  runHaircutAdvisor,
+  runSkinAnalysisAdvisor,
+} from '../_shared/rozyVisionAdvisorModes.ts'
 
 export type { RozyVisionResult } from '../_shared/roziVisionCore.ts'
+export type {
+  HandNailAdvisorResult,
+  HairColorAdvisorResult,
+  HaircutAdvisorResult,
+  SkinAnalysisAdvisorResult,
+} from '../_shared/rozyVisionAdvisorModes.ts'
 
 const cors = {
   'Access-Control-Allow-Origin': '*',
@@ -18,6 +25,9 @@ const cors = {
 }
 
 const MAX_BASE64_CHARS = 5_200_000
+
+const LEGACY_MODES = new Set(['hand', 'face'])
+const ADVISOR_MODES = new Set(['hair_color', 'haircut', 'hand_nail', 'skin_analysis'])
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: cors })
@@ -71,13 +81,17 @@ Deno.serve(async (req) => {
   }
 
   const modeRaw = typeof body.mode === 'string' ? body.mode.trim().toLowerCase() : ''
-  if (modeRaw !== 'face' && modeRaw !== 'hand') {
-    return new Response(JSON.stringify({ error: 'mode يجب أن يكون hand أو face' }), {
-      status: 400,
-      headers: { ...cors, 'Content-Type': 'application/json' },
-    })
+  if (!LEGACY_MODES.has(modeRaw) && !ADVISOR_MODES.has(modeRaw)) {
+    return new Response(
+      JSON.stringify({
+        error: 'mode يجب أن يكون hand أو face أو hair_color أو haircut أو hand_nail أو skin_analysis',
+      }),
+      {
+        status: 400,
+        headers: { ...cors, 'Content-Type': 'application/json' },
+      },
+    )
   }
-  const mode = modeRaw as VisionMode
 
   const b64 = typeof body.imageBase64 === 'string' ? body.imageBase64.trim() : ''
   if (!b64 || b64.length > MAX_BASE64_CHARS) {
@@ -95,25 +109,53 @@ Deno.serve(async (req) => {
 
   const apiKey = readOpenAiApiKey()
   if (!apiKey) {
-    return new Response(JSON.stringify({ error: 'الخدمة غير متاحة مؤقتاً' }), {
+    return new Response(JSON.stringify({ error: 'OPENAI_API_KEY غير مُعرّف في أسرار الدالة' }), {
       status: 503,
       headers: { ...cors, 'Content-Type': 'application/json' },
     })
   }
 
-  const hint =
-    typeof body.personalizationHint === 'string' && body.personalizationHint.trim()
-      ? body.personalizationHint.trim().slice(0, 900)
-      : undefined
-
   try {
+    if (ADVISOR_MODES.has(modeRaw)) {
+      if (modeRaw === 'hand_nail') {
+        const advisor_result = await runHandNailAdvisor(dataUrl, apiKey)
+        return new Response(JSON.stringify({ advisor_result }), {
+          headers: { ...cors, 'Content-Type': 'application/json' },
+        })
+      }
+      if (modeRaw === 'hair_color') {
+        const advisor_result = await runHairColorAdvisor(dataUrl, apiKey)
+        return new Response(JSON.stringify({ advisor_result }), {
+          headers: { ...cors, 'Content-Type': 'application/json' },
+        })
+      }
+      if (modeRaw === 'skin_analysis') {
+        const advisor_result = await runSkinAnalysisAdvisor(dataUrl, apiKey)
+        return new Response(JSON.stringify({ advisor_result }), {
+          headers: { ...cors, 'Content-Type': 'application/json' },
+        })
+      }
+      const advisor_result = await runHaircutAdvisor(dataUrl, apiKey)
+      return new Response(JSON.stringify({ advisor_result }), {
+        headers: { ...cors, 'Content-Type': 'application/json' },
+      })
+    }
+
+    const mode = modeRaw as VisionMode
+    const hint =
+      typeof body.personalizationHint === 'string' && body.personalizationHint.trim()
+        ? body.personalizationHint.trim().slice(0, 900)
+        : undefined
+
     const result = await runVisionAnalysis(mode, dataUrl, apiKey, hint ? { personalizationHint: hint } : undefined)
     return new Response(JSON.stringify({ result }), {
       headers: { ...cors, 'Content-Type': 'application/json' },
     })
-  } catch {
-    return new Response(JSON.stringify({ result: safeFallbackResult(mode) }), {
-      status: 200,
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : 'خطأ غير متوقع'
+    console.error('[rozi-vision]', msg)
+    return new Response(JSON.stringify({ error: msg }), {
+      status: 500,
       headers: { ...cors, 'Content-Type': 'application/json' },
     })
   }

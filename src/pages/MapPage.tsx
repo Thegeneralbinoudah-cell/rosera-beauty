@@ -1074,7 +1074,6 @@ export default function MapPage() {
     mapPlanMap,
     mapOfferMap,
     mapFeaturedAdIds,
-    rosyTimeTick,
   ])
 
   /** صفوف جاهزة للـ Marker — إحداثيات رقمية صالحة فقط */
@@ -1158,15 +1157,19 @@ export default function MapPage() {
     return n
   }, [q, mapCity, mapCategoryLabel, regionFilter, sortBy, activeSuggestionId, mapDrawerSelections])
 
+  const rosySuggestionsNow = useMemo(() => {
+    void rosyTimeTick
+    return new Date()
+  }, [rosyTimeTick])
   const rosySuggestions = useMemo(
     () =>
       getMapSuggestions({
         hasUserLocation: Boolean(userPos && userPos.length >= 2),
-        now: new Date(),
+        now: rosySuggestionsNow,
         searchQuery: q.trim(),
         chatKeywords: readMapChatHintsFromSession(),
       }),
-    [userPos, q, rosyTimeTick]
+    [userPos, q, rosySuggestionsNow]
   )
 
   const handleRosySelect = useCallback(
@@ -1197,7 +1200,7 @@ export default function MapPage() {
     const [a, b] = mapCenter
     if (isValidLatLng(a, b)) return [Number(a), Number(b)]
     return DEFAULT_CENTER
-  }, [mapCenter[0], mapCenter[1]])
+  }, [mapCenter])
 
   const handleMarkerSelect = useCallback((b: Business, position: [number, number]) => {
     setSelected(b)
@@ -1273,7 +1276,7 @@ export default function MapPage() {
             <Button type="button" size="sm" variant="ghost" className="gap-1 text-xs" onClick={resetMap}>
               {t('common.reset')}
               {activeFiltersCount > 0 && (
-                <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-[#F9A8C9] px-1 text-[10px] font-extrabold text-[#374151]">
+                <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-primary/35 px-1 text-[10px] font-extrabold text-foreground">
                   {activeFiltersCount}
                 </span>
               )}
@@ -1295,6 +1298,7 @@ export default function MapPage() {
             </Button>
           </div>
           <SortPills
+            variant="mapLuxury"
             value={sortBy}
             onChange={handleSortChange}
             nowrap
@@ -1361,7 +1365,7 @@ export default function MapPage() {
           {mapShellVisible ? (
             <Suspense
               fallback={
-                <div className="flex min-h-0 min-w-0 flex-1 flex-col items-center justify-center bg-gradient-to-br from-[#fdf2f8]/95 via-white to-amber-50/25">
+                <div className="flex min-h-0 min-w-0 flex-1 flex-col items-center justify-center bg-gradient-to-br from-primary-subtle/80 via-white to-gold-subtle/30">
                   <div className="relative mx-4 h-36 w-full max-w-2xl overflow-hidden rounded-3xl border border-border/45 bg-card/90 shadow-inner ring-1 ring-gold/10">
                     <div className="absolute inset-0 animate-pulse bg-gradient-to-r from-primary/20 via-pink-100/50 to-amber-100/30" />
                     <div
@@ -1395,7 +1399,7 @@ export default function MapPage() {
               </div>
             </Suspense>
           ) : (
-            <div className="flex min-h-0 min-w-0 flex-1 flex-col items-center justify-center bg-gradient-to-br from-[#fdf2f8]/90 via-white to-amber-50/20">
+            <div className="flex min-h-0 min-w-0 flex-1 flex-col items-center justify-center bg-gradient-to-br from-primary-subtle/75 via-white to-gold-subtle/25">
               <div className="mx-4 h-32 w-full max-w-[min(100%,28rem)] animate-pulse rounded-3xl bg-gradient-to-r from-primary/15 via-pink-100/40 to-amber-100/25" />
               <p className="mt-4 text-xs font-medium text-muted-foreground">{t('map.loadingOverlay')}</p>
             </div>
@@ -1412,7 +1416,7 @@ export default function MapPage() {
           <div className="flex max-w-[min(100%,18rem)] flex-col items-center gap-4 rounded-3xl border border-border/50 bg-card/95 px-8 py-6 text-center shadow-floating backdrop-blur-sm ring-1 ring-gold/10 animate-premium-in">
             <div className="relative flex h-14 w-14 items-center justify-center">
               <span className="absolute inset-0 animate-ping rounded-full bg-primary/25 [animation-duration:1.8s]" aria-hidden />
-              <RefreshCw className="relative h-8 w-8 animate-spin text-[#BE185D]" aria-hidden />
+              <RefreshCw className="relative h-8 w-8 animate-spin text-primary" aria-hidden />
             </div>
             <p className="text-sm font-semibold leading-snug text-rosera-text">{t('map.loadingOverlay')}</p>
           </div>
@@ -1428,7 +1432,7 @@ export default function MapPage() {
         onClick={() => centerOnUser()}
         aria-label={lang === 'ar' ? 'توسيط الخريطة على موقعك' : 'Center map on your location'}
       >
-        <Crosshair className="h-6 w-6 text-[#374151]" />
+        <Crosshair className="h-6 w-6 text-foreground" />
       </Button>
 
       <Button
@@ -1470,9 +1474,9 @@ export default function MapPage() {
               <div
                 dir="ltr"
                 style={{ unicodeBidi: 'isolate' }}
-                className="mt-1 flex items-center justify-start gap-1 text-[#BE185D]"
+                className="mt-1 flex items-center justify-start gap-1 text-primary"
               >
-                <Star className="h-4 w-4 shrink-0 fill-[#BE185D] text-[#BE185D]" aria-hidden />
+                <Star className="h-4 w-4 shrink-0 fill-primary text-primary" aria-hidden />
                 <span className="tabular-nums font-semibold">
                   {ratingPinFmt.format(Number(selected.average_rating ?? 0))}
                 </span>

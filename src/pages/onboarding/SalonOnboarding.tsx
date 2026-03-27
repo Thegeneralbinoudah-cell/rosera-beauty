@@ -895,10 +895,10 @@ export default function SalonOnboarding() {
   return (
     <FormProvider {...form}>
       <div
-        className="min-h-dvh bg-gradient-to-b from-[#fff5fb] via-white to-[#fce4ec]/35 pb-32 dark:from-rosera-dark dark:via-rosera-dark dark:to-rosera-dark"
+        className="min-h-dvh bg-gradient-to-b from-background via-card to-primary-subtle/35 pb-32"
         dir="rtl"
       >
-        <header className="sticky top-0 z-40 border-b border-primary/10 bg-white/90 px-4 py-4 backdrop-blur-xl dark:bg-rosera-dark/90">
+        <header className="sticky top-0 z-40 border-b border-primary/10 bg-card/90 px-4 py-4 backdrop-blur-xl">
           <div className="mx-auto max-w-lg">
             <button
               type="button"
@@ -933,7 +933,7 @@ export default function SalonOnboarding() {
           </AnimatePresence>
         </main>
 
-        <div className="fixed bottom-0 inset-x-0 z-50 border-t border-primary/10 bg-white/95 px-4 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur-md dark:bg-rosera-dark/95">
+        <div className="fixed bottom-0 inset-x-0 z-50 border-t border-primary/10 bg-card/95 px-4 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur-md">
           <div className="mx-auto flex max-w-lg gap-3">
             <Button
               type="button"
@@ -946,7 +946,7 @@ export default function SalonOnboarding() {
             </Button>
             <Button
               type="button"
-              className="h-12 flex-1 rounded-2xl bg-gradient-to-l from-[#9C27B0] to-[#E91E8C] font-extrabold"
+              className="h-12 flex-1 rounded-2xl gradient-primary font-extrabold"
               disabled={submitting}
               onClick={() => void next()}
             >

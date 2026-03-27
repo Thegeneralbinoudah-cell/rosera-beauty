@@ -154,15 +154,15 @@ export function SalonPremiumCard({
         'origin-center bg-white/95 shadow-floating ring-1 ring-gold/10',
         'animate-in fade-in slide-in-from-bottom-2 fill-mode-both duration-500',
         'transition-[transform,box-shadow] duration-300 ease-out will-change-transform',
-        !isRecommended && 'hover:scale-[1.02] hover:shadow-[0_24px_56px_-18px_rgba(156,39,176,0.45)]',
+        !isRecommended && 'hover:scale-[1.02] hover:shadow-[0_24px_56px_-18px_rgb(212_165_165/0.4)]',
         'dark:border-primary/20 dark:bg-card/95',
         isRecommended &&
           cn(
             'z-[1] scale-[1.02] border-primary/20 sm:scale-[1.04]',
-            '[box-shadow:0_26px_60px_-12px_rgba(233,30,140,0.48),0_0_42px_-8px_rgba(156,39,176,0.3),0_0_0_1px_rgba(233,30,140,0.14)]',
-            'hover:scale-[1.03] hover:[box-shadow:0_32px_72px_-12px_rgba(233,30,140,0.55),0_0_52px_-6px_rgba(186,104,200,0.38),0_0_0_1px_rgba(233,30,140,0.16)]',
+            '[box-shadow:0_26px_60px_-12px_rgb(212_165_165/0.45),0_0_42px_-8px_rgb(197_160_89/0.28),0_0_0_1px_rgb(212_165_165/0.14)]',
+            'hover:scale-[1.03] hover:[box-shadow:0_32px_72px_-12px_rgb(212_165_165/0.52),0_0_52px_-6px_rgb(197_160_89/0.35),0_0_0_1px_rgb(212_165_165/0.16)]',
             'sm:hover:scale-[1.05]',
-            'ring-2 ring-[#E91E8C]/45 ring-offset-2 ring-offset-[#fff5fb] dark:ring-offset-rosera-dark'
+            'ring-2 ring-primary/45 ring-offset-2 ring-offset-background dark:ring-offset-rosera-dark'
           )
       )}
     >
@@ -172,7 +172,7 @@ export function SalonPremiumCard({
         disabled={!salonIdOk}
         className="flex min-h-0 flex-1 flex-col text-start focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50"
       >
-        <div className="relative aspect-[4/3] w-full shrink-0 overflow-hidden bg-gradient-to-br from-[#fce4ec] to-white">
+        <div className="relative aspect-[4/3] w-full shrink-0 overflow-hidden bg-gradient-to-br from-primary/25 to-white">
           <img
             src={src}
             alt=""
@@ -186,9 +186,9 @@ export function SalonPremiumCard({
             <div className="absolute end-3 top-3 z-[1]">
               <Badge
                 className={cn(
-                  'border-0 bg-gradient-to-br from-[#E91E8C] via-[#f06292] to-[#9C27B0]',
-                  'px-2.5 py-1 text-[10px] font-extrabold text-white shadow-lg shadow-[#E91E8C]/25',
-                  'backdrop-blur-[2px] transition duration-300 group-hover:shadow-xl group-hover:shadow-[#9C27B0]/30'
+                  'border-0 gradient-primary',
+                  'px-2.5 py-1 text-[10px] font-extrabold text-white shadow-lg shadow-primary/25',
+                  'backdrop-blur-[2px] transition duration-300 group-hover:shadow-xl group-hover:shadow-accent/30'
                 )}
               >
                 {recLabel}
@@ -202,7 +202,7 @@ export function SalonPremiumCard({
                   {badgeTop}
                 </Badge>
               ) : (
-                <Badge className="border-0 bg-white/95 text-xs font-bold text-[#9C27B0] shadow-md transition duration-300 group-hover:shadow-lg">
+                <Badge className="border-0 bg-white/95 text-xs font-bold text-primary shadow-md transition duration-300 group-hover:shadow-lg">
                   {badgeRec}
                 </Badge>
               )}
@@ -224,7 +224,7 @@ export function SalonPremiumCard({
           ) : null}
         </div>
         <div className="flex min-h-0 flex-1 flex-col space-y-1.5 px-4 pb-3 pt-3">
-          <h2 className="line-clamp-2 text-base font-extrabold leading-snug text-[#1F1F1F] dark:text-foreground">
+          <h2 className="line-clamp-2 text-base font-extrabold leading-snug text-foreground">
             {salon.name_ar}
           </h2>
           {showCity && (locationLine || salon.city) ? (
@@ -235,7 +235,7 @@ export function SalonPremiumCard({
           {scoreCaption ? (
             <p className="text-[11px] font-semibold uppercase tracking-wide text-primary/80">{scoreCaption}</p>
           ) : null}
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm font-semibold tabular-nums text-[#374151] dark:text-foreground">
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm font-semibold tabular-nums text-foreground">
             <span className="inline-flex items-center gap-1 text-amber-600 dark:text-amber-400">
               <Star className="h-4 w-4 fill-current" aria-hidden />
               {rating.toFixed(1)}
@@ -250,13 +250,13 @@ export function SalonPremiumCard({
       <div
         className={cn(
           'mt-auto shrink-0 border-t border-primary/[0.08] bg-white/98 px-4 pb-4 pt-3 backdrop-blur-sm dark:bg-card/98',
-          isRecommended && 'border-primary/15 bg-gradient-to-t from-[#fce4ec]/40 to-white dark:from-primary/10 dark:to-card'
+          isRecommended && 'border-primary/15 bg-gradient-to-t from-primary/40 to-white dark:from-primary/10 dark:to-card'
         )}
         onClick={(e) => e.stopPropagation()}
         onKeyDown={(e) => e.stopPropagation()}
       >
         {isRecommended ? (
-          <p className="mb-2 text-center text-[10px] font-medium leading-relaxed text-[#6B7280] dark:text-rosera-gray">
+          <p className="mb-2 text-center text-[10px] font-medium leading-relaxed text-muted-foreground">
             {trustLine}
           </p>
         ) : null}
@@ -265,12 +265,12 @@ export function SalonPremiumCard({
           disabled={!salonIdOk}
           className={cn(
             'h-11 w-full rounded-xl text-sm font-extrabold text-white shadow-md',
-            'bg-gradient-to-r from-[#E91E8C] to-[#9C27B0]',
+            'gradient-primary',
             'transition duration-200 ease-out',
-            'hover:scale-[1.02] hover:shadow-lg active:scale-[0.97]',
+            'hover:scale-[1.02] hover:shadow-lg hover:brightness-[1.02] active:scale-[0.97]',
             'touch-manipulation select-none',
             isRecommended &&
-              'h-12 bg-gradient-to-r from-[#d81b60] via-[#E91E8C] to-[#7b1fa2] text-[13px] leading-snug shadow-lg shadow-[#E91E8C]/40 hover:scale-[1.03] hover:shadow-xl active:scale-[0.96] sm:text-[14px]'
+              'h-12 text-[13px] leading-snug shadow-lg shadow-primary/35 hover:scale-[1.03] hover:shadow-xl active:scale-[0.96] sm:text-[14px]'
           )}
           onClick={goBook}
         >

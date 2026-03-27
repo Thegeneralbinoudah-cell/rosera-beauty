@@ -34,8 +34,11 @@ import {
   SEARCH_BUSINESS_CATEGORY_OPTIONS,
   resolveSearchCategoryFilter,
   businessMatchesSearchCategory,
+  businessMatchesCategoryValue,
+  legacyCategoryLabelToCategoryValue,
   normalizeArabicLabel,
 } from '@/lib/searchCategoryFilter'
+import { arabicLabelForCategoryValue, isHomeCategoryValue } from '@/lib/homeCategories'
 import { trackCategoryFilterSelected } from '@/lib/analytics'
 
 type BizRow = Business & {
@@ -55,7 +58,13 @@ export default function SearchPage() {
   const [filterOpen, setFilterOpen] = useState(false)
   const [cityF, setCityF] = useState(params.get('city') || '')
   const categoryLabelF = params.get('categoryLabel') || ''
-  const [catLabelLocal, setCatLabelLocal] = useState(categoryLabelF)
+  const categoryValueF = params.get('categoryValue') || ''
+  const [catValueLocal, setCatValueLocal] = useState(
+    () =>
+      (categoryValueF && isHomeCategoryValue(categoryValueF) ? categoryValueF : '') ||
+      legacyCategoryLabelToCategoryValue(categoryLabelF) ||
+      ''
+  )
   const [minRating, setMinRating] = useState('0')
   const [sortBy, setSortBy] = useState<'rating' | 'booked' | 'nearest'>(() => {
     const fromUrl = params.get('sort')
@@ -69,23 +78,50 @@ export default function SearchPage() {
   const resetSearchFilters = () => {
     setQ('')
     setCityF('')
-    setCatLabelLocal('')
+    setCatValueLocal('')
     setMinRating('0')
     setSortBy('rating')
+    try {
+      sessionStorage.removeItem('rosera:lastCategoryValue')
+    } catch {
+      /* ignore */
+    }
     setParams(new URLSearchParams(), { replace: true })
     localStorage.removeItem(SEARCH_SORT_PREFS_KEY)
     toast.success(t('search.resetToast'))
   }
 
   useEffect(() => {
-    setCatLabelLocal(categoryLabelF)
-  }, [categoryLabelF])
+    const cv = params.get('categoryValue')?.trim() || ''
+    const cl = params.get('categoryLabel')?.trim() || ''
+    const next =
+      (cv && isHomeCategoryValue(cv) ? cv : '') || legacyCategoryLabelToCategoryValue(cl) || ''
+    setCatValueLocal(next)
+  }, [params])
 
-  /** Normalize legacy/alias `categoryLabel` in the URL to the canonical chip string. */
+  /**
+   * Migrate `categoryLabel` → `categoryValue` when mappable; else normalize Arabic label for Map-only granular filters.
+   */
   useEffect(() => {
-    const res = resolveSearchCategoryFilter(categoryLabelF)
+    const cl = params.get('categoryLabel')?.trim() || ''
+    const cv = params.get('categoryValue')?.trim()
+    if (!cl || cv) return
+    const mapped = legacyCategoryLabelToCategoryValue(cl)
+    if (mapped) {
+      setParams(
+        (prev) => {
+          const p = new URLSearchParams(prev)
+          p.delete('categoryLabel')
+          p.set('categoryValue', mapped)
+          return p
+        },
+        { replace: true }
+      )
+      return
+    }
+    const res = resolveSearchCategoryFilter(cl)
     if (!res.ok) return
-    if (normalizeArabicLabel(categoryLabelF) === res.canonical) return
+    if (normalizeArabicLabel(cl) === res.canonical) return
     setParams(
       (prev) => {
         const p = new URLSearchParams(prev)
@@ -94,7 +130,36 @@ export default function SearchPage() {
       },
       { replace: true }
     )
-  }, [categoryLabelF, setParams])
+  }, [params, setParams])
+
+  const effectiveCategoryValue = useMemo(() => {
+    const cv = params.get('categoryValue')?.trim() || ''
+    if (cv && isHomeCategoryValue(cv)) return cv
+    const cl = params.get('categoryLabel')?.trim() || ''
+    if (cl) {
+      const m = legacyCategoryLabelToCategoryValue(cl)
+      if (m) return m
+    }
+    return ''
+  }, [params])
+
+  const legacyGranularCategory = useMemo(() => {
+    if (effectiveCategoryValue) return null
+    const cl = params.get('categoryLabel')?.trim() || ''
+    if (!cl) return null
+    const res = resolveSearchCategoryFilter(cl)
+    return res.ok ? res.canonical : null
+  }, [params, effectiveCategoryValue])
+
+  useEffect(() => {
+    if (effectiveCategoryValue) {
+      try {
+        sessionStorage.setItem('rosera:lastCategoryValue', effectiveCategoryValue)
+      } catch {
+        /* ignore */
+      }
+    }
+  }, [effectiveCategoryValue])
 
   useEffect(() => {
     navigator.geolocation?.getCurrentPosition(
@@ -162,7 +227,7 @@ export default function SearchPage() {
     return () => {
       c = false
     }
-  }, [])
+  }, [t])
 
   const filtered = useMemo(() => {
     let r = list
@@ -178,9 +243,10 @@ export default function SearchPage() {
     if (cityF.trim()) {
       r = r.filter((b) => (b.city === cityF || b.sa_cities?.name_ar === cityF))
     }
-    const catRes = resolveSearchCategoryFilter(catLabelLocal)
-    if (catRes.ok) {
-      r = r.filter((b) => businessMatchesSearchCategory(b, catRes.canonical))
+    if (effectiveCategoryValue) {
+      r = r.filter((b) => businessMatchesCategoryValue(b, effectiveCategoryValue))
+    } else if (legacyGranularCategory) {
+      r = r.filter((b) => businessMatchesSearchCategory(b, legacyGranularCategory))
     }
     const mr = parseFloat(minRating)
     if (mr > 0) r = r.filter((b) => (b.average_rating ?? 0) >= mr)
@@ -216,12 +282,22 @@ export default function SearchPage() {
       }
     }
     return r
-  }, [list, q, cityF, catLabelLocal, minRating, sortBy, userPos])
+  }, [
+    list,
+    q,
+    cityF,
+    effectiveCategoryValue,
+    legacyGranularCategory,
+    minRating,
+    sortBy,
+    userPos,
+  ])
 
-  const categoryBannerLabel = (() => {
-    const res = resolveSearchCategoryFilter(catLabelLocal)
-    return res.ok ? res.canonical : null
-  })()
+  const categoryBannerLabel = useMemo(() => {
+    if (effectiveCategoryValue) return arabicLabelForCategoryValue(effectiveCategoryValue)
+    if (legacyGranularCategory) return legacyGranularCategory
+    return null
+  }, [effectiveCategoryValue, legacyGranularCategory])
 
   const withDist = useMemo(() => {
     if (!userPos) return filtered.map((b) => ({ b, km: undefined as number | undefined }))
@@ -258,27 +334,32 @@ export default function SearchPage() {
     let n = 0
     if (q.trim()) n += 1
     if (cityF.trim()) n += 1
-    if (resolveSearchCategoryFilter(catLabelLocal).ok) n += 1
+    if (effectiveCategoryValue || legacyGranularCategory) n += 1
     if (parseFloat(minRating) > 0) n += 1
     if (sortBy !== 'rating') n += 1
     return n
-  }, [q, cityF, catLabelLocal, minRating, sortBy])
+  }, [q, cityF, effectiveCategoryValue, legacyGranularCategory, minRating, sortBy])
 
   const applyCategoryFromHome = () => {
     const p = new URLSearchParams(params)
-    if (catLabelLocal) p.set('categoryLabel', catLabelLocal)
-    else p.delete('categoryLabel')
+    if (catValueLocal) {
+      p.set('categoryValue', catValueLocal)
+      p.delete('categoryLabel')
+    } else {
+      p.delete('categoryValue')
+      p.delete('categoryLabel')
+    }
     setParams(p)
     setFilterOpen(false)
   }
 
   return (
-    <div className="min-h-dvh bg-white pb-28 dark:bg-rosera-dark">
-      <div className="sticky top-0 z-20 border-b border-[#F9A8C9]/25 bg-white px-4 py-3 shadow-sm dark:border-border dark:bg-card">
+    <div className="min-h-dvh bg-background pb-28 dark:bg-rosera-dark">
+      <div className="sticky top-0 z-20 border-b border-primary/25 bg-card px-4 py-3 shadow-sm dark:border-border dark:bg-card">
         <div className="relative mx-auto max-w-lg">
-          <SearchIcon className="absolute start-3 top-1/2 h-5 w-5 -translate-y-1/2 text-[#BE185D]" />
+          <SearchIcon className="absolute start-3 top-1/2 h-5 w-5 -translate-y-1/2 text-primary" />
           <Input
-            className="h-12 rounded-2xl border-[#E5E7EB] bg-white ps-10 text-[#374151] shadow-sm focus-visible:ring-[#F9A8C9] dark:border-border dark:bg-card"
+            className="h-12 rounded-2xl border-border bg-card ps-10 text-foreground shadow-sm focus-visible:ring-primary dark:border-border dark:bg-card"
             placeholder={t('search.placeholder')}
             value={q}
             onChange={(e) => setQ(e.target.value)}
@@ -303,14 +384,14 @@ export default function SearchPage() {
             <Button variant="ghost" size="sm" className="gap-1" onClick={resetSearchFilters}>
               {t('common.reset')}
               {activeFiltersCount > 0 && (
-                <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-[#F9A8C9] px-1 text-[10px] font-extrabold text-[#374151]">
+                <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-primary/35 px-1 text-[10px] font-extrabold text-foreground">
                   {activeFiltersCount}
                 </span>
               )}
             </Button>
             <Link
               to="/"
-              className="text-sm font-semibold text-[#BE185D] transition-colors hover:text-[#9D174D] dark:text-primary"
+              className="text-sm font-semibold text-primary transition-colors hover:text-primary dark:text-primary"
             >
               {t('search.regionsLink')}
             </Link>
@@ -333,10 +414,14 @@ export default function SearchPage() {
           </div>
         ) : filtered.length === 0 ? (
           <div className="py-10">
-            {resolveSearchCategoryFilter(catLabelLocal).ok ? (
+            {effectiveCategoryValue || legacyGranularCategory ? (
               <EmptyState
                 icon={SlidersHorizontal}
-                title={t('search.emptyCategoryTitle')}
+                title={
+                  effectiveCategoryValue
+                    ? t('search.emptyCategoryFilterExact')
+                    : t('search.emptyCategoryTitle')
+                }
                 subtitle={t('search.emptyCategorySub')}
                 ctaLabel={t('search.emptyCategoryCtaFilter')}
                 onClick={() => setFilterOpen(true)}
@@ -380,7 +465,7 @@ export default function SearchPage() {
             )}
           </div>
         ) : (
-          <div className="grid gap-4 sm:grid-cols-2">
+          <div className="motion-stagger grid gap-4 sm:grid-cols-2">
             {withDistOrdered.map(({ b, km }) => (
               <BusinessCard
                 key={b.id}
@@ -407,10 +492,10 @@ export default function SearchPage() {
             <div>
               <Label>{t('search.categoryLabel')}</Label>
               <Select
-                value={catLabelLocal || 'all'}
+                value={catValueLocal || 'all'}
                 onValueChange={(v) => {
                   const next = v === 'all' ? '' : v
-                  setCatLabelLocal(next)
+                  setCatValueLocal(next)
                   trackCategoryFilterSelected('search_filter', next || 'all')
                 }}
               >
@@ -419,8 +504,8 @@ export default function SearchPage() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">{t('common.all')}</SelectItem>
-                  {SEARCH_BUSINESS_CATEGORY_OPTIONS.map(({ value, key }) => (
-                    <SelectItem key={value} value={value}>
+                  {SEARCH_BUSINESS_CATEGORY_OPTIONS.map(({ categoryValue, key }) => (
+                    <SelectItem key={categoryValue} value={categoryValue}>
                       {t(key)}
                     </SelectItem>
                   ))}

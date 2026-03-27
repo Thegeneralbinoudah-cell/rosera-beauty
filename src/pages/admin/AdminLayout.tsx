@@ -56,6 +56,27 @@ export default function AdminLayout() {
   const { isAdmin, loading, signOut, profile } = useAuth()
   const nav = useNavigate()
   const [slaAlertsCount, setSlaAlertsCount] = useState(0)
+
+  useEffect(() => {
+    if (loading || !isAdmin) return
+    let c = true
+    async function loadSlaAlerts() {
+      const { count } = await supabase
+        .from('shipments')
+        .select('id', { count: 'exact', head: true })
+        .eq('sla_breached', true)
+      if (c) setSlaAlertsCount(count ?? 0)
+    }
+    void loadSlaAlerts()
+    const intervalId = window.setInterval(() => {
+      void loadSlaAlerts()
+    }, 30000)
+    return () => {
+      c = false
+      window.clearInterval(intervalId)
+    }
+  }, [loading, isAdmin])
+
   if (loading) return <div className="flex min-h-dvh items-center justify-center p-8">{t('admin.loading')}</div>
   if (!isAdmin) return <Navigate to="/admin/login" replace />
 
@@ -68,25 +89,6 @@ export default function AdminLayout() {
   const displayRole = (ROLE_KEYS as readonly string[]).includes(currentRole)
     ? t(`admin.role.${currentRole}`)
     : currentRole
-
-  useEffect(() => {
-    let c = true
-    async function loadSlaAlerts() {
-      const { count } = await supabase
-        .from('shipments')
-        .select('id', { count: 'exact', head: true })
-        .eq('sla_breached', true)
-      if (c) setSlaAlertsCount(count ?? 0)
-    }
-    void loadSlaAlerts()
-    const t = setInterval(() => {
-      void loadSlaAlerts()
-    }, 30000)
-    return () => {
-      c = false
-      clearInterval(t)
-    }
-  }, [])
 
   return (
     <div className="flex min-h-dvh bg-rosera-light pb-20 md:pb-0 dark:bg-rosera-dark" dir="rtl">

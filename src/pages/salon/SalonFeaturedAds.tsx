@@ -172,7 +172,7 @@ export default function SalonFeaturedAds() {
     <div className="space-y-6">
       <div>
         <h1 className="flex items-center gap-2 text-2xl font-extrabold text-foreground">
-          <Megaphone className="h-7 w-7 text-fuchsia-600" />
+          <Megaphone className="h-7 w-7 text-primary" />
           إعلانات مميزة
         </h1>
         <p className="mt-1 text-sm text-muted-foreground">
@@ -180,12 +180,12 @@ export default function SalonFeaturedAds() {
         </p>
       </div>
 
-      <Card className="border-fuchsia-200/50 bg-gradient-to-br from-fuchsia-50/80 to-white p-5 dark:border-border dark:from-fuchsia-950/20 dark:to-card">
+      <Card className="border-primary/20 bg-gradient-to-br from-primary-subtle/90 to-white p-5 dark:border-border dark:from-primary/15 dark:to-card">
         <h2 className="text-lg font-bold text-foreground">الحملة النشطة</h2>
         {active ? (
           <div className="mt-3 space-y-2 text-sm">
             <div className="flex flex-wrap items-center gap-2">
-              <Badge className="bg-gradient-to-l from-fuchsia-600 to-pink-500">إعلان ⭐</Badge>
+              <Badge className="gradient-primary">إعلان ⭐</Badge>
               <span className="text-muted-foreground">
                 {Number(active.budget).toFixed(0)} ر.س · {active.day_count} يوم
               </span>
@@ -224,11 +224,11 @@ export default function SalonFeaturedAds() {
             onChange={(e) => setDayCount(Number(e.target.value))}
           />
         </div>
-        <p className="mt-3 text-xl font-black tabular-nums text-fuchsia-700 dark:text-fuchsia-300">
+        <p className="mt-3 text-xl font-black tabular-nums text-primary dark:text-primary">
           الإجمالي: {totalSar.toFixed(0)} ر.س
         </p>
         <Button
-          className="mt-4 w-full rounded-xl bg-gradient-to-l from-fuchsia-600 to-pink-500"
+          className="mt-4 w-full rounded-xl gradient-primary text-primary-foreground hover:opacity-95"
           disabled={busy || checkoutOpen}
           onClick={() => void startCheckout()}
         >
@@ -237,7 +237,7 @@ export default function SalonFeaturedAds() {
       </Card>
 
       {checkoutOpen && pendingAdId ? (
-        <Card className="border-fuchsia-200/40 p-5 dark:border-border">
+        <Card className="border-primary/20 p-5 dark:border-border">
           <h2 className="text-lg font-bold text-foreground">إتمام الدفع</h2>
           <p className="mt-1 text-sm text-muted-foreground">
             إعلان مميز — {days} يوم — {totalSar.toFixed(0)} ر.س

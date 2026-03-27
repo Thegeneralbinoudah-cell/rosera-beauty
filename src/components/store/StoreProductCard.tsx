@@ -32,7 +32,7 @@ export function StoreProductCard({ product, sponsored, onAddToCart, className }:
     >
       <Link
         to={`/product/${product.id}`}
-        className="relative block aspect-[4/5] overflow-hidden bg-gradient-to-b from-[#FDF2F8] to-[#FCE7F3]"
+        className="relative block aspect-[4/5] overflow-hidden bg-gradient-to-b from-primary-subtle/80 to-primary-subtle/40"
       >
         <img
           src={product.image_url || IMG_FALLBACK}
@@ -42,7 +42,7 @@ export function StoreProductCard({ product, sponsored, onAddToCart, className }:
         />
         <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/20 via-transparent to-white/10 opacity-60" />
         {sponsored && (
-          <span className="absolute start-3 top-3 rounded-full bg-white/95 px-2.5 py-1 text-[10px] font-bold tracking-wide text-[#BE185D] shadow-sm backdrop-blur-sm dark:bg-black/75 dark:text-primary">
+          <span className="absolute start-3 top-3 rounded-full bg-card/95 px-2.5 py-1 text-[10px] font-bold tracking-wide text-primary shadow-sm backdrop-blur-sm dark:bg-black/75 dark:text-primary">
             {t('store.sponsored')}
           </span>
         )}
@@ -50,34 +50,34 @@ export function StoreProductCard({ product, sponsored, onAddToCart, className }:
 
       <div className="flex flex-1 flex-col p-3.5 pt-3">
         {product.brand_ar && (
-          <p className="mb-0.5 font-cairo text-[11px] font-semibold uppercase tracking-wider text-[#BE185D]/80 dark:text-primary/90">
+          <p className="mb-0.5 font-cairo text-[11px] font-semibold uppercase tracking-wider text-primary/80 dark:text-primary/90">
             {product.brand_ar}
           </p>
         )}
         <Link to={`/product/${product.id}`} className="min-h-0 flex-1">
-          <h3 className="font-cairo line-clamp-2 text-[15px] font-bold leading-snug text-[#374151] transition-colors hover:text-[#BE185D] dark:text-foreground dark:hover:text-primary">
+          <h3 className="font-cairo line-clamp-2 text-[15px] font-bold leading-snug text-foreground transition-colors hover:text-primary dark:text-foreground dark:hover:text-primary">
             {product.name_ar}
           </h3>
         </Link>
 
         <div className="mt-2 flex items-center gap-1.5">
-          <div className="flex items-center gap-0.5 rounded-full bg-[#FDF2F8] px-2 py-0.5 dark:bg-muted/80">
-            <Star className="h-3.5 w-3.5 fill-[#F9A8C9] text-[#F9A8C9]" strokeWidth={0} aria-hidden />
-            <span className="font-cairo text-xs font-bold text-[#374151] dark:text-foreground">
+          <div className="flex items-center gap-0.5 rounded-full bg-primary-subtle px-2 py-0.5 dark:bg-muted/80">
+            <Star className="h-3.5 w-3.5 fill-primary/35 text-primary/35" strokeWidth={0} aria-hidden />
+            <span className="font-cairo text-xs font-bold text-foreground">
               {rating.toFixed(1)}
             </span>
           </div>
           {reviews > 0 && (
-            <span className="font-cairo text-[11px] text-[#6B7280] dark:text-muted-foreground">
+            <span className="font-cairo text-[11px] text-muted-foreground">
               ({reviews.toLocaleString(lang === 'en' ? 'en-US' : 'ar-SA')} {t('store.reviews')})
             </span>
           )}
         </div>
 
-        <div className="mt-3 flex items-end justify-between gap-2 border-t border-[#F9A8C9]/15 pt-3">
-          <p className="font-cairo text-lg font-extrabold tabular-nums text-[#BE185D] dark:text-primary">
+        <div className="mt-3 flex items-end justify-between gap-2 border-t border-primary/15 pt-3">
+          <p className="font-cairo text-lg font-extrabold tabular-nums text-primary dark:text-primary">
             {priceStr}
-            <span className="ms-1 text-xs font-bold text-[#6B7280] dark:text-muted-foreground">
+            <span className="ms-1 text-xs font-bold text-muted-foreground">
               {t('common.sar')}
             </span>
           </p>

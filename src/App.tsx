@@ -1,4 +1,4 @@
-import { lazy, Suspense } from 'react'
+import { lazy, Suspense, type ReactElement } from 'react'
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import { CustomerLayout } from '@/components/layout/CustomerLayout'
 import SplashScreen from '@/pages/SplashScreen'
@@ -51,6 +51,7 @@ const SalonAnalytics = lazy(() => import('@/pages/salon/SalonAnalytics'))
 const SalonProfile = lazy(() => import('@/pages/salon/SalonProfile'))
 const OwnerLegacyRedirect = lazy(() => import('@/pages/salon/OwnerLegacyRedirect'))
 const TopSalons = lazy(() => import('@/pages/TopSalons'))
+const TopClinics = lazy(() => import('@/pages/TopClinics'))
 const RecommendedSalons = lazy(() => import('@/pages/RecommendedSalons'))
 const SalonOnboarding = lazy(() => import('@/pages/onboarding/SalonOnboarding'))
 const ForSalonsLanding = lazy(() => import('@/pages/for-salons/ForSalonsLanding'))
@@ -73,6 +74,7 @@ const ProductDetail = lazy(() => import('@/pages/ProductDetail'))
 const Cart = lazy(() => import('@/pages/Cart'))
 const AdminAnalytics = lazy(() => import('@/pages/admin/AdminAnalytics'))
 const AdminRevenue = lazy(() => import('@/pages/admin/AdminRevenue'))
+const NotFound = lazy(() => import('@/pages/NotFound'))
 
 function PageFallback() {
   const { lang } = usePreferences()
@@ -80,7 +82,7 @@ function PageFallback() {
     <div className="flex min-h-dvh flex-col items-center justify-center gap-6 bg-background px-6">
       <div className="flex w-full max-w-xs flex-col gap-4 animate-page-enter motion-reduce:animate-none">
         <div className="h-4 w-[60%] rounded-lg bg-muted/60" />
-        <div className="h-24 w-full rounded-2xl bg-gradient-to-br from-primary/15 via-pink-100/40 to-amber-100/20 shadow-inner">
+        <div className="h-24 w-full rounded-[8px] bg-gradient-to-br from-muted/80 via-card to-accent/10 shadow-inner">
           <div className="relative h-full w-full overflow-hidden rounded-2xl">
             <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/50 to-transparent animate-map-shimmer opacity-70" />
           </div>
@@ -98,7 +100,7 @@ function PageFallback() {
   )
 }
 
-function OwnerDashboardRedirect() {
+function OwnerDashboardRedirect(): ReactElement {
   const { pathname } = useLocation()
   const sub = pathname === '/dashboard' ? '' : pathname.slice('/dashboard'.length)
   const map: Record<string, string> = {
@@ -107,7 +109,15 @@ function OwnerDashboardRedirect() {
     '/services': '/salon/services',
     '/ads': '/salon/ads',
   }
-  return <Navigate to={map[sub] ?? '/salon/dashboard'} replace />
+  const target = map[sub]
+  if (target === undefined) {
+    return (
+      <Suspense fallback={null}>
+        <NotFound />
+      </Suspense>
+    )
+  }
+  return <Navigate to={target} replace />
 }
 
 export default function App() {
@@ -153,6 +163,7 @@ export default function App() {
           <Route path="/search" element={<SearchPage />} />
           <Route path="/map" element={<MapPage />} />
           <Route path="/top-salons" element={<TopSalons />} />
+          <Route path="/top-clinics" element={<TopClinics />} />
           <Route path="/recommended-salons" element={<RecommendedSalons />} />
           <Route path="/salon/:id" element={<SalonDetail />} />
           <Route path="/booking/:salonId" element={<BookingFlow />} />
@@ -213,7 +224,7 @@ export default function App() {
         />
         <Route path="/dashboard/*" element={<OwnerDashboardRedirect />} />
 
-        <Route path="*" element={<Navigate to="/home" replace />} />
+        <Route path="*" element={<NotFound />} />
       </Routes>
     </Suspense>
   )

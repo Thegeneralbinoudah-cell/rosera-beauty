@@ -84,7 +84,7 @@ export default function Bookings() {
     const color =
       r.status === 'cancelled' ? 'destructive' : r.status === 'completed' ? 'success' : 'default'
     return (
-      <div className="mb-4 flex gap-4 rounded-2xl border bg-white p-4 dark:bg-card">
+      <div className="mb-4 flex gap-4 rounded-2xl border bg-card p-4 dark:bg-card">
         <img src={img} alt="" className="h-24 w-24 shrink-0 rounded-xl object-cover" />
         <div className="min-w-0 flex-1">
           <h3 className="font-bold line-clamp-1">{r.businesses?.name_ar}</h3>

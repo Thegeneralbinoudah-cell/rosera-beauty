@@ -34,13 +34,13 @@ export default function SalonLayout() {
 
   return (
     <div
-      className="min-h-dvh bg-gradient-to-b from-[#fff5f8] via-[#fef7fb] to-[#fce4ec]/40 pb-[4.5rem] md:pb-0 dark:from-background dark:via-background dark:to-background"
+      className="min-h-dvh bg-gradient-to-b from-background via-primary-subtle/40 to-primary-subtle/25 pb-[4.5rem] md:pb-0 dark:from-background dark:via-background dark:to-background"
       dir="rtl"
     >
-      <aside className="fixed end-0 top-0 z-30 hidden h-full w-56 border-s border-pink-100/80 bg-white/95 pt-safe shadow-sm backdrop-blur-sm dark:border-border dark:bg-card md:block">
-        <div className="border-b border-pink-100/60 p-4 pt-[max(1rem,env(safe-area-inset-top))] dark:border-border">
-          <p className="text-xs font-semibold text-pink-400">Rosera</p>
-          <h2 className="text-lg font-extrabold text-[#c2185b] dark:text-[#f48fb1]">لوحة الصالون</h2>
+      <aside className="fixed end-0 top-0 z-30 hidden h-full w-56 border-s border-primary/15 bg-white/95 pt-safe shadow-sm backdrop-blur-sm dark:border-border dark:bg-card md:block">
+        <div className="border-b border-primary/15 p-4 pt-[max(1rem,env(safe-area-inset-top))] dark:border-border">
+          <p className="text-xs font-semibold text-primary">Rosera</p>
+          <h2 className="text-lg font-extrabold text-primary dark:text-primary">لوحة الصالون</h2>
         </div>
         <nav className="space-y-1 p-3">
           {nav.map(({ to, label, end, icon: Icon }) => (
@@ -52,8 +52,8 @@ export default function SalonLayout() {
                 cn(
                   'flex items-center gap-2 rounded-xl px-3 py-2.5 text-sm font-bold transition',
                   isActive
-                    ? 'bg-gradient-to-l from-[#fce4ec] to-[#f8bbd0]/90 text-[#880e4f] shadow-sm dark:from-primary/20 dark:to-primary/10 dark:text-primary'
-                    : 'text-muted-foreground hover:bg-pink-50/80 dark:hover:bg-muted'
+                    ? 'bg-gradient-to-l from-primary-subtle to-primary/20 text-primary shadow-sm dark:from-primary/25 dark:to-primary/15 dark:text-primary-foreground'
+                    : 'text-muted-foreground hover:bg-primary-subtle/50 dark:hover:bg-muted'
                 )
               }
             >
@@ -67,8 +67,8 @@ export default function SalonLayout() {
               cn(
                 'flex items-center gap-2 rounded-xl px-3 py-2.5 text-sm font-bold transition',
                 isActive
-                  ? 'bg-gradient-to-l from-[#fce4ec] to-[#f8bbd0]/90 text-[#880e4f] dark:from-primary/20 dark:to-primary/10'
-                  : 'text-muted-foreground hover:bg-pink-50/80 dark:hover:bg-muted'
+                  ? 'bg-gradient-to-l from-primary-subtle to-primary/20 text-primary dark:from-primary/25 dark:to-primary/15 dark:text-primary-foreground'
+                  : 'text-muted-foreground hover:bg-primary-subtle/50 dark:hover:bg-muted'
               )
             }
           >
@@ -83,7 +83,7 @@ export default function SalonLayout() {
             <LogOut className="h-4 w-4" />
             خروج
           </Button>
-          <Button variant="outline" className="w-full justify-start gap-2 border-pink-200/60" onClick={() => navigate('/home')}>
+          <Button variant="outline" className="w-full justify-start gap-2 border-primary/25" onClick={() => navigate('/home')}>
             <Smartphone className="h-4 w-4" />
             تطبيق العملاء
           </Button>
@@ -96,7 +96,7 @@ export default function SalonLayout() {
         </div>
       </main>
 
-      <nav className="fixed bottom-0 inset-x-0 z-40 flex justify-around border-t border-pink-100/80 bg-white/95 pb-[max(0.35rem,env(safe-area-inset-bottom))] pt-1 shadow-[0_-4px_20px_-4px_rgba(233,30,140,0.12)] backdrop-blur-md dark:border-border dark:bg-card md:hidden">
+      <nav className="fixed bottom-0 inset-x-0 z-40 flex justify-around border-t border-primary/15 bg-white/95 pb-[max(0.35rem,env(safe-area-inset-bottom))] pt-1 shadow-[0_-4px_20px_-4px_rgb(212_165_165/0.15)] backdrop-blur-md dark:border-border dark:bg-card md:hidden">
         {nav.map(({ to, label, end, icon: Icon }) => (
           <NavLink
             key={to}
@@ -105,7 +105,7 @@ export default function SalonLayout() {
             className={({ isActive }) =>
               cn(
                 'flex min-w-0 flex-1 flex-col items-center gap-0.5 py-1 text-[9px] font-bold',
-                isActive ? 'text-[#c2185b]' : 'text-muted-foreground'
+                isActive ? 'text-primary' : 'text-muted-foreground'
               )
             }
           >
@@ -118,7 +118,7 @@ export default function SalonLayout() {
           className={({ isActive }) =>
             cn(
               'flex min-w-0 flex-1 flex-col items-center gap-0.5 py-1 text-[9px] font-bold',
-              isActive ? 'text-[#c2185b]' : 'text-muted-foreground'
+              isActive ? 'text-primary' : 'text-muted-foreground'
             )
           }
         >

@@ -112,7 +112,7 @@ export default function OwnerBookings() {
 
   return (
     <div className="space-y-2">
-      <h1 className="text-2xl font-extrabold text-[#880e4f] dark:text-[#f48fb1]">الحجوزات</h1>
+      <h1 className="text-2xl font-extrabold text-foreground">الحجوزات</h1>
       <p className="text-sm text-muted-foreground">قبول، تأكيد، إكمال، أو إلغاء الحجوزات</p>
       <Tabs value={tab} onValueChange={(v) => setTab(v as Status)} className="mt-4">
         <TabsList className="flex h-auto w-full flex-wrap gap-1 bg-muted/50 p-1">
@@ -171,7 +171,7 @@ function BookingCard({
             {b.booking_date} — {String(b.booking_time).slice(0, 5)}
           </p>
           {b.total_price != null && (
-            <p className="text-sm font-semibold text-primary">{Number(b.total_price).toLocaleString('ar-SA')} ر.س</p>
+            <p className="text-sm font-semibold text-accent">{Number(b.total_price).toLocaleString('ar-SA')} ر.س</p>
           )}
         </div>
         <span className="rounded-full bg-muted px-2 py-0.5 text-xs font-bold">

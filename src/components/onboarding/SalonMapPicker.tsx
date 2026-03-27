@@ -28,14 +28,19 @@ export function SalonMapPicker({ latitude, longitude, onLocationChange, classNam
   const elRef = useRef<HTMLDivElement>(null)
   const mapRef = useRef<google.maps.Map | null>(null)
   const markerRef = useRef<google.maps.Marker | null>(null)
+  const latRef = useRef(latitude)
+  const lngRef = useRef(longitude)
+  latRef.current = latitude
+  lngRef.current = longitude
   const [ready, setReady] = useState(false)
-  const [err, setErr] = useState<string | null>(null)
+  const [asyncErr, setAsyncErr] = useState<string | null>(null)
+  const apiKey = getGoogleMapsApiKey().trim()
+  const configErr = !apiKey ? 'مفتاح خرائط غير مضبوط' : null
+  const err = configErr ?? asyncErr
 
   useEffect(() => {
     const el = elRef.current
-    const apiKey = getGoogleMapsApiKey().trim()
     if (!el || !apiKey) {
-      setErr(!apiKey ? 'مفتاح خرائط غير مضبوط' : null)
       return
     }
 
@@ -52,12 +57,14 @@ export function SalonMapPicker({ latitude, longitude, onLocationChange, classNam
         if (disposed || !elRef.current) return
         const g = globalThis.google?.maps
         if (!g?.Map || !g.Marker) {
-          setErr('تعذر تحميل مكتبة الخرائط')
+          setAsyncErr('تعذر تحميل مكتبة الخرائط')
           return
         }
 
-        const startLat = typeof latitude === 'number' && Number.isFinite(latitude) ? latitude : FALLBACK.lat
-        const startLng = typeof longitude === 'number' && Number.isFinite(longitude) ? longitude : FALLBACK.lng
+        const lat0 = latRef.current
+        const lng0 = lngRef.current
+        const startLat = typeof lat0 === 'number' && Number.isFinite(lat0) ? lat0 : FALLBACK.lat
+        const startLng = typeof lng0 === 'number' && Number.isFinite(lng0) ? lng0 : FALLBACK.lng
 
         const map = new g.Map(elRef.current, {
           center: { lat: startLat, lng: startLng },
@@ -95,10 +102,10 @@ export function SalonMapPicker({ latitude, longitude, onLocationChange, classNam
 
         if (disposed) return
         setReady(true)
-        setErr(null)
+        setAsyncErr(null)
       } catch (e) {
         if (!disposed) {
-          setErr(e instanceof Error ? e.message : 'تعذر تحميل الخريطة')
+          setAsyncErr(e instanceof Error ? e.message : 'تعذر تحميل الخريطة')
         }
       }
     })()
@@ -108,7 +115,7 @@ export function SalonMapPicker({ latitude, longitude, onLocationChange, classNam
       markerRef.current = null
       mapRef.current = null
     }
-  }, [onLocationChange])
+  }, [onLocationChange, apiKey])
 
   useEffect(() => {
     const m = mapRef.current

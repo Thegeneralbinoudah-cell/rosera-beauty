@@ -5,10 +5,16 @@ import { captureProductEvent, initPostHog } from '@/lib/posthog'
 export {
   initPostHog,
   captureProductEvent,
+  captureBookingFailed,
+  captureVisionFailed,
+  sanitizeFeedbackNotePreview,
+  BOOKING_FAILED_REASONS,
+  VISION_FAILED_REASONS,
   syncPostHogIdentity,
   PRODUCT_ANALYTICS_EVENTS,
   trackCategoryFilterSelected,
 } from '@/lib/posthog'
+export type { BookingFailedReason, BookingFailedExtra, VisionFailedReason, VisionFailedExtra } from '@/lib/posthog'
 
 export { insertUserEventRow } from '@/lib/insertUserEvent'
 export type { UserEventInsertResult } from '@/lib/insertUserEvent'

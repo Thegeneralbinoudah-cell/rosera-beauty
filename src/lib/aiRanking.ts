@@ -550,7 +550,7 @@ export async function getRecommendedSalons(
       if (feat !== 0) return feat
       return (b.has_active_featured_ad ? 1 : 0) - (a.has_active_featured_ad ? 1 : 0)
     })
-    return partitionFeaturedAdsFirst(rows).slice(0, limit) as SalonWithRecommendMeta[]
+    return rows.slice(0, limit) as SalonWithRecommendMeta[]
   }
 
   if (sortMode === 'distance' && userLocation) {

@@ -52,7 +52,7 @@ function SalonPickCard({
             </span>
             {distLabel ? (
               <span className="inline-flex items-center gap-1">
-                <MapPin className="h-3.5 w-3.5 text-[#BE185D]/80" aria-hidden />
+                <MapPin className="h-3.5 w-3.5 text-primary/80" aria-hidden />
                 {distLabel}
               </span>
             ) : null}
