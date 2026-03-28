@@ -14,10 +14,6 @@
  */
 
 @layer base {
-  body {
-    overscroll-behavior-y: contain;
-  }
-
   html {
     scroll-behavior: smooth;
   }
@@ -67,30 +63,30 @@
     --luxury-rose-wash: rgba(210 162 162 / 0.1);
     --luxury-muted-wash: rgba(197 160 89 / 0.06);
 
-    /* Soft warm blush canvas — cards stay clean white */
-    --background: 20 40% 98%;
-    --foreground: 25 22% 20%;
+    --background: 0 0% 100%;
+    --foreground: 240 10% 10%;
     --card: 0 0% 100%;
-    --card-foreground: 25 22% 20%;
+    --card-foreground: 240 10% 10%;
     --popover: 0 0% 100%;
-    --popover-foreground: 25 22% 20%;
+    --popover-foreground: 240 10% 10%;
 
-    /* Primary: dusty rose — Luxury Pro */
-    --primary: 0 35% 73%;
-    --primary-foreground: 25 25% 14%;
-    --primary-hover: 0 45% 55%;
-    --primary-active: 0 48% 48%;
-    --primary-subtle: 20 42% 96%;
+    --primary: 340 45% 55%;
+    --primary-foreground: 0 0% 100%;
 
-    --secondary: 20 35% 96%;
-    --secondary-foreground: 25 20% 22%;
+    --secondary: 0 0% 96%;
+    --secondary-foreground: 240 10% 10%;
 
-    --muted: 25 18% 94%;
-    --muted-foreground: 25 10% 42%;
+    --muted: 0 0% 95%;
+    --muted-foreground: 240 5% 40%;
 
-    --accent: 41 52% 94%;
-    --accent-foreground: 25 22% 20%;
-    --accent-light: 41 45% 82%;
+    --accent: 340 40% 90%;
+    --accent-foreground: 240 10% 10%;
+
+    /* Referenced by tailwind.config.js (colors.primary.hover / subtle, colors.accent.light) */
+    --primary-hover: 340 48% 48%;
+    --primary-active: 340 48% 42%;
+    --primary-subtle: 340 25% 96%;
+    --accent-light: 340 38% 93%;
 
     --destructive: 0 72% 55%;
     --destructive-foreground: 0 0% 100%;
@@ -163,27 +159,30 @@
     --luxury-rose-wash: rgba(244, 114, 182, 0.1);
     --luxury-muted-wash: rgba(15, 23, 42, 0.5);
 
-    --background: 224 42% 6%;
-    --foreground: 210 36% 96%;
-    --card: 224 40% 9%;
-    --card-foreground: 210 36% 96%;
-    --popover: 224 40% 9%;
-    --popover-foreground: 210 36% 96%;
+    --background: 240 10% 8%;
+    --foreground: 0 0% 95%;
+    --card: 240 10% 10%;
+    --card-foreground: 0 0% 95%;
+    --popover: 240 10% 10%;
+    --popover-foreground: 0 0% 95%;
 
-    --primary: 330 70% 72%;
-    --primary-foreground: 224 42% 8%;
-    --primary-hover: 330 68% 68%;
-    --primary-active: 330 65% 64%;
-    --primary-subtle: 330 35% 18%;
+    --primary: 340 45% 65%;
+    --primary-foreground: 0 0% 100%;
 
-    --secondary: 224 32% 16%;
-    --secondary-foreground: 210 36% 96%;
+    --secondary: 240 10% 15%;
+    --secondary-foreground: 0 0% 95%;
 
-    --muted: 224 28% 14%;
-    --muted-foreground: 210 28% 86%; /* readable secondary on dark */
+    --muted: 240 10% 15%;
+    --muted-foreground: 0 0% 70%;
 
-    --accent: 43 35% 22%;
-    --accent-foreground: 43 90% 92%;
+    --accent: 340 30% 20%;
+    --accent-foreground: 0 0% 95%;
+
+    /* Referenced by tailwind.config.js (colors.primary.hover / subtle, colors.accent.light) */
+    --primary-hover: 340 45% 72%;
+    --primary-active: 340 45% 78%;
+    --primary-subtle: 340 25% 16%;
+    --accent-light: 340 22% 26%;
 
     --destructive: 0 62% 48%;
     --destructive-foreground: 0 0% 100%;
@@ -226,7 +225,9 @@
   }
 
   body {
-    @apply min-h-dvh bg-background font-sans text-body font-medium tracking-luxury text-foreground antialiased;
+    background: hsl(var(--background));
+    color: hsl(var(--foreground));
+    @apply min-h-dvh font-sans text-body font-medium tracking-luxury antialiased;
     font-feature-settings: 'kern' 1;
     overscroll-behavior-y: contain;
     text-rendering: optimizeLegibility;
