@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { Loader2, Eye, EyeOff } from 'lucide-react'
 import { ROSERA_LOGO_SRC } from '@/lib/branding'
-import { supabase } from '@/lib/supabase'
+import { supabase, isSupabaseConfigured } from '@/lib/supabase'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -53,8 +53,14 @@ export default function AuthEmail() {
   const [signupSent, setSignupSent] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirm, setShowConfirm] = useState(false)
+  const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms))
 
   const onLogin = async () => {
+    if (!isSupabaseConfigured) {
+      console.error('[Auth][email] blocked: Supabase not configured')
+      toast.error('Supabase not configured')
+      return
+    }
     if (!email.trim()) {
       toast.error('أدخلي البريد الإلكتروني')
       return
@@ -63,18 +69,29 @@ export default function AuthEmail() {
       toast.error('أدخلي كلمة المرور')
       return
     }
+    console.info('[Auth][email] login start')
     setLoading(true)
     try {
-      const { data, error } = await supabase.auth.signInWithPassword({ email: email.trim(), password })
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email: email.trim().toLowerCase(),
+        password,
+      })
       if (error) throw error
-      const uid = data.user?.id
+      let uid: string | undefined = data.user?.id
+      if (!uid) {
+        await sleep(300)
+        const { data: sessionData } = await supabase.auth.getSession()
+        uid = sessionData.session?.user?.id
+      }
       if (uid) {
+        console.info('[Auth][email] login success', uid)
         toast.success('تم تسجيل الدخول')
         await redirectAfterEmailLogin(nav, uid)
       } else {
-        nav('/home', { replace: true })
+        throw new Error('Login succeeded but no active session was found')
       }
     } catch (e: unknown) {
+      console.error('[Auth][email] login error', e)
       toast.error(e instanceof Error ? e.message : 'فشل تسجيل الدخول')
     } finally {
       setLoading(false)
@@ -82,6 +99,11 @@ export default function AuthEmail() {
   }
 
   const onSignUp = async () => {
+    if (!isSupabaseConfigured) {
+      console.error('[Auth][email] signup blocked: Supabase not configured')
+      toast.error('Supabase not configured')
+      return
+    }
     if (!email.trim()) {
       toast.error('أدخلي البريد الإلكتروني')
       return
@@ -94,17 +116,20 @@ export default function AuthEmail() {
       toast.error('تأكيد كلمة المرور غير متطابق')
       return
     }
+    console.info('[Auth][email] signup start')
     setLoading(true)
     try {
       const { error } = await supabase.auth.signUp({
-        email: email.trim(),
+        email: email.trim().toLowerCase(),
         password,
         options: { emailRedirectTo: `${window.location.origin}/auth/email` },
       })
       if (error) throw error
+      console.info('[Auth][email] signup success (verification email sent)')
       setSignupSent(true)
       toast.success('تم إرسال رسالة التحقق إلى بريدكِ — فعّلي الحساب من الرابط ثم سجّلي الدخول')
     } catch (e: unknown) {
+      console.error('[Auth][email] signup error', e)
       toast.error(e instanceof Error ? e.message : 'فشل إنشاء الحساب')
     } finally {
       setLoading(false)

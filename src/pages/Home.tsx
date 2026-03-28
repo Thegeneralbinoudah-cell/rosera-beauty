@@ -1,4 +1,4 @@
-import { memo, useCallback, useEffect, useRef, useState, type CSSProperties } from 'react'
+import { memo, useCallback, useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { Link, useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
@@ -14,19 +14,11 @@ import { DarkModeToggle } from '@/components/DarkModeToggle'
 import { RosyHomeFirstIntro } from '@/components/RosyHomeFirstIntro'
 import { InstallAppButton } from '@/components/InstallAppButton'
 import { captureProductEvent, trackCategoryFilterSelected } from '@/lib/analytics'
-import { colors } from '@/theme/colors'
 import { HOME_CATEGORY_CHIPS } from '@/lib/homeCategories'
 import { attachRipple } from '@/lib/ripple'
 import { cn } from '@/lib/utils'
 import { Reveal } from '@/components/ui/Reveal'
 import { CountUp } from '@/components/ui/CountUp'
-
-/** Region circle labels — high contrast on photo (light + dark mode) */
-const REGION_CIRCLE_TEXT_STYLE: CSSProperties = {
-  color: '#ffffff',
-  textShadow:
-    '0 1px 2px rgba(0,0,0,1), 0 2px 12px rgba(0,0,0,0.85), 0 0 4px rgba(0,0,0,0.9)',
-}
 
 function Home() {
   const { profile, user } = useAuth()
@@ -197,9 +189,8 @@ function Home() {
       </header>
 
       <section className="mx-auto max-w-lg px-4 pt-4">
-        <div className="relative overflow-hidden rounded-[20px] border border-primary/30 bg-gradient-to-br from-card via-popover to-muted px-6 py-8 text-center text-foreground shadow-[0_8px_32px_rgba(139,26,74,0.2)]">
-          <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_80%_60%_at_50%_0%,rgba(139,26,74,0.25),transparent_55%)]" />
-          <div className="absolute inset-0 bg-[url('data:image/svg+xml,%3Csvg width=\'60\' height=\'60\' viewBox=\'0 0 60 60\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cg fill=\'none\' fill-rule=\'evenodd\'%3E%3Cg fill=\'%23C9963F\' fill-opacity=\'0.07\'%3E%3Cpath d=\'M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z\'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E')] opacity-100" />
+        <div className="relative overflow-hidden rounded-[20px] border border-border bg-gradient-to-br from-card via-popover to-muted px-6 py-8 text-center text-foreground shadow-sm">
+          <div className="pointer-events-none absolute inset-0 bg-primary/10" />
           <p className="relative text-sm font-medium text-foreground">{ui.heroSub}</p>
           <h2 className="relative mt-2 font-serif text-2xl font-semibold leading-tight text-foreground">{ui.heroTitle}</h2>
           <button
@@ -237,7 +228,7 @@ function Home() {
                 <div
                   role="presentation"
                   aria-hidden
-                  className="fixed inset-0 bg-background/70 backdrop-blur-[8px] transition-opacity duration-300 motion-reduce:backdrop-blur-none"
+                  className="fixed inset-0 bg-background/90 backdrop-blur-md motion-reduce:backdrop-blur-none"
                   onClick={closeHeroSearchPortal}
                 />
                 <div className="pointer-events-none relative z-[10050] px-4 pt-[max(0.75rem,env(safe-area-inset-top))] transition-all duration-300">
@@ -331,10 +322,7 @@ function Home() {
               attachRipple(e)
               nav('/top-salons')
             }}
-            className="ripple relative flex w-full items-center justify-between gap-3 overflow-hidden rounded-[20px] border border-primary/20 bg-gradient-to-l from-muted via-card to-popover p-5 text-start shadow-[0_8px_32px_rgba(139,26,74,0.18)] transition-all hover:shadow-[0_12px_40px_rgba(139,26,74,0.25)]"
-            style={{
-              backgroundImage: `linear-gradient(to left, color-mix(in srgb, ${colors.surface} 92%, transparent), ${colors.surface}, ${colors.secondary})`,
-            }}
+            className="ripple relative flex w-full items-center justify-between gap-3 overflow-hidden rounded-[20px] border border-border bg-gradient-to-l from-muted via-card to-popover p-5 text-start shadow-sm transition-all hover:shadow-md"
           >
             <div className="min-w-0">
               <span className="block font-serif text-lg font-semibold text-foreground">
@@ -352,10 +340,7 @@ function Home() {
               attachRipple(e)
               nav('/top-clinics')
             }}
-            className="ripple relative flex w-full items-center justify-between gap-3 overflow-hidden rounded-[20px] border border-primary/25 bg-gradient-to-l from-card via-popover to-muted p-5 text-start shadow-[0_8px_32px_rgba(139,26,74,0.18)] transition-all hover:shadow-[0_12px_40px_rgba(139,26,74,0.25)]"
-            style={{
-              backgroundImage: `linear-gradient(to left, color-mix(in srgb, ${colors.primary} 18%, ${colors.surface}), ${colors.surface}, ${colors.secondary})`,
-            }}
+            className="ripple relative flex w-full items-center justify-between gap-3 overflow-hidden rounded-[20px] border border-border bg-gradient-to-l from-card via-popover to-muted p-5 text-start shadow-sm transition-all hover:shadow-md"
           >
             <div className="min-w-0">
               <span className="block font-serif text-lg font-semibold text-foreground">
@@ -373,7 +358,7 @@ function Home() {
               attachRipple(e)
               nav('/recommended-salons')
             }}
-            className="ripple relative flex w-full items-center justify-between gap-3 overflow-hidden rounded-[20px] border border-accent/25 bg-gradient-to-l from-muted via-card to-popover p-5 text-start shadow-[0_8px_32px_rgba(139,26,74,0.18)] transition-all hover:shadow-[0_12px_40px_rgba(139,26,74,0.25)]"
+            className="ripple relative flex w-full items-center justify-between gap-3 overflow-hidden rounded-[20px] border border-border bg-gradient-to-l from-muted via-card to-popover p-5 text-start shadow-sm transition-all hover:shadow-md"
           >
             <div className="min-w-0">
               <span className="block font-serif text-lg font-semibold text-foreground">
@@ -390,11 +375,8 @@ function Home() {
         <section className="mt-4 mb-2">
           <Link
             to="/store"
-            className="ripple relative flex items-center justify-between overflow-hidden rounded-[20px] border border-primary/20 bg-gradient-to-l from-card p-5 shadow-[0_8px_32px_rgba(139,26,74,0.18)] transition-all hover:shadow-[0_12px_40px_rgba(139,26,74,0.25)]"
+            className="ripple relative flex items-center justify-between overflow-hidden rounded-[20px] border border-border bg-gradient-to-l from-card to-muted p-5 shadow-sm transition-all hover:shadow-md"
             onClick={(e) => attachRipple(e)}
-            style={{
-              backgroundImage: `linear-gradient(to left, ${colors.surface}, color-mix(in srgb, ${colors.primary} 45%, ${colors.surface}))`,
-            }}
           >
             <span className="font-serif text-lg font-semibold text-foreground">{ui.store}</span>
             <span className="font-semibold text-primary">{ui.shopNow}</span>
@@ -419,35 +401,21 @@ function Home() {
                 <div key={reg.id} className="flex flex-col items-center">
                   <Link
                     to={`/region/${reg.id}`}
-                    className="group relative flex h-[9.25rem] w-[9.25rem] sm:h-40 sm:w-40 flex-col items-center justify-center overflow-hidden rounded-full border-2 border-[#C9963F] shadow-[0_0_12px_rgba(201,150,63,0.4)] transition duration-300 hover:scale-[1.06] hover:shadow-[0_0_16px_rgba(201,150,63,0.55)]"
+                    className="group relative flex h-[9.25rem] w-[9.25rem] sm:h-40 sm:w-40 flex-col items-center justify-center overflow-hidden rounded-full border-2 border-primary shadow-md transition duration-300 hover:scale-[1.06] hover:shadow-lg"
                   >
                     <div
-                      className="absolute inset-0"
-                      style={{
-                        backgroundImage: `url(${reg.image_url})`,
-                        backgroundSize: 'cover',
-                        backgroundPosition: 'center',
-                      }}
+                      className="absolute inset-0 bg-cover bg-center"
+                      style={{ backgroundImage: `url(${reg.image_url})` }}
                     />
                     <div
-                      className="pointer-events-none absolute inset-0 z-[1]"
-                      style={{
-                        background:
-                          'linear-gradient(to top, rgba(0, 0, 0, 0.5) 0%, rgba(139, 26, 74, 0.55) 45%, transparent 72%)',
-                      }}
+                      className="pointer-events-none absolute inset-0 z-[1] bg-gradient-to-t from-primary/70 via-primary/35 to-transparent"
                       aria-hidden
                     />
                     <div className="relative z-[2] px-3 text-center">
-                      <h3
-                        className="line-clamp-4 font-serif text-base font-semibold leading-snug"
-                        style={REGION_CIRCLE_TEXT_STYLE}
-                      >
+                      <h3 className="line-clamp-4 font-serif text-base font-semibold leading-snug text-primary-foreground drop-shadow-sm">
                         {reg.name_ar}
                       </h3>
-                      <p
-                        className="mt-2 font-semibold tabular-nums"
-                        style={{ ...REGION_CIRCLE_TEXT_STYLE, fontSize: 12 }}
-                      >
+                      <p className="mt-2 text-xs font-semibold tabular-nums text-primary-foreground drop-shadow-sm">
                         <CountUp value={reg.totalCities} className="tabular-nums" decimals={0} /> {cityLabel}
                       </p>
                     </div>
@@ -461,7 +429,7 @@ function Home() {
 
       <Reveal>
       <section className="mx-auto max-w-lg px-4 pt-8" aria-label={lang === 'ar' ? 'عن التطبيق' : 'About the app'}>
-        <div className="relative overflow-hidden rounded-[20px] border border-primary/20 bg-gradient-to-br from-card via-popover to-muted px-5 py-4 shadow-[0_8px_32px_rgba(139,26,74,0.18)]">
+        <div className="relative overflow-hidden rounded-[20px] border border-border bg-gradient-to-br from-card via-popover to-muted px-5 py-4 shadow-sm">
           <div
             className="pointer-events-none absolute -end-10 -top-12 h-32 w-32 rounded-full bg-gradient-to-br from-primary/25 to-accent/20 blur-3xl"
             aria-hidden

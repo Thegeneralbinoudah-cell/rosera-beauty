@@ -5,7 +5,6 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { useI18n } from '@/hooks/useI18n'
 import { usePreferences } from '@/contexts/PreferencesContext'
 import { useCities } from '@/hooks/useCities'
-import { colors } from '@/theme/colors'
 
 export default function RegionCities() {
   const { t } = useI18n()
@@ -14,20 +13,20 @@ export default function RegionCities() {
   const { regionName, regionImage, cities, loading } = useCities(regionId, lang)
 
   return (
-    <div className="min-h-dvh bg-rosera-light pb-28 dark:bg-rosera-dark">
+    <div className="min-h-dvh bg-background pb-28">
       <div className="relative h-44 overflow-hidden">
         {regionImage && <img src={regionImage} alt="" className="h-full w-full object-cover" />}
-        <div className="absolute inset-0 bg-gradient-to-t from-rosera-light dark:from-rosera-dark to-transparent" />
+        <div className="absolute inset-0 bg-gradient-to-t from-background to-transparent" />
         <div className="absolute bottom-4 start-4 end-4">
           <Link
             to="/home"
-            className="mb-2 inline-flex items-center gap-1 text-sm font-semibold text-white drop-shadow hover:opacity-95"
+            className="mb-2 inline-flex items-center gap-1 text-sm font-semibold text-primary-foreground drop-shadow"
           >
             <ChevronLeft className="h-4 w-4" aria-hidden />
             {t('region.home')}
           </Link>
-          <h1 className="text-2xl font-extrabold text-white drop-shadow-md">{regionName || '...'}</h1>
-          <p className="mt-1 text-sm text-white">{t('region.chooseCity')}</p>
+          <h1 className="text-2xl font-extrabold text-primary-foreground drop-shadow-md">{regionName || '...'}</h1>
+          <p className="mt-1 text-sm text-primary-foreground">{t('region.chooseCity')}</p>
         </div>
       </div>
 
@@ -51,10 +50,7 @@ export default function RegionCities() {
               >
                 <Link
                   to={`/city/${city.id}`}
-                  className="flex items-center justify-between rounded-2xl border border-primary/15 bg-gradient-to-l from-white via-transparent p-4 shadow-sm ring-1 ring-primary/30 transition hover:shadow-[0_12px_28px_-12px_rgb(212_165_165_/_0.25)] dark:from-card dark:via-card dark:to-card dark:ring-primary/10"
-                  style={{
-                    backgroundImage: `linear-gradient(to left, white, ${colors.surface}, color-mix(in srgb, ${colors.primary} 50%, transparent))`,
-                  }}
+                  className="flex items-center justify-between rounded-2xl border border-border bg-gradient-to-l from-card via-muted/50 to-popover p-4 shadow-sm ring-1 ring-border/60 transition hover:shadow-md"
                 >
                   <div>
                     <p className="font-bold text-foreground">{city.name_ar}</p>

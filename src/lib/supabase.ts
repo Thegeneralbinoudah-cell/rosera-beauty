@@ -10,6 +10,10 @@ function readViteEnv(key: 'VITE_SUPABASE_URL' | 'VITE_SUPABASE_ANON_KEY'): strin
   return typeof raw === 'string' ? raw.trim() : ''
 }
 
+function isPlaceholderAnonKey(k: string): boolean {
+  return /^your_anon_key$/i.test(k) || k.length < 20
+}
+
 /**
  * القيم من `.env` / `.env.local` داخل `rosera/` (انظر vite.config دمج المجلد الأعلى).
  * المفتاح: JWT كامل في سطر واحد من Supabase → Settings → API.
@@ -17,8 +21,23 @@ function readViteEnv(key: 'VITE_SUPABASE_URL' | 'VITE_SUPABASE_ANON_KEY'): strin
 const url = readViteEnv('VITE_SUPABASE_URL')
 const key = readViteEnv('VITE_SUPABASE_ANON_KEY')
 
+if (!url || !key) {
+  console.error('Supabase ENV missing')
+}
+
+if (key && isPlaceholderAnonKey(key)) {
+  console.error(
+    '[Supabase] VITE_SUPABASE_ANON_KEY is missing or still a placeholder — set the full anon JWT from Supabase Dashboard → Settings → API'
+  )
+}
+
 /** يُستخدم للتحقق قبل الاستدعاءات الحرجة */
-export const isSupabaseConfigured = url.length > 0 && key.length > 0
+export const isSupabaseConfigured =
+  url.length > 0 && key.length > 0 && !isPlaceholderAnonKey(key)
+
+if (isSupabaseConfigured) {
+  console.info('[Supabase] client initialized', url.replace(/\/$/, ''))
+}
 
 /**
  * Canonical KSA geography: `sa_regions` + `sa_cities` (migration 003+).

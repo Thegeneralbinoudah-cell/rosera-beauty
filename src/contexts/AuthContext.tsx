@@ -49,7 +49,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return
       }
       setProfile(p)
-    } catch {
+    } catch (e) {
+      console.error('[Auth] fetchProfile error', e)
       setProfile(null)
     }
   }, [])

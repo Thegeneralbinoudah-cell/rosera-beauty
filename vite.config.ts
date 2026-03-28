@@ -82,6 +82,21 @@ function defineElevenLabsFromMerged(merged: Record<string, string>) {
 
 export default defineConfig(({ mode }) => {
   const merged = mergeViteEnv(mode)
+  const supabaseUrl = (merged.VITE_SUPABASE_URL ?? '').trim()
+  const supabaseAnon = (merged.VITE_SUPABASE_ANON_KEY ?? '').trim()
+  if (mode === 'development') {
+    if (!supabaseUrl || !supabaseAnon) {
+      console.error(
+        '[Vite][Supabase] ENV missing: VITE_SUPABASE_URL and/or VITE_SUPABASE_ANON_KEY not found in rosera/.env or parent .env.local'
+      )
+    } else if (/^your_anon_key$/i.test(supabaseAnon) || supabaseAnon.length < 20) {
+      console.error(
+        '[Vite][Supabase] VITE_SUPABASE_ANON_KEY is placeholder or too short — use the full anon key from the Supabase dashboard'
+      )
+    } else {
+      console.info('[Vite][Supabase] env loaded:', supabaseUrl.replace(/\/$/, ''))
+    }
+  }
   return {
     root: roseraRoot,
     envDir: roseraRoot,

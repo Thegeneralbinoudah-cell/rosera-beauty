@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { Loader2, Mail, Eye, EyeOff } from 'lucide-react'
 import { ROSERA_LOGO_SRC } from '@/lib/branding'
-import { supabase } from '@/lib/supabase'
+import { supabase, isSupabaseConfigured } from '@/lib/supabase'
 import { getEdgeFunctionErrorMessage } from '@/lib/edgeInvoke'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -41,6 +41,7 @@ export default function Auth() {
   const [otpCode, setOtpCode] = useState('')
   const [loadingVerify, setLoadingVerify] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
+  const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms))
 
   const fullPhone = normalizeSaudiPhone(phone)
   const ui = {
@@ -61,10 +62,16 @@ export default function Auth() {
   }
 
   const onPhone = async () => {
+    if (!isSupabaseConfigured) {
+      console.error('[Auth][phone] blocked: Supabase not configured')
+      toast.error('Supabase not configured')
+      return
+    }
     if (!fullPhone) {
       toast.error('أدخلي رقم جوال سعودي صحيح (مثال: 5xxxxxxxx)')
       return
     }
+    console.info('[Auth][phone] OTP send start')
     setLoadingPhone(true)
     try {
       const { data, error } = await supabase.functions.invoke('send-otp', {
@@ -74,9 +81,11 @@ export default function Auth() {
       const errMsg = (data as { error?: string })?.error
       if (errMsg) throw new Error(errMsg)
       toast.success('تم إرسال رمز التحقق')
+      console.info('[Auth][phone] OTP send success')
       setPhoneOtpSent(true)
       setOtpCode('')
     } catch (e: unknown) {
+      console.error('[Auth][phone] OTP send error', e)
       toast.error(e instanceof Error ? e.message : 'فشل الإرسال')
     } finally {
       setLoadingPhone(false)
@@ -84,6 +93,11 @@ export default function Auth() {
   }
 
   const onVerifyOtp = async () => {
+    if (!isSupabaseConfigured) {
+      console.error('[Auth][phone] verify blocked: Supabase not configured')
+      toast.error('Supabase not configured')
+      return
+    }
     const code = otpCode.replace(/\D/g, '').slice(0, 6)
     if (code.length !== 6) {
       toast.error(lang === 'ar' ? 'أدخلي الرمز كاملاً (6 أرقام)' : 'Enter all 6 digits')
@@ -93,6 +107,7 @@ export default function Auth() {
       toast.error('رقم الجوال غير صالح')
       return
     }
+    console.info('[Auth][phone] verify OTP start')
     setLoadingVerify(true)
     try {
       const { data, error } = await supabase.functions.invoke('verify-otp', {
@@ -115,8 +130,10 @@ export default function Auth() {
       })
       if (sessErr) throw sessErr
       toast.success(lang === 'ar' ? 'تم التحقق بنجاح' : 'Verified')
+      console.info('[Auth][phone] verify OTP success')
       await redirectAfterPhoneAuth()
     } catch (e: unknown) {
+      console.error('[Auth][phone] verify OTP error', e)
       toast.error(e instanceof Error ? e.message : 'رمز غير صحيح أو منتهي')
     } finally {
       setLoadingVerify(false)
@@ -124,17 +141,29 @@ export default function Auth() {
   }
 
   const onEmailLogin = async () => {
+    if (!isSupabaseConfigured) {
+      console.error('[Auth][email] blocked: Supabase not configured')
+      toast.error('Supabase not configured')
+      return
+    }
     if (!email.trim()) return toast.error('أدخلي البريد الإلكتروني')
     if (!password) return toast.error('أدخلي كلمة المرور')
+    console.info('[Auth][email] login start')
     setLoadingEmail(true)
     try {
       const { data, error } = await supabase.auth.signInWithPassword({
-        email: email.trim(),
+        email: email.trim().toLowerCase(),
         password,
       })
       if (error) throw error
-      const uid = data.user?.id
+      let uid: string | undefined = data.user?.id
+      if (!uid) {
+        await sleep(300)
+        const { data: sessionData } = await supabase.auth.getSession()
+        uid = sessionData.session?.user?.id
+      }
       if (uid) {
+        console.info('[Auth][email] login success', uid)
         /** Self-only: RLS allows select where id = auth.uid() */
         const [{ data: adm }, { data: prof }] = await Promise.all([
           supabase.from('admins').select('id').eq('user_id', uid).maybeSingle(),
@@ -153,8 +182,9 @@ export default function Auth() {
         if (postAuth) return nav(postAuth, { replace: true })
         return nav('/home', { replace: true })
       }
-      nav('/home', { replace: true })
+      throw new Error('Login succeeded but no active session was found')
     } catch (e: unknown) {
+      console.error('[Auth][email] login error', e)
       toast.error(e instanceof Error ? e.message : 'فشل تسجيل الدخول')
     } finally {
       setLoadingEmail(false)

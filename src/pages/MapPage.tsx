@@ -1225,7 +1225,7 @@ export default function MapPage() {
         <button
           type="button"
           onClick={() => nav('/home')}
-          className="absolute start-3 top-[calc(env(safe-area-inset-top,0px)+4.25rem)] z-[600] inline-flex items-center gap-2 rounded-3xl border border-border/45 bg-card/95 px-4 py-2.5 text-sm font-semibold text-foreground shadow-floating backdrop-blur-md ring-1 ring-gold/10"
+          className="absolute start-3 top-[calc(env(safe-area-inset-top,0px)+4.25rem)] z-[600] inline-flex items-center gap-2 rounded-3xl border border-border bg-card px-4 py-2.5 text-sm font-semibold text-foreground shadow-floating backdrop-blur-md ring-1 ring-border/50"
         >
           <ChevronLeft className="h-5 w-5 shrink-0" aria-hidden />
           {lang === 'ar' ? 'الرئيسية' : 'Home'}
@@ -1243,8 +1243,8 @@ export default function MapPage() {
       <button
         type="button"
         onClick={() => nav('/home')}
-        className="absolute start-3 top-[calc(env(safe-area-inset-top,0px)+4.25rem)] z-[600] inline-flex items-center gap-2 rounded-3xl border border-border/45 bg-card/95 px-4 py-2.5 text-sm font-semibold text-foreground shadow-floating backdrop-blur-md ring-1 ring-gold/10 transition-all duration-200 hover:border-primary/25 hover:shadow-floating active:scale-[0.98]"
-        style={{ direction: lang === 'ar' ? 'rtl' : 'ltr' }}
+        className="absolute start-3 top-[calc(env(safe-area-inset-top,0px)+4.25rem)] z-[600] inline-flex items-center gap-2 rounded-3xl border border-border bg-card px-4 py-2.5 text-sm font-semibold text-foreground shadow-floating backdrop-blur-md ring-1 ring-border/50 transition-all duration-200 hover:border-primary/25 hover:shadow-floating active:scale-[0.98]"
+        dir={lang === 'ar' ? 'rtl' : 'ltr'}
       >
         <ChevronLeft className="h-5 w-5 shrink-0" aria-hidden />
         {lang === 'ar' ? 'الرئيسية' : 'Home'}
@@ -1257,7 +1257,7 @@ export default function MapPage() {
           <Search className="pointer-events-none absolute start-3 top-1/2 h-5 w-5 -translate-y-1/2 text-rosera-gray" />
           <Input
             ref={searchInputRef}
-            className="h-11 rounded-3xl border border-border/45 bg-card/95 ps-10 shadow-elevated backdrop-blur-md ring-1 ring-gold/10"
+            className="h-11 rounded-3xl border border-border bg-card ps-10 shadow-elevated backdrop-blur-md ring-1 ring-border/50"
             placeholder={sortBy === 'name' ? t('map.searchByNamePh') : t('map.searchPlaceholder')}
             value={q}
             onChange={(e) => setQ(e.target.value)}
@@ -1321,15 +1321,15 @@ export default function MapPage() {
                 type="button"
                 onClick={() => openMapFilterDrawer(id)}
                 className={cn(
-                  'filter-chip inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-full border border-border/60 bg-card/95 px-3 py-1.5 text-[11px] font-semibold shadow-sm ring-offset-background transition-all',
+                  'filter-chip inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-full border border-border bg-card px-3 py-1.5 text-[11px] font-semibold shadow-sm ring-offset-background transition-all',
                   mapDrawerSelections[id]?.length
-                    ? 'ring-2 ring-pink-500 ring-offset-1'
+                    ? 'ring-2 ring-primary ring-offset-1'
                     : 'hover:border-primary/25',
                 )}
               >
-                <span className="font-cairo text-gray-800">{MAP_FILTER_DRAWER_CONFIGS[id].title}</span>
+                <span className="font-cairo text-foreground">{MAP_FILTER_DRAWER_CONFIGS[id].title}</span>
                 {mapDrawerSelections[id]?.length ? (
-                  <span className="me-1 inline-block h-2 w-2 shrink-0 rounded-full bg-pink-500" aria-hidden />
+                  <span className="me-1 inline-block h-2 w-2 shrink-0 rounded-full bg-primary" aria-hidden />
                 ) : null}
               </button>
             ))}
@@ -1365,11 +1365,11 @@ export default function MapPage() {
           {mapShellVisible ? (
             <Suspense
               fallback={
-                <div className="flex min-h-0 min-w-0 flex-1 flex-col items-center justify-center bg-gradient-to-br from-primary-subtle/80 via-white to-gold-subtle/30">
-                  <div className="relative mx-4 h-36 w-full max-w-2xl overflow-hidden rounded-3xl border border-border/45 bg-card/90 shadow-inner ring-1 ring-gold/10">
-                    <div className="absolute inset-0 animate-pulse bg-gradient-to-r from-primary/20 via-pink-100/50 to-amber-100/30" />
+                <div className="flex min-h-0 min-w-0 flex-1 flex-col items-center justify-center bg-gradient-to-br from-muted/80 via-background to-muted/40">
+                  <div className="relative mx-4 h-36 w-full max-w-2xl overflow-hidden rounded-3xl border border-border bg-card shadow-inner ring-1 ring-border/50">
+                    <div className="absolute inset-0 animate-pulse bg-gradient-to-r from-primary/20 via-primary/10 to-muted/40" />
                     <div
-                      className="absolute inset-0 bg-gradient-to-r from-transparent via-white/80 to-transparent animate-map-shimmer"
+                      className="absolute inset-0 bg-gradient-to-r from-transparent via-background/80 to-transparent animate-map-shimmer"
                       aria-hidden
                     />
                   </div>
@@ -1399,26 +1399,26 @@ export default function MapPage() {
               </div>
             </Suspense>
           ) : (
-            <div className="flex min-h-0 min-w-0 flex-1 flex-col items-center justify-center bg-gradient-to-br from-primary-subtle/75 via-white to-gold-subtle/25">
-              <div className="mx-4 h-32 w-full max-w-[min(100%,28rem)] animate-pulse rounded-3xl bg-gradient-to-r from-primary/15 via-pink-100/40 to-amber-100/25" />
+            <div className="flex min-h-0 min-w-0 flex-1 flex-col items-center justify-center bg-gradient-to-br from-muted/75 via-background to-muted/30">
+              <div className="mx-4 h-32 w-full max-w-[min(100%,28rem)] animate-pulse rounded-3xl bg-gradient-to-r from-primary/15 via-muted/50 to-muted/30" />
               <p className="mt-4 text-xs font-medium text-foreground">{t('map.loadingOverlay')}</p>
             </div>
           )}
         </MapErrorBoundary>
         <div
           className={cn(
-            'pointer-events-none absolute inset-0 z-[120] flex items-center justify-center bg-background/50 transition-opacity duration-500 ease-out backdrop-blur-[2px]',
+            'pointer-events-none absolute inset-0 z-[120] flex items-center justify-center bg-background/80 transition-opacity duration-500 ease-out backdrop-blur-sm',
             mapLoading ? 'opacity-100' : 'opacity-0'
           )}
           aria-busy={mapLoading}
           aria-hidden={!mapLoading}
         >
-          <div className="flex max-w-[min(100%,18rem)] flex-col items-center gap-4 rounded-3xl border border-border/50 bg-card/95 px-8 py-6 text-center shadow-floating backdrop-blur-sm ring-1 ring-gold/10 animate-premium-in">
+          <div className="flex max-w-[min(100%,18rem)] flex-col items-center gap-4 rounded-3xl border border-border bg-card px-8 py-6 text-center shadow-floating backdrop-blur-sm ring-1 ring-border/50 animate-premium-in">
             <div className="relative flex h-14 w-14 items-center justify-center">
               <span className="absolute inset-0 animate-ping rounded-full bg-primary/25 [animation-duration:1.8s]" aria-hidden />
               <RefreshCw className="relative h-8 w-8 animate-spin text-primary" aria-hidden />
             </div>
-            <p className="text-sm font-semibold leading-snug text-rosera-text">{t('map.loadingOverlay')}</p>
+            <p className="text-sm font-semibold leading-snug text-foreground">{t('map.loadingOverlay')}</p>
           </div>
         </div>
       </div>
@@ -1458,7 +1458,7 @@ export default function MapPage() {
           }}
           dir={lang === 'ar' ? 'rtl' : 'ltr'}
         >
-          <Card className="relative overflow-hidden border-primary/20 p-5 shadow-floating ring-1 ring-gold/15">
+          <Card className="relative overflow-hidden border-border p-5 shadow-floating ring-1 ring-border/50">
             <button type="button" className="absolute top-2 end-2 z-10 text-rosera-gray" onClick={() => setSelected(null)}>
               ✕
             </button>
@@ -1467,14 +1467,13 @@ export default function MapPage() {
                 {selected.name_ar}
               </p>
               {topSalonIds.has(String(selected.id)) && (
-                <span className="mt-1 inline-flex items-center rounded-full border border-amber-400/60 bg-amber-50 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-amber-800 dark:bg-amber-950/40 dark:text-amber-200">
+                <span className="mt-1 inline-flex items-center rounded-full border border-primary/40 bg-primary/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-primary">
                   {t('map.topSalonBadge')}
                 </span>
               )}
               <div
                 dir="ltr"
-                style={{ unicodeBidi: 'isolate' }}
-                className="mt-1 flex items-center justify-start gap-1 text-primary"
+                className="mt-1 flex items-center justify-start gap-1 text-primary [unicode-bidi:isolate]"
               >
                 <Star className="h-4 w-4 shrink-0 fill-primary text-primary" aria-hidden />
                 <span className="tabular-nums font-semibold">

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Loader2 } from 'lucide-react'
-import { supabase } from '@/lib/supabase'
+import { supabase, isSupabaseConfigured } from '@/lib/supabase'
 import { useAuth } from '@/contexts/AuthContext'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -22,10 +22,16 @@ export default function AdminLogin() {
   }, [loading, user, isAdmin, nav])
 
   const start = async () => {
+    if (!isSupabaseConfigured) {
+      console.error('[Auth][admin] blocked: Supabase not configured')
+      toast.error('Supabase not configured')
+      return
+    }
     if (!email.trim() || !password) {
       toast.error('أدخلي البريد وكلمة المرور')
       return
     }
+    console.info('[Auth][admin] login start')
     setSubmitting(true)
     try {
       const { data, error } = await supabase.auth.signInWithPassword({
@@ -54,8 +60,10 @@ export default function AdminLogin() {
         return
       }
 
+      console.info('[Auth][admin] login success', uid)
       nav('/admin', { replace: true })
     } catch (e: unknown) {
+      console.error('[Auth][admin] login error', e)
       toast.error(e instanceof Error ? e.message : 'فشل تسجيل الدخول')
     } finally {
       setSubmitting(false)

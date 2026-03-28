@@ -18,16 +18,14 @@ export function isRedirectUriMismatchMessage(message: string): boolean {
 }
 
 /**
- * مسار إرجاع OAuth — يجب تطابقه مع Supabase Dashboard → URL Configuration → Redirect URLs.
- * اختياري: `VITE_AUTH_REDIRECT_URL` إذا كان `window.location.origin` لا يطابق Site URL (نشر/بروكسي).
+ * مسار إرجاع OAuth — يجب تطابقه مع Supabase Dashboard → URL Configuration → Redirect URLs
+ * (أضيفي كل origin تستخدمينه، مثل localhost و127.0.0.1).
  *
  * لا تستخدمي هنا `…supabase.co/auth/v1/callback` — ذلك الرابط لـ Google Cloud (Authorized redirect URIs)
  * وليس لـ `signInWithOAuth({ options.redirectTo })`. انظري `getSupabaseOAuthProviderRedirectUri()`.
  */
 export function getOAuthRedirectTo(): string {
   if (typeof window === 'undefined') return ''
-  const override = import.meta.env.VITE_AUTH_REDIRECT_URL
-  if (typeof override === 'string' && override.trim().length > 0) return override.trim()
   return `${window.location.origin}/auth/callback`
 }
 

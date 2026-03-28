@@ -7,7 +7,7 @@ import { getRecommendedSalons, type SalonWithRecommendMeta } from '@/lib/aiRanki
 
 function CardSkeleton() {
   return (
-    <Card className="overflow-hidden rounded-2xl border-primary/10 shadow-lg">
+    <Card className="overflow-hidden rounded-2xl border-border shadow-lg">
       <Skeleton className="aspect-[4/3] w-full rounded-none" />
       <div className="space-y-2 p-4">
         <Skeleton className="h-5 w-[85%]" />
@@ -64,8 +64,8 @@ export default function RecommendedSalons() {
   }, [lang])
 
   return (
-    <div className="min-h-dvh bg-gradient-to-b from-background via-white to-primary-subtle/30 pb-28 dark:from-background dark:via-background dark:to-background">
-      <header className="sticky top-0 z-20 border-b border-primary/10 bg-white/85 px-4 py-5 backdrop-blur-xl dark:bg-rosera-dark/90">
+    <div className="min-h-dvh bg-gradient-to-b from-background via-background to-muted/30 pb-28">
+      <header className="sticky top-0 z-20 border-b border-border bg-card px-4 py-5 backdrop-blur-xl">
         <div className="mx-auto max-w-5xl">
           <h1 className="text-2xl font-extrabold tracking-tight text-foreground">{ui.title}</h1>
           <p className="mt-1.5 text-sm font-medium text-foreground">{ui.subtitle}</p>
@@ -84,7 +84,7 @@ export default function RecommendedSalons() {
             {error}
           </p>
         ) : rows.length === 0 ? (
-          <div className="rounded-2xl border border-dashed border-primary/25 dark:bg-card/40 bg-card/60 py-20 text-center dark:bg-card/40">
+          <div className="rounded-2xl border border-dashed border-border bg-muted py-20 text-center">
             <p className="text-sm font-medium text-rosera-gray">{ui.empty}</p>
           </div>
         ) : (

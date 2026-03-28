@@ -57,17 +57,11 @@ function RosieFABShell({
   if (onChatRoute) return null
 
   return (
-    <div
-      className="pointer-events-none fixed z-[10100]"
-      style={{
-        bottom: 'calc(5.75rem + env(safe-area-inset-bottom, 0px))',
-        insetInlineEnd: 'max(16px, env(safe-area-inset-inline-end, 0px))',
-      }}
-    >
+    <div className="pointer-events-none fixed z-[10100] bottom-[calc(5.75rem+env(safe-area-inset-bottom,0px))] end-[max(1rem,env(safe-area-inset-inline-end,0px))]">
       {showTip ? (
         <div
           role="status"
-          className="pointer-events-none absolute bottom-[calc(100%+10px)] end-0 max-w-[14rem] rounded-sm border border-accent/50 bg-card/95 px-3 py-2 text-center text-xs font-medium text-foreground shadow-floating backdrop-blur-sm animate-in fade-in slide-in-from-bottom-2 duration-300"
+          className="pointer-events-none absolute bottom-[calc(100%+10px)] end-0 max-w-[14rem] rounded-sm border border-border bg-card px-3 py-2 text-center text-xs font-medium text-foreground shadow-floating backdrop-blur-sm animate-in fade-in slide-in-from-bottom-2 duration-300"
           dir="rtl"
         >
           تحدثي مع روزي 💬
@@ -77,23 +71,7 @@ function RosieFABShell({
         type="button"
         onClick={handleClick}
         aria-label={t('profile.ai')}
-        className="pointer-events-auto touch-manipulation animate-rosy-fab-champagne motion-reduce:animate-none"
-        style={{
-          width: 60,
-          height: 60,
-          borderRadius: 30,
-          padding: 0,
-          margin: 0,
-          border: '2px solid hsl(var(--primary))',
-          backgroundColor: 'var(--color-surface)',
-          boxShadow: '0 8px 28px rgba(0,0,0,0.12), 0 0 0 1px rgba(244,114,182,0.2)',
-          cursor: 'pointer',
-          WebkitTapHighlightColor: 'transparent',
-          overflow: 'hidden',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-        }}
+        className="pointer-events-auto flex h-[60px] w-[60px] cursor-pointer items-center justify-center overflow-hidden rounded-full border-2 border-primary bg-card p-0 shadow-md outline-none [-webkit-tap-highlight-color:transparent] touch-manipulation animate-rosy-fab-champagne motion-reduce:animate-none"
       >
         {imgOk ? (
           <img
@@ -104,12 +82,7 @@ function RosieFABShell({
             decoding="async"
             fetchPriority="high"
             onError={() => setImgOk(false)}
-            style={{
-              width: '100%',
-              height: '100%',
-              objectFit: 'cover',
-              objectPosition: 'center 20%',
-            }}
+            className="h-full w-full object-cover object-[center_20%]"
           />
         ) : (
           <img

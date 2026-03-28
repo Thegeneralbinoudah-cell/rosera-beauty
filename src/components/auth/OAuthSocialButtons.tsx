@@ -46,12 +46,13 @@ export function OAuthSocialButtons({ disabled = false, className }: Props) {
       return
     }
     setBusy('google')
+    console.info('[Auth][OAuth] login start', 'google', redirectTo)
     try {
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
           redirectTo,
-          skipBrowserRedirect: false,
+          skipBrowserRedirect: true,
           queryParams: {
             prompt: 'select_account',
           },
@@ -63,6 +64,7 @@ export function OAuthSocialButtons({ disabled = false, className }: Props) {
         return
       }
       if (data?.url) {
+        console.info('[Auth][OAuth] login redirect', 'google')
         window.location.assign(data.url)
         return
       }
@@ -88,19 +90,20 @@ export function OAuthSocialButtons({ disabled = false, className }: Props) {
       toast.error(t('auth.oauthSupabaseNotConfigured'))
       return
     }
-    const redirectTo = getOAuthRedirectTo()
-    if (!redirectTo) {
-      logOAuthError('apple', new Error('Missing redirect URL'))
+    if (typeof window === 'undefined' || !window.location.origin) {
+      logOAuthError('apple', new Error('Missing window.location.origin for Apple redirectTo'))
       toast.error(t('auth.oauthNoRedirect'))
       return
     }
     setBusy('apple')
+    const appleRedirectTo = `${window.location.origin}/auth/callback`
+    console.info('[Auth][OAuth] login start', 'apple', appleRedirectTo)
     try {
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'apple',
         options: {
-          redirectTo,
-          skipBrowserRedirect: false,
+          redirectTo: appleRedirectTo,
+          skipBrowserRedirect: true,
         },
       })
       if (error) {
@@ -109,6 +112,7 @@ export function OAuthSocialButtons({ disabled = false, className }: Props) {
         return
       }
       if (data?.url) {
+        console.info('[Auth][OAuth] login redirect', 'apple')
         window.location.assign(data.url)
         return
       }
