@@ -136,7 +136,7 @@ export default function AdminTeam() {
         <h1 className="text-2xl font-bold">الفريق</h1>
         <Button onClick={() => setAddOpen(true)}>إضافة عضو</Button>
       </div>
-      <p className="mt-2 text-sm text-muted-foreground">
+      <p className="mt-2 text-sm text-foreground">
         عرض المسؤولين والمشرفين. المالك فقط يمكنه حذف الأعضاء.
       </p>
       <div className="mt-6 overflow-x-auto rounded-xl border bg-card">
@@ -174,7 +174,7 @@ export default function AdminTeam() {
         </table>
       </div>
       {rows.length === 0 && (
-        <p className="mt-6 text-center text-muted-foreground">لا يوجد أعضاء في الفريق بعد.</p>
+        <p className="mt-6 text-center text-foreground">لا يوجد أعضاء في الفريق بعد.</p>
       )}
 
       <Dialog open={addOpen} onOpenChange={setAddOpen}>

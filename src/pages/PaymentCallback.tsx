@@ -288,7 +288,7 @@ export default function PaymentCallback() {
         <h1 className="text-2xl font-extrabold text-foreground">
           {kind === 'booking' ? 'تم الحجز ✨' : 'تم الدفع بنجاح'}
         </h1>
-        <div className="max-w-sm space-y-2 text-center text-muted-foreground">
+        <div className="max-w-sm space-y-2 text-center text-foreground">
           {kind === 'booking' ? (
             <>
               <p>تم تسجيل الحجز كمدفوع — يمكنكِ المتابعة من حجوزاتك.</p>
@@ -330,7 +330,7 @@ export default function PaymentCallback() {
         <XCircle className="h-12 w-12 text-destructive" />
       </div>
       <h1 className="text-2xl font-extrabold text-foreground">فشل الدفع</h1>
-      <p className="max-w-sm text-center text-muted-foreground">{message}</p>
+      <p className="max-w-sm text-center text-foreground">{message}</p>
       <div className="flex max-w-md flex-wrap justify-center gap-3">
         {kind === 'booking' && salonRetryId ? (
           <Button asChild className="rounded-2xl">

@@ -22,7 +22,7 @@ export function Step6Settings() {
     <div className="space-y-4">
       <Card className="space-y-4 border-primary/10 p-5 shadow-sm">
         <h2 className="text-lg font-extrabold text-foreground">تأكيد الحجوزات</h2>
-        <p className="text-sm text-muted-foreground">كيف تودّين معالجة طلبات الحجز الجديدة؟</p>
+        <p className="text-sm text-foreground">كيف تودّين معالجة طلبات الحجز الجديدة؟</p>
         <Controller
           control={control}
           name="settings.confirmation_type"
@@ -41,7 +41,7 @@ export function Step6Settings() {
                   )}
                 >
                   <p className="font-extrabold text-foreground">{o.l}</p>
-                  <p className="mt-1 text-xs text-muted-foreground">{o.d}</p>
+                  <p className="mt-1 text-xs text-foreground">{o.d}</p>
                 </button>
               ))}
             </div>
@@ -51,8 +51,8 @@ export function Step6Settings() {
 
       <Card className="space-y-4 border-primary/10 p-5 shadow-sm">
         <h2 className="text-lg font-extrabold text-foreground">الدفع</h2>
-        <p className="text-sm text-muted-foreground">تفضيلات الدفع الافتراضية للحجوزات</p>
-        <Label className="text-muted-foreground">طريقة الدفع</Label>
+        <p className="text-sm text-foreground">تفضيلات الدفع الافتراضية للحجوزات</p>
+        <Label className="text-foreground">طريقة الدفع</Label>
         <Controller
           control={control}
           name="settings.booking_payment_mode"
@@ -71,7 +71,7 @@ export function Step6Settings() {
                   )}
                 >
                   <p className="font-extrabold text-foreground">{o.l}</p>
-                  <p className="mt-1 text-xs text-muted-foreground">{o.d}</p>
+                  <p className="mt-1 text-xs text-foreground">{o.d}</p>
                 </button>
               ))}
             </div>

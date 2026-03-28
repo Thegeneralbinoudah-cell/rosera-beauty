@@ -33,7 +33,7 @@ function UndertoneBadge({ undertone, label }: { undertone: string; label: string
         ? 'border-blue-400/45 bg-blue-100/90 text-blue-950 dark:bg-blue-950/40 dark:text-blue-100'
         : tone === 'neutral'
           ? 'border-primary/35 bg-primary-subtle text-foreground dark:bg-primary/25 dark:text-foreground'
-          : 'border-border bg-muted text-muted-foreground'
+          : 'border-border bg-muted text-foreground'
   return (
     <span className={cn('inline-flex items-center rounded-full border px-3 py-1 text-xs font-bold', cls)}>{label}</span>
   )
@@ -53,7 +53,7 @@ function RoutineAccordion({ steps, title }: { steps: string[]; title: string }) 
               <span className="flex items-center justify-between gap-2">
                 <span>
                   <span className="text-gold">الخطوة {i + 1}</span>
-                  <span className="mr-2 font-medium text-muted-foreground">
+                  <span className="mr-2 font-medium text-foreground">
                     — {step.length > 56 ? `${step.slice(0, 56)}…` : step}
                   </span>
                 </span>
@@ -92,7 +92,7 @@ function LegacyHandFace({ result }: { result: RozyVisionResult }) {
       {result.recommendedColors.length > 0 ? (
         <div>
           <p className="text-xs font-bold text-primary">ألوان مقترحة</p>
-          <ul className="mt-1 list-disc pr-4 text-sm text-muted-foreground">
+          <ul className="mt-1 list-disc pr-4 text-sm text-foreground">
             {result.recommendedColors.slice(0, 8).map((c, i) => (
               <li key={i}>{c}</li>
             ))}
@@ -114,7 +114,7 @@ export function RosyVisionChatResults({ result }: { result: RozyVisionChatResult
   const nav = useNavigate()
 
   if (result == null) {
-    return <p className="text-sm font-medium leading-relaxed text-muted-foreground">{VISION_FAIL_AR}</p>
+    return <p className="text-sm font-medium leading-relaxed text-foreground">{VISION_FAIL_AR}</p>
   }
 
   if (result.mode === 'hand' || result.mode === 'face') {
@@ -140,7 +140,7 @@ export function RosyVisionChatResults({ result }: { result: RozyVisionChatResult
                   title={c.name_en}
                 />
                 <span className="max-w-[6rem] text-[11px] font-bold leading-tight text-foreground">{c.name_ar}</span>
-                <span className="max-w-[6rem] text-[10px] font-medium text-muted-foreground">{c.brand}</span>
+                <span className="max-w-[6rem] text-[10px] font-medium text-foreground">{c.brand}</span>
               </div>
             ))}
           </div>
@@ -158,7 +158,7 @@ export function RosyVisionChatResults({ result }: { result: RozyVisionChatResult
                     style={{ backgroundColor: hex }}
                   />
                   <span className="max-w-[5.5rem] text-[10px] font-semibold leading-tight text-foreground">{name}</span>
-                  {reason ? <span className="max-w-[5.5rem] text-[9px] text-muted-foreground">{reason}</span> : null}
+                  {reason ? <span className="max-w-[5.5rem] text-[9px] text-foreground">{reason}</span> : null}
                 </div>
               )
             })}
@@ -182,13 +182,13 @@ export function RosyVisionChatResults({ result }: { result: RozyVisionChatResult
       <div className="space-y-4 text-start" dir="rtl">
         <div className="flex flex-wrap gap-3">
           <div className="flex flex-col gap-0.5">
-            <span className="text-[10px] font-semibold text-muted-foreground">لون البشرة</span>
+            <span className="text-[10px] font-semibold text-foreground">لون البشرة</span>
             <span className="rounded-full border border-primary/25 bg-primary/10 px-3 py-1 text-xs font-bold text-primary">
               {a.skin_tone}
             </span>
           </div>
           <div className="flex flex-col gap-0.5">
-            <span className="text-[10px] font-semibold text-muted-foreground">لون العين</span>
+            <span className="text-[10px] font-semibold text-foreground">لون العين</span>
             <span className="rounded-full border border-gold/30 bg-gold-subtle/80 px-3 py-1 text-xs font-bold text-gold-foreground">
               {a.eye_color}
             </span>
@@ -209,7 +209,7 @@ export function RosyVisionChatResults({ result }: { result: RozyVisionChatResult
                   <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-semibold text-foreground">
                     {c.technique_ar}
                   </span>
-                  <span className="rounded-full border border-gold/35 bg-accent/80 px-2 py-0.5 text-[10px] font-bold text-accent-foreground">
+                  <span className="rounded-full border border-gold/35 bg-accent/80 px-2 py-0.5 text-[10px] font-bold text-primary-foreground">
                     {c.maintenance_ar}
                   </span>
                 </div>
@@ -227,13 +227,13 @@ export function RosyVisionChatResults({ result }: { result: RozyVisionChatResult
                 <div key={i} className="flex min-w-[4rem] flex-col items-center gap-1 text-center">
                   <div className="h-7 w-7 shrink-0 rounded-full border border-border/60" style={{ backgroundColor: hex }} />
                   <span className="max-w-[6rem] text-[10px] font-semibold text-foreground">{name}</span>
-                  {reason ? <span className="max-w-[6rem] text-[9px] text-muted-foreground">{reason}</span> : null}
+                  {reason ? <span className="max-w-[6rem] text-[9px] text-foreground">{reason}</span> : null}
                 </div>
               )
             })}
           </div>
         </div>
-        <p className="text-[11px] font-medium leading-relaxed text-muted-foreground">{a.disclaimer_ar}</p>
+        <p className="text-[11px] font-medium leading-relaxed text-foreground">{a.disclaimer_ar}</p>
         <Button
           type="button"
           className="w-full rounded-2xl gradient-primary text-primary-foreground shadow-md ring-1 ring-gold/25"
@@ -269,11 +269,11 @@ export function RosyVisionChatResults({ result }: { result: RozyVisionChatResult
                   </span>
                   <div className="min-w-0 flex-1 space-y-1">
                     <p className="text-sm font-bold text-foreground">{c.name_ar}</p>
-                    <p className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">{c.name_en}</p>
+                    <p className="text-[10px] font-medium uppercase tracking-wide text-foreground">{c.name_en}</p>
                     <span className="inline-block rounded-full bg-primary/12 px-2 py-0.5 text-[10px] font-bold text-primary">
                       {c.length_ar}
                     </span>
-                    <p className="text-xs font-medium leading-relaxed text-muted-foreground">{c.description_ar}</p>
+                    <p className="text-xs font-medium leading-relaxed text-foreground">{c.description_ar}</p>
                   </div>
                 </div>
               </div>
@@ -284,7 +284,7 @@ export function RosyVisionChatResults({ result }: { result: RozyVisionChatResult
           <p className="text-sm font-bold text-foreground">تجنبي</p>
           <ul className="mt-2 space-y-2">
             {a.avoid_cuts.map((x, i) => (
-              <li key={i} className="text-xs font-medium text-muted-foreground">
+              <li key={i} className="text-xs font-medium text-foreground">
                 <span className="font-bold text-foreground">{x.name_ar}</span>
                 {x.reason_ar ? <span className="mr-1"> — {x.reason_ar}</span> : null}
               </li>
@@ -346,7 +346,7 @@ export function RosyVisionChatResults({ result }: { result: RozyVisionChatResult
                   <p className="text-sm font-bold text-foreground">{t.name_ar}</p>
                   <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-bold text-foreground">{t.brand}</span>
                 </div>
-                <p className="mt-1 text-[11px] font-medium text-muted-foreground">
+                <p className="mt-1 text-[11px] font-medium text-foreground">
                   <span className="font-semibold text-foreground">للاهتمام:</span>{' '}
                   {a.concerns[0] ?? 'عناية يومية'}
                 </p>
@@ -389,7 +389,7 @@ export function RosyVisionChatResults({ result }: { result: RozyVisionChatResult
                     </span>
                   </div>
                   <p className="mt-2 text-sm font-bold text-foreground">{cs.name_ar}</p>
-                  <p className="mt-1 text-xs font-medium text-muted-foreground">{cs.note_ar}</p>
+                  <p className="mt-1 text-xs font-medium text-foreground">{cs.note_ar}</p>
                   {cs.service_type === 'salon' ? (
                     <Button
                       type="button"
@@ -399,7 +399,7 @@ export function RosyVisionChatResults({ result }: { result: RozyVisionChatResult
                       احجزي الآن
                     </Button>
                   ) : (
-                    <p className="mt-3 text-center text-xs font-semibold text-muted-foreground">راجعي عيادة متخصصة</p>
+                    <p className="mt-3 text-center text-xs font-semibold text-foreground">راجعي عيادة متخصصة</p>
                   )}
                 </div>
                 )
@@ -408,7 +408,7 @@ export function RosyVisionChatResults({ result }: { result: RozyVisionChatResult
           </section>
         ) : null}
 
-        <p className="text-[11px] font-medium leading-relaxed text-muted-foreground">{a.disclaimer_ar}</p>
+        <p className="text-[11px] font-medium leading-relaxed text-foreground">{a.disclaimer_ar}</p>
 
         {hasSalonService ? (
           <Button
@@ -423,5 +423,5 @@ export function RosyVisionChatResults({ result }: { result: RozyVisionChatResult
     )
   }
 
-  return <p className="text-sm text-muted-foreground">{VISION_FAIL_AR}</p>
+  return <p className="text-sm text-foreground">{VISION_FAIL_AR}</p>
 }

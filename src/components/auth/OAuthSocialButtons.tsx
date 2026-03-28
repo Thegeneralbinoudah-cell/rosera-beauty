@@ -14,7 +14,7 @@ type Props = {
 }
 
 const oauthOutline =
-  'flex h-11 w-full max-w-[280px] shrink-0 items-center justify-center gap-2 rounded-full border border-accent/45 bg-transparent px-4 text-sm font-normal text-accent shadow-none transition-[box-shadow,border-color,background-color,opacity,transform] duration-300 ease-out hover:shadow-[0_0_22px_rgba(201,150,63,0.28)] disabled:cursor-not-allowed disabled:opacity-55 mx-auto'
+  'flex h-11 w-full max-w-[280px] shrink-0 items-center justify-center gap-2 rounded-full border border-accent/45 bg-transparent px-4 text-sm font-normal text-primary shadow-none transition-[box-shadow,border-color,background-color,opacity,transform] duration-300 ease-out hover:shadow-[0_0_22px_rgba(201,150,63,0.28)] disabled:cursor-not-allowed disabled:opacity-55 mx-auto'
 
 /**
  * Google: `signInWithOAuth({ provider: 'google' })` → redirect to `/auth/callback`.
@@ -138,9 +138,9 @@ export function OAuthSocialButtons({ disabled = false, className }: Props) {
         className={cn(oauthOutline, 'hover:bg-muted/80')}
       >
         {busy === 'apple' ? (
-          <Loader2 className="h-4 w-4 animate-spin text-accent" aria-hidden />
+          <Loader2 className="h-4 w-4 animate-spin text-primary" aria-hidden />
         ) : (
-          <svg className="h-4 w-4 shrink-0 text-accent" viewBox="0 0 24 24" aria-hidden>
+          <svg className="h-4 w-4 shrink-0 text-primary" viewBox="0 0 24 24" aria-hidden>
             <path
               fill="currentColor"
               d="M17.05 20.28c-.98.95-2.05.8-3.08.35-1.09-.46-2.09-.48-3.24 0-1.44.62-2.2.44-3.06-.35C2.79 15.25 3.51 7.59 9.05 7.31c1.35.07 2.29.74 3.08.8 1.18-.24 2.31-.93 3.57-.84 1.51.12 2.65.72 3.4 1.8-3.12 1.87-2.38 5.98.48 7.13-.57 1.5-1.31 2.99-2.54 4.09l.01-.01zM12.03 7.25c-.15-2.23 1.66-4.07 3.74-4.25.29 2.58-2.34 4.5-3.74 4.25z"
@@ -157,7 +157,7 @@ export function OAuthSocialButtons({ disabled = false, className }: Props) {
         className={cn(oauthOutline, 'hover:bg-muted/80')}
       >
         {busy === 'google' ? (
-          <Loader2 className="h-4 w-4 animate-spin text-accent" aria-hidden />
+          <Loader2 className="h-4 w-4 animate-spin text-primary" aria-hidden />
         ) : (
           <svg className="h-4 w-4 shrink-0" viewBox="0 0 24 24" aria-hidden>
             <path

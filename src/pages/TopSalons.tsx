@@ -128,7 +128,7 @@ export default function TopSalons() {
       <header className="sticky top-0 z-20 border-b border-primary/10 bg-white/80 px-4 py-5 backdrop-blur-xl dark:bg-rosera-dark/90">
         <div className="mx-auto max-w-5xl">
           <h1 className="text-2xl font-extrabold tracking-tight text-foreground">{ui.title}</h1>
-          <p className="mt-1.5 text-sm font-medium text-foreground/70">{ui.subtitle}</p>
+          <p className="mt-1.5 text-sm font-medium text-foreground">{ui.subtitle}</p>
         </div>
       </header>
 

@@ -301,7 +301,7 @@ export default function AdminProviders() {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold">المزوّدون الحقيقيون</h1>
-        <p className="mt-2 text-sm text-muted-foreground">
+        <p className="mt-2 text-sm text-foreground">
           إدارة المزوّدين وربط المنتجات بسعر التكلفة والمخزون وSKU.
         </p>
       </div>
@@ -423,7 +423,7 @@ export default function AdminProviders() {
 
       <Card className="p-4 md:p-6">
         <h2 className="font-bold text-primary">استيراد جماعي CSV للربط</h2>
-        <p className="mt-2 text-xs text-muted-foreground" dir="ltr">
+        <p className="mt-2 text-xs text-foreground" dir="ltr">
           header: product_name_ar,provider_sku,stock_qty,cost_price,min_lead_days,max_lead_days
         </p>
         <textarea

@@ -192,7 +192,7 @@ export default function OwnerSubscription() {
 
   if (loading) {
     return (
-      <div className="flex min-h-[40vh] items-center justify-center gap-2 text-muted-foreground">
+      <div className="flex min-h-[40vh] items-center justify-center gap-2 text-foreground">
         <Loader2 className="h-6 w-6 animate-spin" />
         جاري التحميل…
       </div>
@@ -203,7 +203,7 @@ export default function OwnerSubscription() {
     return (
       <Card className="border-primary/15 p-6 text-center">
         <p className="font-semibold text-foreground">لا يوجد صالون مرتبط بهذا الحساب</p>
-        <p className="mt-2 text-sm text-muted-foreground">أكملي ربط الصالون من الإدارة أو التسجيل.</p>
+        <p className="mt-2 text-sm text-foreground">أكملي ربط الصالون من الإدارة أو التسجيل.</p>
       </Card>
     )
   }
@@ -214,7 +214,7 @@ export default function OwnerSubscription() {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-extrabold text-foreground">اشتراك الصالون</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
+        <p className="mt-1 text-sm text-foreground">
           خطط شهرية — تفعيل فوري بعد الدفع عبر Moyasar. عند الدفع بالبطاقة يُحفظ رمز آمن للتجديد الشهري (يتطلب تفعيل التوكن لدى Moyasar).
         </p>
         {active?.billing_provider === 'stripe' ? (
@@ -232,7 +232,7 @@ export default function OwnerSubscription() {
               <Badge className="gradient-primary">
                 {SALON_SUBSCRIPTION_PLANS[active.plan as SalonSubscriptionPlan]?.labelAr ?? active.plan}
               </Badge>
-              <span className="text-muted-foreground">{Number(active.price).toFixed(0)} ر.س / شهر</span>
+              <span className="text-foreground">{Number(active.price).toFixed(0)} ر.س / شهر</span>
             </div>
             <p className="text-foreground">
               ينتهي في{' '}
@@ -246,7 +246,7 @@ export default function OwnerSubscription() {
                   : '—'}
               </span>
             </p>
-            <p className="text-xs text-muted-foreground">
+            <p className="text-xs text-foreground">
               {active.billing_provider === 'stripe'
                 ? 'الفوترة عبر Stripe — التجديد الشهري تلقائي ما لم توقفي التجديد من الأسفل.'
                 : `بطاقة محفوظة للتجديد: ${active.payment_method_id ? 'نعم ✓' : 'لا — أعيدي الاشتراك بالبطاقة لتفعيل التجديد'}`}
@@ -256,7 +256,7 @@ export default function OwnerSubscription() {
                 <Label htmlFor="auto-renew-sub" className="text-sm font-bold text-foreground">
                   تجديد تلقائي
                 </Label>
-                <p className="text-xs text-muted-foreground">
+                <p className="text-xs text-foreground">
                   {active.billing_provider === 'stripe'
                     ? 'يُزامَن مع Stripe — الإيقاف يعني عدم التجديد بعد نهاية الفترة الحالية'
                     : 'خصم شهري تلقائي قبل انتهاء الاشتراك'}
@@ -270,7 +270,7 @@ export default function OwnerSubscription() {
             </div>
           </div>
         ) : (
-          <p className="mt-3 text-sm text-muted-foreground">لا يوجد اشتراك نشط — اختاري خطة للبدء</p>
+          <p className="mt-3 text-sm text-foreground">لا يوجد اشتراك نشط — اختاري خطة للبدء</p>
         )}
       </Card>
 
@@ -292,7 +292,7 @@ export default function OwnerSubscription() {
                 ) : null}
               </div>
               <p className="mt-1 text-2xl font-black tabular-nums text-primary">{cfg.priceSar} ر.س</p>
-              <p className="mt-2 flex-1 text-xs text-muted-foreground">{cfg.hintAr}</p>
+              <p className="mt-2 flex-1 text-xs text-foreground">{cfg.hintAr}</p>
               <Button
                 className="mt-4 w-full rounded-xl gradient-primary"
                 disabled={busy || isCurrent}
@@ -308,7 +308,7 @@ export default function OwnerSubscription() {
       {checkoutPlan && pendingSubId ? (
         <Card className="border-primary/20 p-5">
           <h2 className="text-lg font-bold text-foreground">إتمام الدفع</h2>
-          <p className="mt-1 text-sm text-muted-foreground">
+          <p className="mt-1 text-sm text-foreground">
             {SALON_SUBSCRIPTION_PLANS[checkoutPlan].labelAr} — {planPriceSar(checkoutPlan)} ر.س
           </p>
           <div className="mt-4">

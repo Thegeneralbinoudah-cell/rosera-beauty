@@ -107,7 +107,7 @@ function HandNailPreviewCardInner({
           ألوان طلاء — لمحة على صورتك
         </h3>
       </div>
-      <p className="mb-4 text-body-sm leading-relaxed text-muted-foreground">
+      <p className="mb-4 text-body-sm leading-relaxed text-foreground">
         اختاري لوناً للمقارنة — عرض تقديري فني وليس مطابقة دقيقة للأظافر.
       </p>
 
@@ -123,7 +123,7 @@ function HandNailPreviewCardInner({
             fetchPriority="low"
           />
         ) : (
-          <div className="flex aspect-[4/3] w-full items-center justify-center bg-gradient-to-b from-muted/40 to-muted/80 text-body-sm text-muted-foreground">
+          <div className="flex aspect-[4/3] w-full items-center justify-center bg-gradient-to-b from-muted/40 to-muted/80 text-body-sm text-foreground">
             معاينة اللون فقط
           </div>
         )}
@@ -210,7 +210,7 @@ function HandNailPreviewCardInner({
         </div>
       </div>
 
-      <p className="mb-3 text-center text-[10px] font-medium text-muted-foreground">
+      <p className="mb-3 text-center text-[10px] font-medium text-foreground">
         لمحة أسلوبية — ليس تتبعاً لحدود الأظافر في الصورة
       </p>
 

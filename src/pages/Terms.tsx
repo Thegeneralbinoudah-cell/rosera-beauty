@@ -4,7 +4,7 @@ export default function Terms() {
   return (
     <div className="min-h-dvh bg-background px-4 py-8 pb-28">
       <div className="mx-auto max-w-lg">
-        <Link to="/profile" className="mb-6 inline-flex items-center gap-1 font-semibold text-accent">
+        <Link to="/profile" className="mb-6 inline-flex items-center gap-1 font-semibold text-primary">
           ← العودة
         </Link>
         <h1 className="text-2xl font-semibold text-foreground">الشروط والأحكام</h1>

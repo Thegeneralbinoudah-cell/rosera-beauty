@@ -170,7 +170,7 @@ export function SalonPremiumCard({
         type="button"
         onClick={goSalon}
         disabled={!salonIdOk}
-        className="flex min-h-0 flex-1 flex-col text-start focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50"
+        className="flex min-h-0 flex-1 flex-col text-start focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 disabled:pointer-events-none disabled:"
       >
         <div className="relative aspect-[4/3] w-full shrink-0 overflow-hidden bg-gradient-to-br from-primary/25 to-white">
           <img
@@ -256,7 +256,7 @@ export function SalonPremiumCard({
         onKeyDown={(e) => e.stopPropagation()}
       >
         {isRecommended ? (
-          <p className="mb-2 text-center text-[10px] font-medium leading-relaxed text-muted-foreground">
+          <p className="mb-2 text-center text-[10px] font-medium leading-relaxed text-foreground">
             {trustLine}
           </p>
         ) : null}

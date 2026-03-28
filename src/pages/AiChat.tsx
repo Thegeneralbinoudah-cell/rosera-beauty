@@ -953,7 +953,7 @@ export default function AiChat({ embedded = false }: { embedded?: boolean }) {
     const list = products.slice(0, 3)
     return (
       <div className="w-full space-y-3">
-        <p className="text-start text-xs font-semibold text-muted-foreground">{t('aiChat.pickProducts')}</p>
+        <p className="text-start text-xs font-semibold text-foreground">{t('aiChat.pickProducts')}</p>
         {list.map((p) => {
           const img = p.image_url?.trim() ? p.image_url : null
           return (
@@ -965,7 +965,7 @@ export default function AiChat({ embedded = false }: { embedded?: boolean }) {
                 <img src={img} alt="" className="aspect-[16/10] w-full object-cover" />
               ) : (
                 <div className="flex aspect-[16/10] w-full items-center justify-center bg-gradient-to-br from-muted/80 to-muted/50">
-                  <Package className="h-10 w-10 text-accent" aria-hidden />
+                  <Package className="h-10 w-10 text-primary" aria-hidden />
                 </div>
               )}
               <div className="space-y-2 p-3">
@@ -974,12 +974,12 @@ export default function AiChat({ embedded = false }: { embedded?: boolean }) {
                     {p.name_ar}
                   </p>
                   {p.brand_ar ? (
-                    <p className="mt-0.5 text-xs text-muted-foreground">{p.brand_ar}</p>
+                    <p className="mt-0.5 text-xs text-foreground">{p.brand_ar}</p>
                   ) : null}
                   <p className="mt-1 text-sm font-semibold text-primary">
                     {p.price.toLocaleString('ar-SA', { maximumFractionDigits: 2 })} ر.س
                   </p>
-                  <p className="mt-1 line-clamp-3 text-xs leading-relaxed text-muted-foreground">{p.benefit}</p>
+                  <p className="mt-1 line-clamp-3 text-xs leading-relaxed text-foreground">{p.benefit}</p>
                 </div>
                 <Button
                   type="button"
@@ -1026,7 +1026,7 @@ export default function AiChat({ embedded = false }: { embedded?: boolean }) {
                   <p className="line-clamp-2 text-sm font-bold leading-snug text-foreground">
                     {salon.name_ar}
                   </p>
-                  <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
+                  <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-foreground">
                     <span className="inline-flex items-center gap-0.5">
                       <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-500" aria-hidden />
                       {ratingLabel}
@@ -1111,7 +1111,7 @@ export default function AiChat({ embedded = false }: { embedded?: boolean }) {
       <div className="text-sm leading-relaxed">
         <p className="whitespace-pre-wrap text-foreground">{row.message.slice(0, idx)}</p>
         <div className="mt-3 border-t border-border pt-3">
-          <p className="whitespace-pre-wrap text-muted-foreground">{FACE_SCAN_MEDICAL_DISCLAIMER}</p>
+          <p className="whitespace-pre-wrap text-foreground">{FACE_SCAN_MEDICAL_DISCLAIMER}</p>
         </div>
       </div>
     )
@@ -1201,7 +1201,7 @@ export default function AiChat({ embedded = false }: { embedded?: boolean }) {
           )}
         </button>
       </div>
-      <p className="pointer-events-none text-center text-[10px] font-medium text-muted-foreground drop-shadow-sm">
+      <p className="pointer-events-none text-center text-[10px] font-medium text-foreground drop-shadow-sm">
         {voiceUi === 'listening'
           ? 'متواصل — اضغطي للإيقاف'
           : voiceUi === 'speaking'
@@ -1231,7 +1231,7 @@ export default function AiChat({ embedded = false }: { embedded?: boolean }) {
               </div>
               <div className="min-w-0">
                 <h1 className="text-heading-3 font-semibold tracking-wide text-foreground">روزي</h1>
-                <p className="text-body-sm font-medium text-muted-foreground">
+                <p className="text-body-sm font-medium text-foreground">
                   مساعدة الحجز والجمال — نبرة سعودية دافئة ✨
                 </p>
               </div>
@@ -1249,7 +1249,7 @@ export default function AiChat({ embedded = false }: { embedded?: boolean }) {
         )}
       >
         {loading ? (
-          <p className="text-center font-medium text-muted-foreground">جاري التحميل...</p>
+          <p className="text-center font-medium text-foreground">جاري التحميل...</p>
         ) : historyError ? (
           <div className="mx-auto max-w-md rounded-2xl border border-dashed border-destructive/30 bg-destructive/5 p-6 text-center">
             <p className="text-sm font-semibold text-destructive">{historyError}</p>
@@ -1265,7 +1265,7 @@ export default function AiChat({ embedded = false }: { embedded?: boolean }) {
                   {rosyAvatar('md')}
                   <div className="max-w-[min(100%,22rem)] rounded-2xl border border-primary/15 bg-card/95 px-4 py-4 shadow-elevated backdrop-blur-sm">
                     <p className="text-sm font-bold leading-snug text-foreground">{t('aiChat.bookingWelcomeTitle')}</p>
-                    <p className="mt-2 text-sm font-medium leading-relaxed text-muted-foreground">
+                    <p className="mt-2 text-sm font-medium leading-relaxed text-foreground">
                       {t('aiChat.bookingWelcomeSub')}
                     </p>
                   </div>
@@ -1333,7 +1333,7 @@ export default function AiChat({ embedded = false }: { embedded?: boolean }) {
                 </div>
               </div>
             )}
-            <p className="mt-4 text-center text-[11px] font-medium text-muted-foreground">
+            <p className="mt-4 text-center text-[11px] font-medium text-foreground">
               صور الوجه تُرسَل للتحليل مؤقتاً فقط ولا تُحفَظ على خوادمنا ولا في سجل المحادثة.
             </p>
           </>
@@ -1394,18 +1394,18 @@ export default function AiChat({ embedded = false }: { embedded?: boolean }) {
                     {c.icon}
                   </span>
                   <span className="text-sm font-bold text-foreground">{c.title}</span>
-                  <span className="text-[11px] font-medium leading-snug text-muted-foreground">{c.sub}</span>
+                  <span className="text-[11px] font-medium leading-snug text-foreground">{c.sub}</span>
                 </button>
               )
             })}
           </div>
           {!advisorMode ? (
-            <p className="text-center text-xs font-medium text-muted-foreground">اختاري نوع التحليل أولاً ✨</p>
+            <p className="text-center text-xs font-medium text-foreground">اختاري نوع التحليل أولاً ✨</p>
           ) : null}
           <p className="whitespace-pre-wrap text-sm font-medium leading-relaxed text-foreground/90">
             {FACE_SCAN_MEDICAL_DISCLAIMER}
           </p>
-          <p className="text-xs font-medium text-muted-foreground">
+          <p className="text-xs font-medium text-foreground">
             لن نخزّن صورتك: تُستخدم لطلب التحليل فقط ثم تُهمل من الذاكرة.
           </p>
           <div className="flex items-start gap-3 rounded-xl border border-primary/15 bg-rosera-light/80 p-3 dark:bg-muted/30">

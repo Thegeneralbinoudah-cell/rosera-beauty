@@ -1335,7 +1335,7 @@ export default function MapPage() {
             ))}
           </div>
           {mapCatResolved.ok ? (
-            <p className="px-0.5 text-[11px] font-medium leading-snug text-muted-foreground">
+            <p className="px-0.5 text-[11px] font-medium leading-snug text-foreground">
               {t('search.categoryChip')}{' '}
               <strong className="text-foreground">{mapCatResolved.canonical}</strong>
             </p>
@@ -1373,7 +1373,7 @@ export default function MapPage() {
                       aria-hidden
                     />
                   </div>
-                  <p className="mt-5 text-xs font-medium text-muted-foreground">{t('map.loadingOverlay')}</p>
+                  <p className="mt-5 text-xs font-medium text-foreground">{t('map.loadingOverlay')}</p>
                 </div>
               }
             >
@@ -1401,7 +1401,7 @@ export default function MapPage() {
           ) : (
             <div className="flex min-h-0 min-w-0 flex-1 flex-col items-center justify-center bg-gradient-to-br from-primary-subtle/75 via-white to-gold-subtle/25">
               <div className="mx-4 h-32 w-full max-w-[min(100%,28rem)] animate-pulse rounded-3xl bg-gradient-to-r from-primary/15 via-pink-100/40 to-amber-100/25" />
-              <p className="mt-4 text-xs font-medium text-muted-foreground">{t('map.loadingOverlay')}</p>
+              <p className="mt-4 text-xs font-medium text-foreground">{t('map.loadingOverlay')}</p>
             </div>
           )}
         </MapErrorBoundary>

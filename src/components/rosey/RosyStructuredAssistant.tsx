@@ -27,7 +27,7 @@ function MiniSalonCard({
       <div className="space-y-3 p-3">
         <div className="text-start">
           <p className="line-clamp-2 text-sm font-bold leading-snug text-foreground">{s.name_ar}</p>
-          <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
+          <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-foreground">
             <span className="inline-flex items-center gap-0.5">
               <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-500" aria-hidden />
               {ratingLabel}
@@ -71,7 +71,7 @@ export function RosyStructuredAssistant({
     <div className="mt-1 w-full space-y-3 border-t border-pink-500/15 pt-3 dark:border-pink-400/10">
       {salons && salons.length > 0 ? (
         <div className="space-y-3">
-          <p className="text-start text-xs font-semibold text-muted-foreground">{t('aiChat.pickSalons')}</p>
+          <p className="text-start text-xs font-semibold text-foreground">{t('aiChat.pickSalons')}</p>
           {salons.map((s) => (
             <MiniSalonCard key={s.id} s={s} onBook={() => onBookSalon(s.id)} />
           ))}

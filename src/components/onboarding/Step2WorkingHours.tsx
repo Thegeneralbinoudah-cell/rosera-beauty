@@ -14,7 +14,7 @@ export function Step2WorkingHours() {
     <div className="space-y-4">
       <Card className="border-primary/10 p-5 shadow-sm">
         <h2 className="mb-1 text-lg font-extrabold text-foreground">أوقات العمل</h2>
-        <p className="mb-4 text-sm text-muted-foreground">فعّلي أيام العمل واضبطي الفتح والإغلاق</p>
+        <p className="mb-4 text-sm text-foreground">فعّلي أيام العمل واضبطي الفتح والإغلاق</p>
         <div className="space-y-4">
           {hours.map((_, i) => (
             <div
@@ -24,7 +24,7 @@ export function Step2WorkingHours() {
               <div className="flex items-center justify-between gap-3 sm:min-w-[140px]">
                 <span className="font-bold text-foreground">{DAY_LABELS_AR[i]}</span>
                 <div className="flex items-center gap-2">
-                  <Label htmlFor={`closed-${i}`} className="text-xs text-muted-foreground">
+                  <Label htmlFor={`closed-${i}`} className="text-xs text-foreground">
                     مغلق
                   </Label>
                   <Switch
@@ -46,7 +46,7 @@ export function Step2WorkingHours() {
                   </div>
                 </div>
               ) : (
-                <p className="text-sm text-muted-foreground">مغلق طوال اليوم</p>
+                <p className="text-sm text-foreground">مغلق طوال اليوم</p>
               )}
             </div>
           ))}

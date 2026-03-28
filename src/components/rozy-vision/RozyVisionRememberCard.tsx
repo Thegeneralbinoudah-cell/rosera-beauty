@@ -54,11 +54,11 @@ export function RozyVisionRememberCard({ data }: Props) {
             </p>
           ) : null}
           {data.history.length > 0 ? (
-            <p className="text-caption text-muted-foreground">
+            <p className="text-caption text-foreground">
               {data.history.length} جلسة في تاريخكِ — الاقتراحات تصبح أدق مع الوقت.
             </p>
           ) : null}
-          <p className="text-caption text-muted-foreground">
+          <p className="text-caption text-foreground">
             نستخدم هذا لاقتراحات أوضح في كل مرة — يمكنكِ تحديثه بتحليل جديد.
           </p>
         </div>

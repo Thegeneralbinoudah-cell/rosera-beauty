@@ -64,7 +64,7 @@ export function Step5Media() {
                 }}
               />
             </label>
-            {busy === 'cover' ? <span className="text-xs text-muted-foreground">جاري الرفع…</span> : null}
+            {busy === 'cover' ? <span className="text-xs text-foreground">جاري الرفع…</span> : null}
           </div>
           <Input className="rounded-xl" dir="ltr" readOnly {...register('media.cover_image')} />
           {cover ? (
@@ -108,7 +108,7 @@ export function Step5Media() {
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <h2 className="text-lg font-extrabold text-foreground">معرض الأعمال</h2>
-            <p className="text-sm text-muted-foreground">صور من أعمال الصالون</p>
+            <p className="text-sm text-foreground">صور من أعمال الصالون</p>
           </div>
           <Button
             type="button"
@@ -160,7 +160,7 @@ export function Step5Media() {
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <h2 className="text-lg font-extrabold text-foreground">صور إضافية</h2>
-            <p className="text-sm text-muted-foreground">للداخل، الاستقبال، إلخ</p>
+            <p className="text-sm text-foreground">للداخل، الاستقبال، إلخ</p>
           </div>
           <Button
             type="button"

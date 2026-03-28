@@ -204,7 +204,7 @@ export default function SalonDashboard() {
                   <Label htmlFor="dash-auto-renew" className="text-base font-extrabold text-foreground">
                     تجديد تلقائي للاشتراك
                   </Label>
-                  <p className="mt-0.5 text-xs text-muted-foreground">
+                  <p className="mt-0.5 text-xs text-foreground">
                     {subBillingProvider === 'stripe'
                       ? 'يُدار عبر Stripe — الإيقاف يوقف التجديد بعد نهاية الفترة الحالية'
                       : 'تجديد شهري تلقائي عند وجود بطاقة محفوظة'}
@@ -236,9 +236,9 @@ export default function SalonDashboard() {
           >
             <div className="flex items-start justify-between gap-2">
               <div>
-                <p className="text-xs font-semibold text-muted-foreground">{label}</p>
+                <p className="text-xs font-semibold text-foreground">{label}</p>
                 <p className="mt-1 text-2xl font-extrabold tabular-nums text-foreground">{value}</p>
-                {sub ? <p className="text-xs text-muted-foreground">{sub}</p> : null}
+                {sub ? <p className="text-xs text-foreground">{sub}</p> : null}
               </div>
               <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary-subtle text-primary dark:bg-primary/15 dark:text-primary">
                 <Icon className="h-5 w-5" />
@@ -259,7 +259,7 @@ export default function SalonDashboard() {
           </Button>
         </div>
         {upcoming.length === 0 ? (
-          <p className="mt-4 py-6 text-center text-sm text-muted-foreground">لا توجد حجوزات قادمة في الظاهر</p>
+          <p className="mt-4 py-6 text-center text-sm text-foreground">لا توجد حجوزات قادمة في الظاهر</p>
         ) : (
           <ul className="mt-3 space-y-2">
             {upcoming.map((b) => (
@@ -269,7 +269,7 @@ export default function SalonDashboard() {
               >
                 <div>
                   <p className="font-bold text-foreground">{clientNames[b.user_id] ?? 'عميلة'}</p>
-                  <p className="text-xs text-muted-foreground" dir="ltr">
+                  <p className="text-xs text-foreground" dir="ltr">
                     {b.booking_date} · {String(b.booking_time).slice(0, 5)}
                   </p>
                 </div>

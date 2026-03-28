@@ -40,7 +40,7 @@ export default function Settings() {
     <div className="luxury-page-canvas px-4 py-8 pb-28">
       <div className="mx-auto max-w-md">
         <h1 className="text-heading-2 font-semibold tracking-luxury-tight text-foreground">الإعدادات</h1>
-        <p className="mt-2 text-body-sm font-medium text-muted-foreground">تفضيلاتكِ وتجربة التطبيق بأناقة</p>
+        <p className="mt-2 text-body-sm font-medium text-foreground">تفضيلاتكِ وتجربة التطبيق بأناقة</p>
 
         <div className="mt-10 space-y-4">
           <Card className="flex items-center justify-between gap-4 p-5 shadow-elevated">
@@ -101,7 +101,7 @@ export default function Settings() {
             📋 شروط الاستخدام
           </Link>
 
-          <Card className="p-5 text-body-sm leading-relaxed text-muted-foreground shadow-elevated">
+          <Card className="p-5 text-body-sm leading-relaxed text-foreground shadow-elevated">
             ℹ️ عن روزيرا — منصة حجز صالونات التجميل للسيدات في السعودية
           </Card>
 
@@ -116,7 +116,7 @@ export default function Settings() {
           <DialogHeader>
             <DialogTitle className="text-heading-3">تأكيد حذف الحساب؟</DialogTitle>
           </DialogHeader>
-          <p className="text-body-sm text-muted-foreground">لا يمكن التراجع. تواصلي مع الدعم لحذف كامل.</p>
+          <p className="text-body-sm text-foreground">لا يمكن التراجع. تواصلي مع الدعم لحذف كامل.</p>
           <Button variant="destructive" className="rounded-2xl" onClick={() => { setDelOpen(false); toast.message('تواصلي معنا لإكمال الطلب') }}>
             تأكيد
           </Button>

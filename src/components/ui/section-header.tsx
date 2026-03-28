@@ -32,7 +32,7 @@ export function SectionHeader({
         {description ? (
           <p
             className={cn(
-              'max-w-prose text-body text-muted-foreground',
+              'max-w-prose text-body text-foreground',
               descriptionClassName
             )}
           >

@@ -228,7 +228,7 @@ export default function AuthEmail() {
                 )}
                 {mode === 'login' && (
                   <div className="text-left">
-                    <Link to="/forgot-password" className="text-sm font-semibold text-accent hover:underline">
+                    <Link to="/forgot-password" className="text-sm font-semibold text-primary hover:underline">
                       {t('authEmail.forgotPassword')}
                     </Link>
                   </div>
@@ -254,7 +254,7 @@ export default function AuthEmail() {
               <div className="relative my-6 flex items-center gap-2" aria-hidden>
                 <span className="h-px flex-1 bg-muted-foreground/35" />
                 <span
-                  className="shrink-0 text-[13px] font-medium text-muted-foreground"
+                  className="shrink-0 text-[13px] font-medium text-foreground"
                   dir={lang === 'ar' ? 'rtl' : 'ltr'}
                 >
                   {lang === 'ar' ? '── أو ──' : '— or —'}
@@ -305,10 +305,10 @@ export default function AuthEmail() {
           )}
 
           <div className="mt-8 flex flex-wrap justify-center gap-4 text-xs text-rosera-gray">
-            <Link to="/privacy" className="text-accent hover:text-accent/90">
+            <Link to="/privacy" className="text-primary hover:text-primary/90">
               {t('authEmail.privacy')}
             </Link>
-            <Link to="/terms" className="text-accent hover:text-accent/90">
+            <Link to="/terms" className="text-primary hover:text-primary/90">
               {t('authEmail.terms')}
             </Link>
           </div>

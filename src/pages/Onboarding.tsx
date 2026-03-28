@@ -96,7 +96,7 @@ export default function Onboarding() {
             <Button className="w-full rounded-2xl gradient-primary" onClick={() => setI((x) => x + 1)}>
               {t.next}
             </Button>
-            <button type="button" className="text-center text-sm font-medium text-foreground dark:text-muted-foreground" onClick={finish}>
+            <button type="button" className="text-center text-sm font-medium text-foreground dark:text-foreground" onClick={finish}>
               {t.skip}
             </button>
           </>

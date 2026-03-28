@@ -70,7 +70,7 @@ export default function OwnerHome() {
         </Card>
         <Card className="p-6">
           <p className="text-sm text-rosera-gray">إجمالي الإيرادات (مكتملة)</p>
-          <p className="text-3xl font-extrabold text-accent">{stats.revenue.toLocaleString('ar-SA')} ر.س</p>
+          <p className="text-3xl font-extrabold text-primary">{stats.revenue.toLocaleString('ar-SA')} ر.س</p>
         </Card>
         <Card className="p-6">
           <p className="text-sm text-rosera-gray">التقييمات</p>

@@ -40,7 +40,7 @@ export default function Cart() {
               />
               <div className="min-w-0 flex-1">
                 <p className="font-bold line-clamp-2">{item.name_ar}</p>
-                <p className="font-bold text-accent">{formatPrice(item.price)}</p>
+                <p className="font-bold text-primary">{formatPrice(item.price)}</p>
                 <div className="mt-2 flex items-center gap-2">
                   <button
                     type="button"
@@ -86,7 +86,7 @@ export default function Cart() {
           </div>
           <div className="mt-4 flex justify-between text-lg font-bold">
             <span>المجموع الكلي</span>
-            <span className="text-accent">{formatPrice(subtotal + SHIPPING)}</span>
+            <span className="text-primary">{formatPrice(subtotal + SHIPPING)}</span>
           </div>
         </div>
 

@@ -121,7 +121,7 @@ export default function AuthCallback() {
   return (
     <div className="flex min-h-dvh flex-col items-center justify-center gap-4 bg-background px-6">
       <Loader2 className="h-10 w-10 animate-spin text-primary" aria-hidden />
-      <p className="text-sm font-medium text-muted-foreground">
+      <p className="text-sm font-medium text-foreground">
         {phase === 'working' ? t('auth.oauthCallbackWorking') : t('auth.oauthCallbackRedirecting')}
       </p>
     </div>

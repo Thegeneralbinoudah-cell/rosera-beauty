@@ -66,7 +66,7 @@ export default function Profile() {
         >
           {t('profile.login')}
         </button>
-        <Link to="/settings" className="mt-6 text-accent">
+        <Link to="/settings" className="mt-6 text-primary">
           {t('profile.settings')}
         </Link>
       </div>

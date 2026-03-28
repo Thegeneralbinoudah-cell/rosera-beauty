@@ -53,7 +53,7 @@ export default function SalonLayout() {
                   'flex items-center gap-2 rounded-xl px-3 py-2.5 text-sm font-bold transition',
                   isActive
                     ? 'bg-gradient-to-l from-primary-subtle to-primary/20 text-primary shadow-sm dark:from-primary/25 dark:to-primary/15 dark:text-primary-foreground'
-                    : 'text-muted-foreground hover:bg-primary-subtle/50 dark:hover:bg-muted'
+                    : 'text-foreground hover:bg-primary-subtle/50 dark:hover:bg-muted'
                 )
               }
             >
@@ -68,7 +68,7 @@ export default function SalonLayout() {
                 'flex items-center gap-2 rounded-xl px-3 py-2.5 text-sm font-bold transition',
                 isActive
                   ? 'bg-gradient-to-l from-primary-subtle to-primary/20 text-primary dark:from-primary/25 dark:to-primary/15 dark:text-primary-foreground'
-                  : 'text-muted-foreground hover:bg-primary-subtle/50 dark:hover:bg-muted'
+                  : 'text-foreground hover:bg-primary-subtle/50 dark:hover:bg-muted'
               )
             }
           >
@@ -105,7 +105,7 @@ export default function SalonLayout() {
             className={({ isActive }) =>
               cn(
                 'flex min-w-0 flex-1 flex-col items-center gap-0.5 py-1 text-[9px] font-bold',
-                isActive ? 'text-primary' : 'text-muted-foreground'
+                isActive ? 'text-primary' : 'text-foreground'
               )
             }
           >
@@ -118,7 +118,7 @@ export default function SalonLayout() {
           className={({ isActive }) =>
             cn(
               'flex min-w-0 flex-1 flex-col items-center gap-0.5 py-1 text-[9px] font-bold',
-              isActive ? 'text-primary' : 'text-muted-foreground'
+              isActive ? 'text-primary' : 'text-foreground'
             )
           }
         >

@@ -16,22 +16,22 @@ export function Step7Review() {
     <div className="space-y-4">
       <Card className="border-primary/10 p-5 shadow-sm">
         <h2 className="text-lg font-extrabold text-foreground">مراجعة البيانات</h2>
-        <p className="mt-1 text-sm text-muted-foreground">تأكدي من صحة المعلومات قبل الإرسال</p>
+        <p className="mt-1 text-sm text-foreground">تأكدي من صحة المعلومات قبل الإرسال</p>
       </Card>
 
       <Card className="space-y-2 border-primary/10 p-5 text-sm shadow-sm">
         <h3 className="font-extrabold text-primary">الأساسيات</h3>
         <p>
-          <span className="text-muted-foreground">الاسم:</span> {basic.name_ar}
+          <span className="text-foreground">الاسم:</span> {basic.name_ar}
         </p>
         <p>
-          <span className="text-muted-foreground">المدينة:</span> {basic.city} — {basic.region}
+          <span className="text-foreground">المدينة:</span> {basic.city} — {basic.region}
         </p>
         <p>
-          <span className="text-muted-foreground">الجوال:</span> {basic.phone}
+          <span className="text-foreground">الجوال:</span> {basic.phone}
         </p>
         <p>
-          <span className="text-muted-foreground">الموقع:</span>{' '}
+          <span className="text-foreground">الموقع:</span>{' '}
           {basic.latitude != null && basic.longitude != null
             ? `${basic.latitude.toFixed(5)}, ${basic.longitude.toFixed(5)}`
             : '—'}
@@ -44,7 +44,7 @@ export function Step7Review() {
           {hours.map((h, i) => (
             <li key={i}>
               {DAY_LABELS_AR[h.day] ?? i}:{' '}
-              {h.closed ? <span className="text-muted-foreground">مغلق</span> : `${h.open} – ${h.close}`}
+              {h.closed ? <span className="text-foreground">مغلق</span> : `${h.open} – ${h.close}`}
             </li>
           ))}
         </ul>
@@ -64,7 +64,7 @@ export function Step7Review() {
       <Card className="space-y-2 border-primary/10 p-5 text-sm shadow-sm">
         <h3 className="font-extrabold text-primary">الفريق ({team.filter((t) => t.name_ar.trim()).length})</h3>
         {team.filter((t) => t.name_ar.trim()).length === 0 ? (
-          <p className="text-muted-foreground">لم يُضف فريق</p>
+          <p className="text-foreground">لم يُضف فريق</p>
         ) : (
           <ul className="list-disc space-y-1 pe-5">
             {team

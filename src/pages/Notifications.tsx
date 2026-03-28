@@ -25,11 +25,11 @@ const typeConfig: Record<string, { icon: string; label: string; color: string }>
   order: { icon: '📦', label: 'تحديث طلب', color: 'text-blue-600' },
   review: { icon: '⭐', label: 'تقييم', color: 'text-primary' },
   promo: { icon: '📢', label: 'إعلان', color: 'text-rosera-gray' },
-  growth_inactive: { icon: '💜', label: 'روزيرا', color: 'text-accent' },
+  growth_inactive: { icon: '💜', label: 'روزيرا', color: 'text-primary' },
   growth_nudge: { icon: '✨', label: 'اقتراح لكِ', color: 'text-primary' },
   growth_skin: { icon: '🪞', label: 'البشرة', color: 'text-primary' },
   growth_offer: { icon: '🔥', label: 'عرض قريب منكِ', color: 'text-primary' },
-  growth_promo: { icon: '💜', label: 'روزيرا', color: 'text-accent' },
+  growth_promo: { icon: '💜', label: 'روزيرا', color: 'text-primary' },
 }
 
 function configForType(t: string | null | undefined) {

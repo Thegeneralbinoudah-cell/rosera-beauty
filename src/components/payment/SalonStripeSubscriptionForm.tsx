@@ -122,7 +122,7 @@ export default function SalonStripeSubscriptionForm({
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center gap-2 py-8 text-muted-foreground">
+      <div className="flex items-center justify-center gap-2 py-8 text-foreground">
         <Loader2 className="h-6 w-6 animate-spin" />
         جاري تجهيز الدفع…
       </div>
@@ -135,7 +135,7 @@ export default function SalonStripeSubscriptionForm({
 
   return (
     <div className="space-y-3">
-      <p className="text-center text-sm text-muted-foreground">
+      <p className="text-center text-sm text-foreground">
         💳 بطاقة · 🍎 Apple Pay <span className="text-xs">(يظهر Apple Pay عند الدعم على الجهاز والمتصفح)</span>
       </p>
       <Elements

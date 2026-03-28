@@ -162,12 +162,12 @@ export function RosyVisionSalonSuggestions({
       </div>
 
       {loading ? (
-        <div className="flex items-center justify-center gap-2 py-8 text-body-sm text-muted-foreground">
+        <div className="flex items-center justify-center gap-2 py-8 text-body-sm text-foreground">
           <Loader2 className="h-5 w-5 animate-spin text-primary" aria-hidden />
           جاري البحث عن صالونات…
         </div>
       ) : biz.length === 0 ? (
-        <p className="rounded-xl border border-dashed border-primary/25 bg-primary/5 px-3 py-4 text-center text-body-sm text-muted-foreground">
+        <p className="rounded-xl border border-dashed border-primary/25 bg-primary/5 px-3 py-4 text-center text-body-sm text-foreground">
           لم نعثر على صالونات مطابقة حالياً — جرّبي البحث أو الخريطة.
         </p>
       ) : (
@@ -190,7 +190,7 @@ export function RosyVisionSalonSuggestions({
                     className="rounded-full border border-gold/30 bg-gold-subtle/50 px-3 py-1.5 text-caption font-medium text-foreground"
                   >
                     {s.name_ar}
-                    <span className="text-muted-foreground"> · {s.price} ر.س</span>
+                    <span className="text-foreground"> · {s.price} ر.س</span>
                   </li>
                 ))}
               </ul>

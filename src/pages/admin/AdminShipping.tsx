@@ -174,7 +174,7 @@ export default function AdminShipping() {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold">العمليات والشحن</h1>
-        <p className="mt-2 text-sm text-muted-foreground">
+        <p className="mt-2 text-sm text-foreground">
           إدارة شركات الشحن، إنشاء الشحنات، وتحديث حالة التتبع.
         </p>
       </div>

@@ -54,7 +54,7 @@ export function LuxuryStarRating({
             <Star
               className={cn(
                 'relative z-[1] h-4 w-4 shrink-0',
-                filled ? 'fill-accent text-accent' : 'fill-none text-muted-foreground/90'
+                filled ? 'fill-accent text-primary' : 'fill-none text-foreground/90'
               )}
               strokeWidth={1.25}
               aria-hidden

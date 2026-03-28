@@ -180,7 +180,7 @@
     --secondary-foreground: 210 36% 96%;
 
     --muted: 224 28% 14%;
-    --muted-foreground: 217 14% 68%;
+    --muted-foreground: 210 28% 86%; /* readable secondary on dark */
 
     --accent: 43 35% 22%;
     --accent-foreground: 43 90% 92%;
@@ -367,7 +367,7 @@
 
   .auth-input-underline {
     @apply rounded-none border-0 border-b border-primary/35 bg-transparent px-0 py-3 text-foreground shadow-none transition-colors;
-    @apply placeholder:text-muted-foreground/70 focus-visible:border-primary focus-visible:outline-none focus-visible:ring-0;
+    @apply placeholder:text-foreground/70 focus-visible:border-primary focus-visible:outline-none focus-visible:ring-0;
   }
 
   @media (prefers-reduced-motion: reduce) {

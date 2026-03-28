@@ -291,7 +291,7 @@ export default function PaymentForm({
   if (!refId) {
     return (
       <div className="rounded-2xl border border-primary/20 bg-primary/5 p-5">
-        <p className="text-center text-sm text-muted-foreground">جاري تجهيز الطلب...</p>
+        <p className="text-center text-sm text-foreground">جاري تجهيز الطلب...</p>
         <Button
           className="mt-4 w-full rounded-2xl"
           disabled={disabled}
@@ -320,7 +320,7 @@ export default function PaymentForm({
         </div>
       ) : null}
       <p className="text-center text-sm font-semibold text-foreground">الدفع الآمن 🔒</p>
-      <p className="text-center text-xs text-muted-foreground">
+      <p className="text-center text-xs text-foreground">
         البطاقة وApple Pay وSTC Pay تُعالج عبر Moyasar — لا نخزّن بيانات الدفع.
       </p>
       <div className="flex flex-wrap items-stretch justify-center gap-2">
@@ -342,13 +342,13 @@ export default function PaymentForm({
           <span className="text-base" aria-hidden>
             📱
           </span>
-          <span className="text-sm font-bold text-accent dark:text-accent">STC Pay</span>
+          <span className="text-sm font-bold text-primary dark:text-primary">STC Pay</span>
         </div>
       </div>
       {!scriptLoaded ? (
         <div className="flex flex-col items-center justify-center gap-2 py-6">
           <Loader2 className="h-8 w-8 animate-spin text-primary" aria-hidden />
-          <p className="text-center text-sm text-muted-foreground">جاري تحميل نموذج الدفع…</p>
+          <p className="text-center text-sm text-foreground">جاري تحميل نموذج الدفع…</p>
         </div>
       ) : null}
       <div

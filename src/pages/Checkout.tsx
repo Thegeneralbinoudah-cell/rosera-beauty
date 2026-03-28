@@ -172,7 +172,7 @@ export default function Checkout() {
           <p className="text-rosera-gray">
             {t('checkout.shipping')} {formatPrice(SHIPPING)}
           </p>
-          <p className="mt-2 text-lg font-bold text-accent">
+          <p className="mt-2 text-lg font-bold text-primary">
             {t('checkout.total')} {formatPrice(totalWithShipping)}
           </p>
         </div>

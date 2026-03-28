@@ -689,7 +689,7 @@ export default function BookingFlow() {
               <Skeleton className="h-4 w-full rounded-lg" />
             </div>
           </div>
-          <p className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+          <p className="flex items-center gap-2 text-sm font-medium text-foreground">
             <Loader2 className="h-4 w-4 shrink-0 animate-spin text-primary" aria-hidden />
             جاري تحميل الصالون والخدمات…
           </p>
@@ -705,7 +705,7 @@ export default function BookingFlow() {
     return (
       <div className="flex min-h-dvh flex-col items-center justify-center gap-4 bg-background px-6">
         <p className="text-center font-semibold text-foreground">رابط الحجز غير صالح</p>
-        <p className="text-center text-sm text-muted-foreground">
+        <p className="text-center text-sm text-foreground">
           لم يُمرَّر معرّف الصالون بشكل صحيح. افتحي الحجز من صفحة الصالون أو من روزي والتطبيق يعبّي الرابط تلقائياً.
         </p>
         <Button className="rounded-2xl" type="button" variant="default" onClick={() => nav('/search')}>
@@ -722,7 +722,7 @@ export default function BookingFlow() {
     return (
       <div className="flex min-h-dvh flex-col items-center justify-center gap-4 bg-background px-6">
         <p className="text-center font-semibold text-foreground">تعذر تحميل بيانات الصالون</p>
-        <p className="text-center text-sm text-muted-foreground">تحققي من الاتصال وحاولي مرة أخرى، أو ارجعي لاختيار صالون آخر.</p>
+        <p className="text-center text-sm text-foreground">تحققي من الاتصال وحاولي مرة أخرى، أو ارجعي لاختيار صالون آخر.</p>
         <Button className="rounded-2xl" type="button" variant="outline" onClick={() => nav(-1)}>
           رجوع
         </Button>
@@ -768,7 +768,7 @@ export default function BookingFlow() {
           ← رجوع
         </button>
         <h1 className="mt-2 text-heading-3 font-semibold tracking-wide">حجز — {b.name_ar}</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
+        <p className="mt-1 text-sm text-foreground">
           الخطوة {displayStepNum} من {displayStepTotal} · {BOOKING_PHASES[bookingPhase - 1].label}
         </p>
         <div className="mt-4 space-y-2">
@@ -788,7 +788,7 @@ export default function BookingFlow() {
               )
             })}
           </div>
-          <p className="text-xs font-medium text-muted-foreground">{BOOKING_PHASES[bookingPhase - 1].desc}</p>
+          <p className="text-xs font-medium text-foreground">{BOOKING_PHASES[bookingPhase - 1].desc}</p>
         </div>
       </header>
 
@@ -810,7 +810,7 @@ export default function BookingFlow() {
                   </div>
                   <div>
                     <h2 className="text-lg font-bold text-foreground">اختيار الخدمات</h2>
-                    <p className="mt-1 text-sm text-muted-foreground">اختر خدمة واحدة على الأقل للمتابعة — لا يمكن الحجز بدون خدمة.</p>
+                    <p className="mt-1 text-sm text-foreground">اختر خدمة واحدة على الأقل للمتابعة — لا يمكن الحجز بدون خدمة.</p>
                   </div>
                 </div>
 
@@ -827,16 +827,16 @@ export default function BookingFlow() {
                       aria-hidden
                     />
                     <div className="min-w-0 text-start">
-                      <p className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">لون روزي المختار</p>
+                      <p className="text-[11px] font-bold uppercase tracking-wide text-foreground">لون روزي المختار</p>
                       <p className="truncate text-sm font-extrabold text-foreground">{rosyNailColorLabel}</p>
-                      <p className="mt-0.5 text-[11px] text-muted-foreground">تم تمييز خدمة المناكير المقترحة أدناه — يمكنكِ تغييرها.</p>
+                      <p className="mt-0.5 text-[11px] text-foreground">تم تمييز خدمة المناكير المقترحة أدناه — يمكنكِ تغييرها.</p>
                     </div>
                   </div>
                 ) : null}
 
                 {refetchingServices && services.length === 0 ? (
                   <div className="space-y-3 py-1">
-                    <div className="flex items-center justify-center gap-2 rounded-2xl border border-primary/15 bg-card py-4 text-sm font-medium text-muted-foreground">
+                    <div className="flex items-center justify-center gap-2 rounded-2xl border border-primary/15 bg-card py-4 text-sm font-medium text-foreground">
                       <Loader2 className="h-5 w-5 shrink-0 animate-spin text-primary" aria-hidden />
                       جاري تحميل الخدمات…
                     </div>
@@ -850,7 +850,7 @@ export default function BookingFlow() {
                   <div className="luxury-card border-destructive/20 bg-destructive/[0.06] p-6 text-center">
                     <AlertCircle className="mx-auto h-10 w-10 text-destructive" aria-hidden />
                     <p className="mt-3 font-semibold text-foreground">تعذر تحميل قائمة الخدمات</p>
-                    <p className="mt-2 text-sm text-muted-foreground">تحققي من الاتصال ثم أعيدي المحاولة.</p>
+                    <p className="mt-2 text-sm text-foreground">تحققي من الاتصال ثم أعيدي المحاولة.</p>
                     <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:justify-center">
                       <Button
                         className="rounded-2xl"
@@ -880,10 +880,10 @@ export default function BookingFlow() {
                 {!servicesFetchFailed && salonDataReady && services.length === 0 && !refetchingServices ? (
                   <div className="luxury-card flex flex-col items-center p-8 text-center">
                     <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-muted">
-                      <CalendarDays className="h-7 w-7 text-muted-foreground" aria-hidden />
+                      <CalendarDays className="h-7 w-7 text-foreground" aria-hidden />
                     </div>
                     <p className="mt-4 font-semibold text-foreground">لا توجد خدمات للحجز من التطبيق حالياً</p>
-                    <p className="mt-2 max-w-sm text-sm text-muted-foreground">
+                    <p className="mt-2 max-w-sm text-sm text-foreground">
                       الصالون لم يفعّل خدمات حجز نشطة بعد، أو جميعها غير متاحة. يمكنكِ مراجعة تفاصيل الصالون أو اختيار
                       صالون آخر.
                     </p>
@@ -906,7 +906,7 @@ export default function BookingFlow() {
                 ) : null}
 
                 {refetchingServices && services.length > 0 ? (
-                  <div className="flex items-center justify-center gap-2 rounded-2xl border border-primary/15 bg-card py-8 text-sm font-medium text-muted-foreground">
+                  <div className="flex items-center justify-center gap-2 rounded-2xl border border-primary/15 bg-card py-8 text-sm font-medium text-foreground">
                     <Loader2 className="h-5 w-5 animate-spin text-primary" aria-hidden />
                     جاري تحديث الخدمات…
                   </div>
@@ -940,11 +940,11 @@ export default function BookingFlow() {
                               <div className="min-w-0 flex-1 space-y-1">
                                 <p className="font-bold leading-snug">{s.name_ar}</p>
                                 <p className="text-sm text-foreground">
-                                  <span className="text-muted-foreground">السعر: </span>
+                                  <span className="text-foreground">السعر: </span>
                                   <span className="font-semibold tabular-nums">{formatPrice(Number(s.price))}</span>
                                 </p>
                                 <p className="text-sm text-foreground">
-                                  <span className="text-muted-foreground">المدة: </span>
+                                  <span className="text-foreground">المدة: </span>
                                   <span className="font-semibold tabular-nums">{s.duration_minutes} دقيقة</span>
                                 </p>
                               </div>
@@ -963,18 +963,18 @@ export default function BookingFlow() {
                     <div className="mb-4 space-y-1 rounded-2xl border border-primary/15 bg-card p-4 shadow-sm">
                       {subtotal > finalTotal + 0.005 ? (
                         <>
-                          <p className="text-sm text-muted-foreground line-through">قبل الخصم: {formatPrice(subtotal)}</p>
-                          <p className="text-lg font-bold text-accent">بعد العرض: {formatPrice(finalTotal)}</p>
+                          <p className="text-sm text-foreground line-through">قبل الخصم: {formatPrice(subtotal)}</p>
+                          <p className="text-lg font-bold text-primary">بعد العرض: {formatPrice(finalTotal)}</p>
                         </>
                       ) : (
-                        <p className="text-lg font-bold text-accent">المجموع: {formatPrice(finalTotal)}</p>
+                        <p className="text-lg font-bold text-primary">المجموع: {formatPrice(finalTotal)}</p>
                       )}
                       {rosyAppliedNegotiationPct > 0 ? (
                         <p className="text-xs font-semibold text-primary">
                           خصم روزي ✨ {rosyAppliedNegotiationPct}% (يُطبَّق بعد عروض الصالون إن وُجدت)
                         </p>
                       ) : null}
-                      <p className="text-xs text-muted-foreground">
+                      <p className="text-xs text-foreground">
                         رسوم خدمة المنصة التقريبية: {formatPrice(platformCommissionSar(finalTotal))} (10٪ من المبلغ)
                       </p>
                     </div>
@@ -994,7 +994,7 @@ export default function BookingFlow() {
                     {showsStaffStep ? 'التالي — اختيار الموظف' : 'التالي — الموعد'}
                   </Button>
                   {selectedServices.length === 0 ? (
-                    <p className="mt-2 text-center text-xs text-muted-foreground">اختر خدمة واحدة على الأقل للمتابعة</p>
+                    <p className="mt-2 text-center text-xs text-foreground">اختر خدمة واحدة على الأقل للمتابعة</p>
                   ) : null}
                 </div>
               )}
@@ -1009,14 +1009,14 @@ export default function BookingFlow() {
                 </div>
                 <div>
                   <h2 className="text-lg font-bold">اختيار الموظف</h2>
-                  <p className="mt-1 text-sm text-muted-foreground">اختياري — يمكنكِ المتابعة بدون تفضيل محدد، أو اختيار أخصائية من الفريق.</p>
+                  <p className="mt-1 text-sm text-foreground">اختياري — يمكنكِ المتابعة بدون تفضيل محدد، أو اختيار أخصائية من الفريق.</p>
                 </div>
               </div>
 
               {staffFetchFailed && !refetchingStaff ? (
                 <div className="luxury-card border-amber-200/60 bg-amber-50/80 p-4 dark:border-amber-900/40 dark:bg-amber-950/20">
                   <p className="text-sm font-semibold text-foreground">تعذر تحميل قائمة الفريق</p>
-                  <p className="mt-1 text-xs text-muted-foreground">يمكنكِ إعادة المحاولة أو المتابعة بخيار «يحدد الصالون».</p>
+                  <p className="mt-1 text-xs text-foreground">يمكنكِ إعادة المحاولة أو المتابعة بخيار «يحدد الصالون».</p>
                   <Button
                     type="button"
                     variant="outline"
@@ -1031,7 +1031,7 @@ export default function BookingFlow() {
               ) : null}
 
               {refetchingStaff ? (
-                <div className="flex items-center justify-center gap-2 rounded-2xl border border-primary/15 bg-card py-10 text-sm font-medium text-muted-foreground">
+                <div className="flex items-center justify-center gap-2 rounded-2xl border border-primary/15 bg-card py-10 text-sm font-medium text-foreground">
                   <Loader2 className="h-5 w-5 animate-spin text-primary" aria-hidden />
                   جاري تحميل الفريق…
                 </div>
@@ -1053,7 +1053,7 @@ export default function BookingFlow() {
                     <span className="font-semibold">بدون تفضيل — يحدد الصالون</span>
                   </button>
                   {staffList.length === 0 && !staffFetchFailed ? (
-                    <p className="rounded-2xl border border-dashed border-border/70 bg-muted/30 px-4 py-6 text-center text-sm text-muted-foreground">
+                    <p className="rounded-2xl border border-dashed border-border/70 bg-muted/30 px-4 py-6 text-center text-sm text-foreground">
                       لا يوجد فريق مضاف بعد — سيتم تعيين الموظف من الصالون.
                     </p>
                   ) : null}
@@ -1086,7 +1086,7 @@ export default function BookingFlow() {
                           <div className="min-w-0 text-start">
                             <p className="font-bold">{m.name_ar || m.name}</p>
                             {m.specialty_ar || m.specialty ? (
-                              <p className="text-sm text-muted-foreground">{m.specialty_ar || m.specialty}</p>
+                              <p className="text-sm text-foreground">{m.specialty_ar || m.specialty}</p>
                             ) : null}
                             {m.rating != null ? (
                               <p className="text-xs font-semibold text-primary">★ {Number(m.rating).toFixed(1)}</p>
@@ -1133,7 +1133,7 @@ export default function BookingFlow() {
                 </div>
                 <div>
                   <h2 className="text-lg font-bold">التاريخ والوقت</h2>
-                  <p className="mt-1 text-sm text-muted-foreground">اختر اليوم والوقت المناسبين لموعدك.</p>
+                  <p className="mt-1 text-sm text-foreground">اختر اليوم والوقت المناسبين لموعدك.</p>
                 </div>
               </div>
               <div className="luxury-card overflow-hidden p-4 sm:p-6">
@@ -1217,7 +1217,7 @@ export default function BookingFlow() {
                   <h2 className="text-lg font-bold">
                     {salonGateway === 'moyasar' && !PAYMENT_MODE_FREE ? 'التأكيد والدفع' : 'ملخص الحجز'}
                   </h2>
-                  <p className="mt-1 text-sm text-muted-foreground">
+                  <p className="mt-1 text-sm text-foreground">
                     {salonGateway === 'moyasar' && !PAYMENT_MODE_FREE
                       ? 'راجعي الملخص ثم ادفعي عبر Moyasar — بعد التحقق يُؤكَّد الحجز كمدفوع.'
                       : 'راجعي التفاصيل ثم أكملي الدفع أو التأكيد.'}
@@ -1226,14 +1226,14 @@ export default function BookingFlow() {
               </div>
               <div className="luxury-card space-y-3 p-6">
                 <p className="font-bold text-foreground">{b.name_ar}</p>
-                <p className="text-sm text-muted-foreground">{selectedServices.map((s) => s.name_ar).join('، ')}</p>
+                <p className="text-sm text-foreground">{selectedServices.map((s) => s.name_ar).join('، ')}</p>
                 {selectedStaff ? (
                   <p className="text-sm">
-                    <span className="text-muted-foreground">الموظف: </span>
+                    <span className="text-foreground">الموظف: </span>
                     <span className="font-semibold text-foreground">{selectedStaff.name_ar || selectedStaff.name}</span>
                   </p>
                 ) : (
-                  <p className="text-sm text-muted-foreground">الموظف: يحدد الصالون</p>
+                  <p className="text-sm text-foreground">الموظف: يحدد الصالون</p>
                 )}
                 <p className="font-medium text-foreground">
                   {date} — {time}
@@ -1242,10 +1242,10 @@ export default function BookingFlow() {
                   {subtotal > finalTotal + 0.005 ? (
                     <>
                       <p className="text-sm text-rosera-gray line-through">{formatPrice(subtotal)}</p>
-                      <p className="text-xl font-bold text-accent">{formatPrice(finalTotal)}</p>
+                      <p className="text-xl font-bold text-primary">{formatPrice(finalTotal)}</p>
                     </>
                   ) : (
-                    <p className="text-xl font-bold text-accent">{formatPrice(finalTotal)}</p>
+                    <p className="text-xl font-bold text-primary">{formatPrice(finalTotal)}</p>
                   )}
                   {rosyAppliedNegotiationPct > 0 ? (
                     <p className="mt-2 text-xs font-semibold text-primary">خصم روزي ✨ {rosyAppliedNegotiationPct}%</p>
@@ -1254,9 +1254,9 @@ export default function BookingFlow() {
               </div>
               {salonGateway === 'moyasar' && !PAYMENT_MODE_FREE ? (
                 <div className="luxury-card border-primary/30 bg-gradient-to-b from-primary-subtle/50 to-card p-6 text-center">
-                  <p className="text-sm font-medium text-muted-foreground">المبلغ المستحق</p>
-                  <p className="mt-2 text-3xl font-extrabold tabular-nums text-accent">{formatPrice(finalTotal)}</p>
-                  <p className="mt-2 text-xs text-muted-foreground">الدفع عبر بوابة آمنة — لا نخزّن بيانات البطاقة</p>
+                  <p className="text-sm font-medium text-foreground">المبلغ المستحق</p>
+                  <p className="mt-2 text-3xl font-extrabold tabular-nums text-primary">{formatPrice(finalTotal)}</p>
+                  <p className="mt-2 text-xs text-foreground">الدفع عبر بوابة آمنة — لا نخزّن بيانات البطاقة</p>
                 </div>
               ) : null}
               {salonGateway === 'disabled' && (

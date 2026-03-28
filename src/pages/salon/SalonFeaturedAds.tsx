@@ -149,7 +149,7 @@ export default function SalonFeaturedAds() {
 
   if (loading) {
     return (
-      <div className="flex min-h-[40vh] items-center justify-center gap-2 text-muted-foreground">
+      <div className="flex min-h-[40vh] items-center justify-center gap-2 text-foreground">
         <Loader2 className="h-6 w-6 animate-spin" />
         جاري التحميل…
       </div>
@@ -160,7 +160,7 @@ export default function SalonFeaturedAds() {
     return (
       <Card className="border-primary/15 p-6 text-center">
         <p className="font-semibold text-foreground">لا يوجد صالون مرتبط بهذا الحساب</p>
-        <p className="mt-2 text-sm text-muted-foreground">أكملي ربط الصالون من الإدارة أو التسجيل.</p>
+        <p className="mt-2 text-sm text-foreground">أكملي ربط الصالون من الإدارة أو التسجيل.</p>
       </Card>
     )
   }
@@ -175,7 +175,7 @@ export default function SalonFeaturedAds() {
           <Megaphone className="h-7 w-7 text-primary" />
           إعلانات مميزة
         </h1>
-        <p className="mt-1 text-sm text-muted-foreground">
+        <p className="mt-1 text-sm text-foreground">
           ظهور أوضح في القوائم والبحث مع شارة «إعلان ⭐» — {SALON_FEATURED_AD_SAR_PER_DAY} ر.س لكل يوم عبر Moyasar
         </p>
       </div>
@@ -186,7 +186,7 @@ export default function SalonFeaturedAds() {
           <div className="mt-3 space-y-2 text-sm">
             <div className="flex flex-wrap items-center gap-2">
               <Badge className="gradient-primary">إعلان ⭐</Badge>
-              <span className="text-muted-foreground">
+              <span className="text-foreground">
                 {Number(active.budget).toFixed(0)} ر.س · {active.day_count} يوم
               </span>
             </div>
@@ -202,16 +202,16 @@ export default function SalonFeaturedAds() {
                   : '—'}
               </span>
             </p>
-            <p className="text-muted-foreground">نقرات الملف: {active.clicks ?? 0}</p>
+            <p className="text-foreground">نقرات الملف: {active.clicks ?? 0}</p>
           </div>
         ) : (
-          <p className="mt-3 text-sm text-muted-foreground">لا يوجد إعلان مفعّل حالياً — ابدئي بحملة جديدة أدناه</p>
+          <p className="mt-3 text-sm text-foreground">لا يوجد إعلان مفعّل حالياً — ابدئي بحملة جديدة أدناه</p>
         )}
       </Card>
 
       <Card className="border-primary/15 p-5">
         <h2 className="text-lg font-bold text-foreground">حملة جديدة</h2>
-        <p className="mt-1 text-sm text-muted-foreground">من 1 إلى 60 يوماً — يبدأ العدّ من يوم تأكيد الدفع</p>
+        <p className="mt-1 text-sm text-foreground">من 1 إلى 60 يوماً — يبدأ العدّ من يوم تأكيد الدفع</p>
         <div className="mt-4 space-y-2">
           <Label htmlFor="ad-days">عدد الأيام</Label>
           <Input
@@ -239,7 +239,7 @@ export default function SalonFeaturedAds() {
       {checkoutOpen && pendingAdId ? (
         <Card className="border-primary/20 p-5 dark:border-border">
           <h2 className="text-lg font-bold text-foreground">إتمام الدفع</h2>
-          <p className="mt-1 text-sm text-muted-foreground">
+          <p className="mt-1 text-sm text-foreground">
             إعلان مميز — {days} يوم — {totalSar.toFixed(0)} ر.س
           </p>
           <div className="mt-4">

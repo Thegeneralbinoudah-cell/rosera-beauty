@@ -58,7 +58,7 @@ function RosieFABShell({
 
   return (
     <div
-      className="pointer-events-none fixed z-[10040]"
+      className="pointer-events-none fixed z-[10100]"
       style={{
         bottom: 'calc(5.75rem + env(safe-area-inset-bottom, 0px))',
         insetInlineEnd: 'max(16px, env(safe-area-inset-inline-end, 0px))',
@@ -136,7 +136,7 @@ function RosieFABInRouter(props: RosieFABProps) {
   return (
     <RosieFABShell
       {...props}
-      onChatRoute={pathname === '/chat'}
+      onChatRoute={pathname === '/chat' || pathname.startsWith('/chat/')}
       onDefaultNavigate={onDefaultNavigate}
     />
   )
@@ -151,7 +151,7 @@ function RosieFABOutsideRouter(props: RosieFABProps) {
   return (
     <RosieFABShell
       {...props}
-      onChatRoute={pathname === '/chat'}
+      onChatRoute={pathname === '/chat' || pathname.startsWith('/chat/')}
       onDefaultNavigate={onDefaultNavigate}
     />
   )

@@ -116,7 +116,7 @@ export default function OwnerServices() {
   return (
     <div className="space-y-2">
       <h1 className="text-2xl font-extrabold text-foreground">الخدمات</h1>
-      <p className="text-sm text-muted-foreground">السعر والمدة كما تظهر لعملائك</p>
+      <p className="text-sm text-foreground">السعر والمدة كما تظهر لعملائك</p>
       <div className="mt-4 space-y-3 rounded-2xl border border-pink-100/80 bg-white/90 p-4 shadow-sm dark:border-border dark:bg-card">
         <p className="font-bold text-sm">إضافة خدمة</p>
         <div className="flex flex-wrap gap-2">
@@ -151,7 +151,7 @@ export default function OwnerServices() {
               </span>
             </div>
             <div className="flex items-center gap-2">
-              <span className="font-bold text-accent">{s.price} ر.س</span>
+              <span className="font-bold text-primary">{s.price} ر.س</span>
               <Button size="sm" variant="outline" onClick={() => setEdit({ ...s })}>
                 تعديل
               </Button>

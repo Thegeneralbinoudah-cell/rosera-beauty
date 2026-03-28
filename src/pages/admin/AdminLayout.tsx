@@ -104,7 +104,7 @@ export default function AdminLayout() {
         {profile && (
           <div className="mb-4 rounded-lg border border-primary/10 bg-primary/5 px-3 py-2 text-xs">
             <p className="font-semibold text-foreground">{profile.full_name || profile.email || '—'}</p>
-            <p className="text-muted-foreground">{displayRole}</p>
+            <p className="text-foreground">{displayRole}</p>
           </div>
         )}
         <nav className="space-y-1">

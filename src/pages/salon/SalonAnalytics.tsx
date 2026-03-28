@@ -90,7 +90,7 @@ export default function SalonAnalytics() {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-extrabold text-foreground">التحليلات</h1>
-        <p className="mt-1 text-sm text-muted-foreground">آخر 14 يوماً — تفاعل العملاء مع صفحة صالونك</p>
+        <p className="mt-1 text-sm text-foreground">آخر 14 يوماً — تفاعل العملاء مع صفحة صالونك</p>
       </div>
 
       <div className="grid gap-3 sm:grid-cols-2">
@@ -100,7 +100,7 @@ export default function SalonAnalytics() {
               <Eye className="h-5 w-5" />
             </div>
             <div>
-              <p className="text-xs font-semibold text-muted-foreground">المشاهدات</p>
+              <p className="text-xs font-semibold text-foreground">المشاهدات</p>
               <p className="text-2xl font-extrabold tabular-nums text-foreground">
                 {loading ? '…' : views.toLocaleString('ar-SA')}
               </p>
@@ -109,11 +109,11 @@ export default function SalonAnalytics() {
         </Card>
         <Card className="border-primary/15 bg-gradient-to-br from-gold-subtle/90 to-white p-4 dark:border-border dark:from-accent/15 dark:to-card">
           <div className="flex items-center gap-3">
-            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-gold-subtle text-accent dark:bg-accent/20 dark:text-accent">
+            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-gold-subtle text-primary dark:bg-accent/20 dark:text-primary">
               <MousePointerClick className="h-5 w-5" />
             </div>
             <div>
-              <p className="text-xs font-semibold text-muted-foreground">النقرات</p>
+              <p className="text-xs font-semibold text-foreground">النقرات</p>
               <p className="text-2xl font-extrabold tabular-nums text-foreground">
                 {loading ? '…' : clicks.toLocaleString('ar-SA')}
               </p>
@@ -128,7 +128,7 @@ export default function SalonAnalytics() {
           <h2 className="font-extrabold text-foreground">الحجوزات حسب اليوم</h2>
         </div>
         {loading ? (
-          <p className="py-8 text-center text-sm text-muted-foreground">جاري التحميل…</p>
+          <p className="py-8 text-center text-sm text-foreground">جاري التحميل…</p>
         ) : (
           <div className="flex h-44 items-end gap-0.5 border-b border-primary/15 pb-1 sm:gap-1 dark:border-border">
             {bookingsByDay.map(({ date, count }) => {
@@ -140,7 +140,7 @@ export default function SalonAnalytics() {
                     style={{ height: `${Math.max(6, barPx)}px` }}
                     title={`${date}: ${count}`}
                   />
-                  <span className="text-[8px] font-medium tabular-nums text-muted-foreground">
+                  <span className="text-[8px] font-medium tabular-nums text-foreground">
                     {format(new Date(date + 'T12:00:00'), 'd', { locale: ar })}
                   </span>
                 </div>
@@ -148,7 +148,7 @@ export default function SalonAnalytics() {
             })}
           </div>
         )}
-        <p className="mt-2 text-center text-[10px] text-muted-foreground">كل عمود = يوم (من الأقدم للأحدث)</p>
+        <p className="mt-2 text-center text-[10px] text-foreground">كل عمود = يوم (من الأقدم للأحدث)</p>
       </Card>
     </div>
   )

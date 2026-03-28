@@ -113,7 +113,7 @@ export default function Store() {
               <h1 className="font-cairo mt-1 text-2xl font-extrabold tracking-tight text-foreground">
                 {t('store.title')}
               </h1>
-              <p className="font-cairo mt-1.5 max-w-[260px] text-sm leading-relaxed text-muted-foreground">
+              <p className="font-cairo mt-1.5 max-w-[260px] text-sm leading-relaxed text-foreground">
                 {t('store.subtitle')}
               </p>
             </div>
@@ -126,7 +126,7 @@ export default function Store() {
               aria-hidden
             />
             <Input
-              className="h-12 rounded-2xl border-primary/25 bg-white/90 pe-4 ps-11 text-[15px] shadow-sm backdrop-blur-sm placeholder:text-muted-foreground focus-visible:border-primary/50 focus-visible:ring-primary/30 dark:bg-card"
+              className="h-12 rounded-2xl border-primary/25 bg-white/90 pe-4 ps-11 text-[15px] shadow-sm backdrop-blur-sm placeholder:text-foreground focus-visible:border-primary/50 focus-visible:ring-primary/30 dark:bg-card"
               placeholder={t('store.searchPlaceholder')}
               value={q}
               onChange={(e) => setQ(e.target.value)}
@@ -152,7 +152,7 @@ export default function Store() {
                   'flex shrink-0 items-center gap-2 rounded-2xl border px-3.5 py-2.5 font-cairo text-sm font-bold transition-all duration-200 active:scale-[0.98]',
                   active
                     ? 'border-transparent gradient-primary text-primary-foreground shadow-soft'
-                    : 'border-border bg-white/90 text-muted-foreground hover:border-primary/40 hover:bg-primary-subtle/60 dark:border-border dark:bg-card dark:hover:bg-muted/50'
+                    : 'border-border bg-white/90 text-foreground hover:border-primary/40 hover:bg-primary-subtle/60 dark:border-border dark:bg-card dark:hover:bg-muted/50'
                 )}
               >
                 <Icon className={cn('h-4 w-4 shrink-0', active ? 'text-primary-foreground' : 'opacity-70')} strokeWidth={2.25} />

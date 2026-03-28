@@ -140,8 +140,8 @@ export function SalonMapPicker({ latitude, longitude, onLocationChange, classNam
         style={{ direction: 'ltr' }}
       />
       {err ? <p className="text-sm font-medium text-destructive">{err}</p> : null}
-      {!ready && !err ? <p className="text-xs text-muted-foreground">جاري تحميل الخريطة…</p> : null}
-      <p className="text-xs text-muted-foreground">انقري على الخريطة أو اسحبي الدبوس لتحديد موقع الصالون</p>
+      {!ready && !err ? <p className="text-xs text-foreground">جاري تحميل الخريطة…</p> : null}
+      <p className="text-xs text-foreground">انقري على الخريطة أو اسحبي الدبوس لتحديد موقع الصالون</p>
     </div>
   )
 }

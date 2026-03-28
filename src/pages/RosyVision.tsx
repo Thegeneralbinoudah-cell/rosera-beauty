@@ -252,7 +252,7 @@ export default function RosyVision() {
           </div>
           <div>
             <h1 className="text-xl font-extrabold text-foreground">روزي فيجن</h1>
-            <p className="text-sm font-medium text-muted-foreground">تحليل ذكي — يد أو وجه</p>
+            <p className="text-sm font-medium text-foreground">تحليل ذكي — يد أو وجه</p>
           </div>
         </div>
 
@@ -266,7 +266,7 @@ export default function RosyVision() {
               setInvokeError(null)
             }}
             className={cn(
-              'flex min-h-[44px] touch-manipulation flex-col items-center gap-2 rounded-2xl border-2 p-4 transition disabled:opacity-50',
+              'flex min-h-[44px] touch-manipulation flex-col items-center gap-2 rounded-2xl border-2 p-4 transition disabled:',
               mode === 'hand'
                 ? 'border-primary bg-primary/10 shadow-md'
                 : 'border-border bg-card hover:border-primary/40'
@@ -274,7 +274,7 @@ export default function RosyVision() {
           >
             <Hand className="h-7 w-7 text-primary" aria-hidden />
             <span className="text-sm font-bold">اليد</span>
-            <span className="text-center text-[11px] text-muted-foreground">إنديرتون + أظافر</span>
+            <span className="text-center text-[11px] text-foreground">إنديرتون + أظافر</span>
           </button>
           <button
             type="button"
@@ -285,7 +285,7 @@ export default function RosyVision() {
               setInvokeError(null)
             }}
             className={cn(
-              'flex min-h-[44px] touch-manipulation flex-col items-center gap-2 rounded-2xl border-2 p-4 transition disabled:opacity-50',
+              'flex min-h-[44px] touch-manipulation flex-col items-center gap-2 rounded-2xl border-2 p-4 transition disabled:',
               mode === 'face'
                 ? 'border-primary bg-primary/10 shadow-md'
                 : 'border-border bg-card hover:border-primary/40'
@@ -293,7 +293,7 @@ export default function RosyVision() {
           >
             <UserRound className="h-7 w-7 text-primary" aria-hidden />
             <span className="text-sm font-bold">الوجه</span>
-            <span className="text-center text-[11px] text-muted-foreground">صبغة + قصّات</span>
+            <span className="text-center text-[11px] text-foreground">صبغة + قصّات</span>
           </button>
         </div>
 
@@ -303,7 +303,7 @@ export default function RosyVision() {
           {previewUrl ? (
             <img src={previewUrl} alt="" className="mt-2 max-h-56 rounded-xl object-contain shadow-md" />
           ) : (
-            <span className="text-center text-sm font-medium text-muted-foreground">
+            <span className="text-center text-sm font-medium text-foreground">
               اضغطي لاختيار صورة واضحة
             </span>
           )}
@@ -390,13 +390,13 @@ export default function RosyVision() {
               <ResultCard variant="soft" title="ملخص سريع">
                 <dl className="grid gap-3 text-body sm:grid-cols-2">
                   <div className="rounded-xl border border-primary/10 bg-gradient-to-br from-primary/5 to-gold/5 px-3 py-2">
-                    <dt className="text-caption font-semibold text-muted-foreground">الإنديرتون</dt>
+                    <dt className="text-caption font-semibold text-foreground">الإنديرتون</dt>
                     <dd className="mt-1 text-title-sm font-bold text-foreground">
                       {undertoneAr[result.undertone] ?? undertoneAr.uncertain}
                     </dd>
                   </div>
                   <div className="rounded-xl border border-primary/10 bg-gradient-to-br from-gold/10 to-primary/5 px-3 py-2">
-                    <dt className="text-caption font-semibold text-muted-foreground">شكل الوجه</dt>
+                    <dt className="text-caption font-semibold text-foreground">شكل الوجه</dt>
                     <dd className="mt-1 text-title-sm font-bold text-foreground">
                       {faceShapeAr[result.faceShape] ?? faceShapeAr.uncertain}
                     </dd>
@@ -444,7 +444,7 @@ export default function RosyVision() {
 
             {result.cautionNotes.length > 0 ? (
               <ResultCard variant="soft" title="ملاحظات">
-                <ul className="space-y-2 text-body-sm leading-relaxed text-muted-foreground">
+                <ul className="space-y-2 text-body-sm leading-relaxed text-foreground">
                   {result.cautionNotes.map((c, i) => (
                     <li
                       key={`caution-${i}-${c.slice(0, 40)}`}
@@ -481,7 +481,7 @@ export default function RosyVision() {
             <VisionResultCtas visionMode={mode} rozyBookTarget={rozyBookTarget} />
 
             <details className="rounded-xl border border-border/50 bg-muted/25 p-3 text-caption shadow-sm">
-              <summary className="cursor-pointer font-semibold text-muted-foreground">JSON خام (للمطورين)</summary>
+              <summary className="cursor-pointer font-semibold text-foreground">JSON خام (للمطورين)</summary>
               <pre className="mt-2 max-h-48 overflow-auto whitespace-pre-wrap break-words font-mono text-[10px] leading-relaxed">
                 {JSON.stringify(result, null, 2)}
               </pre>
@@ -489,7 +489,7 @@ export default function RosyVision() {
           </section>
         ) : null}
 
-        <p className="mt-8 text-center text-[11px] font-medium leading-relaxed text-muted-foreground">
+        <p className="mt-8 text-center text-[11px] font-medium leading-relaxed text-foreground">
           للمساعدة التجميلية فقط — ليس تشخيصاً طبياً. عند الشك، راجعي مختصة.
         </p>
       </div>

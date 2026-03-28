@@ -1,4 +1,4 @@
-import { type ReactNode, useRef } from 'react'
+import { type ReactNode, useEffect, useRef, useState } from 'react'
 import { motion, useInView, useReducedMotion } from 'framer-motion'
 import { cn } from '@/lib/utils'
 
@@ -6,7 +6,7 @@ import { cn } from '@/lib/utils'
 export function Reveal({
   children,
   className,
-  amount = 0.15,
+  amount = 0.05,
 }: {
   children: ReactNode
   className?: string
@@ -14,10 +14,21 @@ export function Reveal({
   amount?: number
 }) {
   const ref = useRef<HTMLDivElement>(null)
-  const isInView = useInView(ref, { once: true, amount: amount as number })
+  const isInView = useInView(ref, {
+    once: true,
+    amount: amount as number,
+    margin: '120px 0px 240px 0px',
+  })
   const reduce = useReducedMotion()
+  const [timedReveal, setTimedReveal] = useState(false)
 
-  const visible = reduce || isInView
+  useEffect(() => {
+    if (reduce || isInView) return
+    const t = window.setTimeout(() => setTimedReveal(true), 1800)
+    return () => window.clearTimeout(t)
+  }, [reduce, isInView])
+
+  const visible = reduce || isInView || timedReveal
 
   return (
     <motion.div

@@ -36,7 +36,7 @@ export function BottomNav() {
               }}
               className={cn(
                 'relative flex flex-1 flex-col items-center gap-0.5 py-2 text-[10px] font-normal tracking-luxury-tight transition-opacity duration-slow active:opacity-90',
-                active ? 'text-primary font-semibold' : 'text-muted-foreground'
+                active ? 'text-primary font-semibold' : 'text-foreground'
               )}
             >
               {active && (
@@ -57,7 +57,7 @@ export function BottomNav() {
                 <Icon
                   className={cn(
                     'h-5 w-5 transition-colors duration-300 ease-out',
-                    active ? 'text-primary' : 'text-muted-foreground'
+                    active ? 'text-primary' : 'text-foreground'
                   )}
                   strokeWidth={1.25}
                 />

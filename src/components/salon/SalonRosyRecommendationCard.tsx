@@ -46,7 +46,7 @@ export function SalonRosyRecommendationCard({
               {title}
             </p>
             <p className="text-lg font-extrabold leading-snug text-foreground sm:text-xl">{serviceName}</p>
-            <p className="text-sm leading-relaxed text-muted-foreground">{explanation}</p>
+            <p className="text-sm leading-relaxed text-foreground">{explanation}</p>
           </div>
         </div>
         <Button

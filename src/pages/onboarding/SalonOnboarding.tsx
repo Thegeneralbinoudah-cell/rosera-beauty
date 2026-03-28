@@ -387,7 +387,7 @@ function StepHours() {
             <div className="flex flex-wrap items-center justify-between gap-3">
               <span className="font-bold">{DAY_LABELS[i]}</span>
               <div className="flex items-center gap-2">
-                <Label className="text-xs text-muted-foreground">مغلق</Label>
+                <Label className="text-xs text-foreground">مغلق</Label>
                 <Switch checked={hours[i]?.closed ?? false} onCheckedChange={(v) => setValue(`hours.${i}.closed`, v)} />
               </div>
             </div>
@@ -403,7 +403,7 @@ function StepHours() {
                 </div>
               </div>
             ) : (
-              <p className="mt-2 text-sm text-muted-foreground">مغلق</p>
+              <p className="mt-2 text-sm text-foreground">مغلق</p>
             )}
           </div>
         ))}
@@ -496,7 +496,7 @@ function StepServices() {
           </div>
         </div>
       ))}
-      {fields.length === 0 ? <p className="text-center text-sm text-muted-foreground">أضيفي خدمة</p> : null}
+      {fields.length === 0 ? <p className="text-center text-sm text-foreground">أضيفي خدمة</p> : null}
     </Card>
   )
 }
@@ -525,7 +525,7 @@ function StepTeam() {
     <Card className="space-y-4 border-primary/10 p-5 shadow-sm">
       <div>
         <h2 className="text-lg font-extrabold">الفريق</h2>
-        <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+        <p className="mt-1 text-xs leading-relaxed text-foreground">
           جدول <code className="rounded bg-muted px-1">providers</code> في Rosera مخصص لمزوّدي المنتجات وليس موظفي الصالون؛
           يتم حفظ أعضاء الفريق ضمن <code className="rounded bg-muted px-1">opening_hours._rosera_team</code> مع المنشأة.
         </p>
@@ -721,14 +721,14 @@ function StepSettings() {
               )}
             >
               <p className="font-extrabold">{t}</p>
-              <p className="mt-1 text-xs text-muted-foreground">{d}</p>
+              <p className="mt-1 text-xs text-foreground">{d}</p>
             </button>
           ))}
         </div>
       </Card>
       <Card className="space-y-4 border-primary/10 p-5 shadow-sm">
         <h2 className="text-lg font-extrabold">الدفع (salon_settings)</h2>
-        <p className="text-xs text-muted-foreground">يُحفظ كـ payment_method: moyasar أو cash (وضع «كلاهما» يفعّل Moyasar للتطبيق).</p>
+        <p className="text-xs text-foreground">يُحفظ كـ payment_method: moyasar أو cash (وضع «كلاهما» يفعّل Moyasar للتطبيق).</p>
         <div className="grid gap-3 sm:grid-cols-3">
           {(
             [
@@ -747,7 +747,7 @@ function StepSettings() {
               )}
             >
               <p className="font-extrabold">{t}</p>
-              <p className="mt-1 text-xs text-muted-foreground">{sub}</p>
+              <p className="mt-1 text-xs text-foreground">{sub}</p>
             </button>
           ))}
         </div>
@@ -764,22 +764,22 @@ function StepReview() {
       <Card className="border-primary/10 p-5 shadow-sm">
         <h2 className="text-lg font-extrabold">ملخص</h2>
         <p className="mt-2">
-          <span className="text-muted-foreground">الاسم:</span> {v.basic.name_ar}
+          <span className="text-foreground">الاسم:</span> {v.basic.name_ar}
         </p>
         <p>
-          <span className="text-muted-foreground">النوع:</span> {v.basic.category === 'clinic' ? 'عيادة' : 'صالون'}
+          <span className="text-foreground">النوع:</span> {v.basic.category === 'clinic' ? 'عيادة' : 'صالون'}
         </p>
         <p>
-          <span className="text-muted-foreground">المدينة:</span> {v.basic.city}
+          <span className="text-foreground">المدينة:</span> {v.basic.city}
         </p>
         <p>
-          <span className="text-muted-foreground">خدمات:</span> {v.services.length}
+          <span className="text-foreground">خدمات:</span> {v.services.length}
         </p>
         <p>
-          <span className="text-muted-foreground">الفريق:</span> {v.team.filter((m) => m.name.trim()).length} (في JSON)
+          <span className="text-foreground">الفريق:</span> {v.team.filter((m) => m.name.trim()).length} (في JSON)
         </p>
         <p>
-          <span className="text-muted-foreground">الدفع:</span> {v.settings.payment_mode}
+          <span className="text-foreground">الدفع:</span> {v.settings.payment_mode}
         </p>
       </Card>
     </div>
@@ -887,7 +887,7 @@ export default function SalonOnboarding() {
   if (loading || !user) {
     return (
       <div className="flex min-h-dvh items-center justify-center">
-        <p className="text-sm text-muted-foreground">جاري التحميل…</p>
+        <p className="text-sm text-foreground">جاري التحميل…</p>
       </div>
     )
   }
@@ -913,7 +913,7 @@ export default function SalonOnboarding() {
                 <p className="text-xs font-bold text-primary">خطوة {step} من 7</p>
                 <h1 className="text-lg font-extrabold">{STEPS[step - 1]}</h1>
               </div>
-              <span className="text-sm font-bold text-muted-foreground">{progress}%</span>
+              <span className="text-sm font-bold text-foreground">{progress}%</span>
             </div>
             <Progress value={progress} className="mt-3 h-2" />
           </div>

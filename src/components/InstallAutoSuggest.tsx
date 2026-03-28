@@ -45,13 +45,13 @@ export function InstallAutoSuggest() {
             <p className="text-sm font-semibold text-rose-900 dark:text-rose-50">
               {tr(lang, 'pwa.installNudgeTitle')}
             </p>
-            <p className="mt-1 text-xs text-muted-foreground">{tr(lang, 'pwa.installNudgeBody')}</p>
+            <p className="mt-1 text-xs text-foreground">{tr(lang, 'pwa.installNudgeBody')}</p>
             <div className="mt-4 flex flex-wrap gap-2 justify-end">
               <Button
                 type="button"
                 variant="ghost"
                 size="sm"
-                className="text-muted-foreground"
+                className="text-foreground"
                 onClick={() => {
                   localStorage.setItem(STORAGE_KEYS.pwaNudgeDismissed, '1')
                   toast.dismiss(id)

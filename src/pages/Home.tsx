@@ -21,10 +21,11 @@ import { cn } from '@/lib/utils'
 import { Reveal } from '@/components/ui/Reveal'
 import { CountUp } from '@/components/ui/CountUp'
 
-/** Region circle labels — cream on photo + strong shadow for contrast */
+/** Region circle labels — high contrast on photo (light + dark mode) */
 const REGION_CIRCLE_TEXT_STYLE: CSSProperties = {
-  color: '#F5EEE8',
-  textShadow: '0 1px 4px rgba(0,0,0,0.9)',
+  color: '#ffffff',
+  textShadow:
+    '0 1px 2px rgba(0,0,0,1), 0 2px 12px rgba(0,0,0,0.85), 0 0 4px rgba(0,0,0,0.9)',
 }
 
 function Home() {
@@ -162,8 +163,8 @@ function Home() {
           <div className="flex min-w-0 flex-1 items-center justify-center gap-2 sm:gap-3">
             <RoseraLogoMark className="h-11 w-11 shrink-0 sm:h-14 sm:w-14" aria-hidden />
             <div className="min-w-0">
-              <p className="text-body-sm font-medium text-foreground/80">{ui.hello}</p>
-              <h1 className="truncate font-serif text-title font-normal tracking-wide text-foreground">{ui.title}</h1>
+              <p className="text-body-sm font-medium text-foreground">{ui.hello}</p>
+              <h1 className="truncate font-serif text-title font-semibold tracking-wide text-foreground">{ui.title}</h1>
             </div>
           </div>
 
@@ -199,8 +200,8 @@ function Home() {
         <div className="relative overflow-hidden rounded-[20px] border border-primary/30 bg-gradient-to-br from-card via-popover to-muted px-6 py-8 text-center text-foreground shadow-[0_8px_32px_rgba(139,26,74,0.2)]">
           <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_80%_60%_at_50%_0%,rgba(139,26,74,0.25),transparent_55%)]" />
           <div className="absolute inset-0 bg-[url('data:image/svg+xml,%3Csvg width=\'60\' height=\'60\' viewBox=\'0 0 60 60\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cg fill=\'none\' fill-rule=\'evenodd\'%3E%3Cg fill=\'%23C9963F\' fill-opacity=\'0.07\'%3E%3Cpath d=\'M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z\'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E')] opacity-100" />
-          <p className="relative text-sm font-medium text-foreground/80">{ui.heroSub}</p>
-          <h2 className="relative mt-2 font-serif text-2xl font-normal leading-tight text-foreground">{ui.heroTitle}</h2>
+          <p className="relative text-sm font-medium text-foreground">{ui.heroSub}</p>
+          <h2 className="relative mt-2 font-serif text-2xl font-semibold leading-tight text-foreground">{ui.heroTitle}</h2>
           <button
             ref={heroSearchTriggerRef}
             type="button"
@@ -220,7 +221,7 @@ function Home() {
             }}
           >
             <Search className="h-6 w-6 shrink-0 text-primary" aria-hidden />
-            <span className="text-foreground/60">{ui.searchPlaceholder}</span>
+            <span className="text-foreground">{ui.searchPlaceholder}</span>
           </button>
           {heroSearchOpen &&
             typeof document !== 'undefined' &&
@@ -252,7 +253,7 @@ function Home() {
                     }}
                   >
                     <Search className="h-6 w-6 shrink-0 text-primary" aria-hidden />
-                    <span className="text-foreground/60">{ui.searchPlaceholder}</span>
+                    <span className="text-foreground">{ui.searchPlaceholder}</span>
                   </button>
                 </div>
               </div>,
@@ -336,10 +337,10 @@ function Home() {
             }}
           >
             <div className="min-w-0">
-              <span className="block font-serif text-lg font-normal text-foreground">
+              <span className="block font-serif text-lg font-semibold text-foreground">
                 {ui.topSalons}
               </span>
-              <span className="mt-0.5 block text-xs font-medium text-foreground/70">{ui.topSalonsHint}</span>
+              <span className="mt-0.5 block text-xs font-medium text-foreground">{ui.topSalonsHint}</span>
             </div>
             <span className="shrink-0 text-2xl" aria-hidden>
               →
@@ -357,10 +358,10 @@ function Home() {
             }}
           >
             <div className="min-w-0">
-              <span className="block font-serif text-lg font-normal text-foreground">
+              <span className="block font-serif text-lg font-semibold text-foreground">
                 {ui.topClinics}
               </span>
-              <span className="mt-0.5 block text-xs font-medium text-foreground/70">{ui.topClinicsHint}</span>
+              <span className="mt-0.5 block text-xs font-medium text-foreground">{ui.topClinicsHint}</span>
             </div>
             <span className="shrink-0 text-2xl" aria-hidden>
               →
@@ -375,10 +376,10 @@ function Home() {
             className="ripple relative flex w-full items-center justify-between gap-3 overflow-hidden rounded-[20px] border border-accent/25 bg-gradient-to-l from-muted via-card to-popover p-5 text-start shadow-[0_8px_32px_rgba(139,26,74,0.18)] transition-all hover:shadow-[0_12px_40px_rgba(139,26,74,0.25)]"
           >
             <div className="min-w-0">
-              <span className="block font-serif text-lg font-normal text-foreground">
+              <span className="block font-serif text-lg font-semibold text-foreground">
                 {ui.recommended}
               </span>
-              <span className="mt-0.5 block text-xs font-medium text-foreground/70">{ui.recommendedHint}</span>
+              <span className="mt-0.5 block text-xs font-medium text-foreground">{ui.recommendedHint}</span>
             </div>
             <span className="shrink-0 text-2xl" aria-hidden>
               →
@@ -395,8 +396,8 @@ function Home() {
               backgroundImage: `linear-gradient(to left, ${colors.surface}, color-mix(in srgb, ${colors.primary} 45%, ${colors.surface}))`,
             }}
           >
-            <span className="font-serif text-lg font-normal text-foreground">{ui.store}</span>
-            <span className="font-normal text-accent">{ui.shopNow}</span>
+            <span className="font-serif text-lg font-semibold text-foreground">{ui.store}</span>
+            <span className="font-semibold text-primary">{ui.shopNow}</span>
           </Link>
         </section>
 
@@ -432,19 +433,19 @@ function Home() {
                       className="pointer-events-none absolute inset-0 z-[1]"
                       style={{
                         background:
-                          'linear-gradient(to top, rgba(139, 26, 74, 0.75) 0%, transparent 60%)',
+                          'linear-gradient(to top, rgba(0, 0, 0, 0.5) 0%, rgba(139, 26, 74, 0.55) 45%, transparent 72%)',
                       }}
                       aria-hidden
                     />
                     <div className="relative z-[2] px-3 text-center">
                       <h3
-                        className="line-clamp-4 font-serif text-base font-normal leading-snug"
+                        className="line-clamp-4 font-serif text-base font-semibold leading-snug"
                         style={REGION_CIRCLE_TEXT_STYLE}
                       >
                         {reg.name_ar}
                       </h3>
                       <p
-                        className="mt-2 font-light tabular-nums"
+                        className="mt-2 font-semibold tabular-nums"
                         style={{ ...REGION_CIRCLE_TEXT_STYLE, fontSize: 12 }}
                       >
                         <CountUp value={reg.totalCities} className="tabular-nums" decimals={0} /> {cityLabel}

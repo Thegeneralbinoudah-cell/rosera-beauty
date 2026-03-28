@@ -71,7 +71,7 @@ export default function AdminLogin() {
     >
       <div className="w-full max-w-md rounded-2xl border border-primary/30 bg-card p-8">
         <h1 className="text-center text-2xl font-extrabold text-primary">دخول المسؤولين</h1>
-        <p className="mt-3 text-center text-sm text-muted-foreground">
+        <p className="mt-3 text-center text-sm text-foreground">
           تسجيل الدخول بالإيميل للحسابات المصرّح لها فقط.
         </p>
         <div className="mt-6 space-y-3">

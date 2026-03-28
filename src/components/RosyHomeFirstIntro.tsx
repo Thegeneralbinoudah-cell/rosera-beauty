@@ -68,7 +68,7 @@ export function RosyHomeFirstIntro({ className }: { className?: string }) {
           type="button"
           variant="ghost"
           size="icon"
-          className="h-9 w-9 shrink-0 rounded-xl text-muted-foreground hover:bg-pink-100/60 dark:hover:bg-pink-950/40"
+          className="h-9 w-9 shrink-0 rounded-xl text-foreground hover:bg-pink-100/60 dark:hover:bg-pink-950/40"
           aria-label={lang === 'ar' ? 'إغلاق' : 'Close'}
           onClick={dismiss}
         >

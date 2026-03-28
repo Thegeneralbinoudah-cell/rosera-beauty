@@ -30,7 +30,7 @@ export function ConfidenceBadge({ confidence, qualityOk, className }: Props) {
           c === 'medium' &&
             'border-amber-400/40 bg-gradient-to-l from-amber-400/20 to-gold/15 text-amber-950 dark:text-amber-100',
           c === 'low' &&
-            'border-border bg-muted/80 text-muted-foreground',
+            'border-border bg-muted/80 text-foreground',
         )}
       >
         {confidenceAr[c]}

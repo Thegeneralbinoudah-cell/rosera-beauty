@@ -422,7 +422,7 @@ export default function SalonDetail() {
     return (
       <div className="flex min-h-dvh flex-col items-center justify-center gap-4 bg-background px-6 pt-[env(safe-area-inset-top,0px)]">
         <p className="text-center font-semibold text-foreground">رابط الصالون غير صالح</p>
-        <p className="text-center text-sm text-muted-foreground">ارجعي للبحث أو اختاري صالوناً من القائمة.</p>
+        <p className="text-center text-sm text-foreground">ارجعي للبحث أو اختاري صالوناً من القائمة.</p>
         <Button type="button" className="rounded-2xl" onClick={() => nav('/search')}>
           استكشفي الصالونات
         </Button>
@@ -524,7 +524,7 @@ export default function SalonDetail() {
           <div className="flex flex-wrap items-start justify-between gap-2">
             <div>
               <h1 className="text-heading-2 font-semibold text-foreground">{b.name_ar}</h1>
-              {b.name_en ? <p className="mt-1 text-sm text-muted-foreground" dir="ltr">{b.name_en}</p> : null}
+              {b.name_en ? <p className="mt-1 text-sm text-foreground" dir="ltr">{b.name_en}</p> : null}
             </div>
             <div className="flex flex-wrap items-center justify-end gap-2">
               {featuredAdActive ? (
@@ -590,7 +590,7 @@ export default function SalonDetail() {
               {hoursInfo.statusLabel}
             </Badge>
             {hoursInfo.nextLine ? (
-              <span className="text-xs text-muted-foreground">{hoursInfo.nextLine}</span>
+              <span className="text-xs text-foreground">{hoursInfo.nextLine}</span>
             ) : null}
             <Badge variant="outline" className="font-bold">
               {services.length} خدمة متاحة
@@ -756,7 +756,7 @@ export default function SalonDetail() {
               ))}
             </div>
             {filteredServices.length === 0 ? (
-              <p className="rounded-3xl border border-dashed border-amber-400/25 bg-gradient-to-br from-card/80 to-muted/30 p-6 text-center text-sm text-muted-foreground shadow-inner ring-1 ring-gold/10">
+              <p className="rounded-3xl border border-dashed border-amber-400/25 bg-gradient-to-br from-card/80 to-muted/30 p-6 text-center text-sm text-foreground shadow-inner ring-1 ring-gold/10">
                 لا توجد خدمات في هذا التصنيف حالياً.
               </p>
             ) : (
@@ -776,7 +776,7 @@ export default function SalonDetail() {
                     <div className="min-w-0 flex-1">
                       <p className="font-bold">{s.name_ar}</p>
                       {s.name_en ? (
-                        <p className="text-sm text-muted-foreground" dir="ltr">
+                        <p className="text-sm text-foreground" dir="ltr">
                           {s.name_en}
                         </p>
                       ) : null}
@@ -806,7 +806,7 @@ export default function SalonDetail() {
             الفريق
           </h2>
           {team.length === 0 ? (
-            <p className="rounded-3xl border border-dashed border-amber-400/25 bg-gradient-to-br from-card/80 to-muted/30 p-6 text-center text-sm text-muted-foreground ring-1 ring-gold/10">
+            <p className="rounded-3xl border border-dashed border-amber-400/25 bg-gradient-to-br from-card/80 to-muted/30 p-6 text-center text-sm text-foreground ring-1 ring-gold/10">
               لم يتم إضافة أعضاء الفريق بعد.
             </p>
           ) : (
@@ -820,13 +820,13 @@ export default function SalonDetail() {
                     {m.image_url ? (
                       <img src={m.image_url} alt="" className="h-full w-full object-cover" />
                     ) : (
-                      <div className="flex h-full w-full items-center justify-center text-lg font-bold text-accent">
+                      <div className="flex h-full w-full items-center justify-center text-lg font-bold text-primary">
                         {m.name_ar?.[0] ?? '؟'}
                       </div>
                     )}
                   </div>
                   <p className="mt-2 line-clamp-2 text-sm font-bold">{m.name_ar ?? ''}</p>
-                  {m.role_ar ? <p className="mt-0.5 line-clamp-2 text-xs text-muted-foreground">{m.role_ar}</p> : null}
+                  {m.role_ar ? <p className="mt-0.5 line-clamp-2 text-xs text-foreground">{m.role_ar}</p> : null}
                 </div>
               ))}
             </div>
@@ -852,7 +852,7 @@ export default function SalonDetail() {
                 <h2 id="salon-section-rating-heading" className="text-xs font-bold uppercase tracking-[0.2em] text-amber-800/80 dark:text-amber-300/90">
                   التقييم
                 </h2>
-                <p className="mt-1 text-[11px] text-muted-foreground">ملخص من بيانات الصالون — بلا قائمة مراجعات نصية</p>
+                <p className="mt-1 text-[11px] text-foreground">ملخص من بيانات الصالون — بلا قائمة مراجعات نصية</p>
               </div>
               <div className="flex items-center justify-center gap-1.5 sm:gap-2" aria-hidden>
                 {[1, 2, 3, 4, 5].map((i) => (
@@ -862,7 +862,7 @@ export default function SalonDetail() {
                       'h-10 w-10 sm:h-12 sm:w-12',
                       i <= roundedStars
                         ? 'fill-amber-400 text-amber-500 drop-shadow-[0_2px_8px_rgba(234,179,8,0.45)]'
-                        : 'fill-muted/20 text-muted-foreground/30'
+                        : 'fill-muted/20 text-foreground/30'
                     )}
                   />
                 ))}
@@ -874,7 +874,7 @@ export default function SalonDetail() {
                 {summaryReviewCount.toLocaleString('ar-SA')}{' '}
                 <span className="font-bold text-amber-800 dark:text-amber-300">تقييم</span>
               </p>
-              <p className="mx-auto max-w-sm text-sm leading-relaxed text-muted-foreground">
+              <p className="mx-auto max-w-sm text-sm leading-relaxed text-foreground">
                 {summaryReviewCount === 0
                   ? 'لا يوجد بعد عدد كافٍ من التقييمات المسجّلة لعرض متوسط موثوق.'
                   : 'يُعرض متوسط التقييم وعدد التقييمات الإجمالي فقط — لا تتوفر مراجعات نصية فردية في التطبيق.'}
@@ -896,7 +896,7 @@ export default function SalonDetail() {
               <p className="leading-relaxed text-rosera-gray">{b.description_ar}</p>
             </div>
           ) : (
-            <p className="rounded-3xl border border-dashed border-amber-400/25 bg-gradient-to-br from-card/80 to-muted/30 p-6 text-center text-sm text-muted-foreground ring-1 ring-gold/10">
+            <p className="rounded-3xl border border-dashed border-amber-400/25 bg-gradient-to-br from-card/80 to-muted/30 p-6 text-center text-sm text-foreground ring-1 ring-gold/10">
               لا توجد نبذة بعد.
             </p>
           )}
@@ -928,7 +928,7 @@ export default function SalonDetail() {
                 }
                 return (
                   <div className="flex h-full min-h-[208px] flex-col items-center justify-center gap-3 bg-muted/40 px-4">
-                    <p className="text-center text-sm text-muted-foreground">معاينة الخريطة عبر Google</p>
+                    <p className="text-center text-sm text-foreground">معاينة الخريطة عبر Google</p>
                     <Button asChild className="rounded-3xl shadow-floating ring-1 ring-gold/20">
                       <a
                         href={`https://www.google.com/maps/search/?api=1&query=${q}`}
@@ -973,18 +973,18 @@ export default function SalonDetail() {
       >
         <div className="mx-auto flex max-w-lg items-center gap-3">
           <Button
-            className="min-h-12 flex-1 gap-2 rounded-3xl border border-primary/25 bg-gradient-to-l from-primary via-primary to-amber-600 text-base font-bold text-white shadow-floating ring-1 ring-gold/30 disabled:opacity-50"
+            className="min-h-12 flex-1 gap-2 rounded-3xl border border-primary/25 bg-gradient-to-l from-primary via-primary to-amber-600 text-base font-bold text-white shadow-floating ring-1 ring-gold/30 disabled:"
             disabled={services.length === 0}
             onClick={() => goBooking()}
           >
             احجز موعد الآن
           </Button>
-          <span className="shrink-0 text-center text-xs font-bold text-muted-foreground sm:text-sm">
+          <span className="shrink-0 text-center text-xs font-bold text-foreground sm:text-sm">
             {services.length} خدمة متاحة
           </span>
         </div>
         {services.length === 0 && !loading ? (
-          <p className="mx-auto mt-2 max-w-lg px-4 text-center text-xs text-muted-foreground">
+          <p className="mx-auto mt-2 max-w-lg px-4 text-center text-xs text-foreground">
             الخدمات غير مفعّلة للحجز الإلكتروني بعد — جرّبي «اتصال» أو «واتساب» أعلاه
           </p>
         ) : null}

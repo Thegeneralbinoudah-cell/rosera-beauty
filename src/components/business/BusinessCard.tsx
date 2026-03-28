@@ -160,7 +160,7 @@ export function BusinessCard({
           </span>
         )}
         {b.is_featured && (
-          <span className="absolute bottom-2 start-2 z-[2] rounded-full border border-accent/35 bg-card/95 px-2 py-0.5 text-[9px] font-normal text-accent shadow-sm">
+          <span className="absolute bottom-2 start-2 z-[2] rounded-full border border-accent/35 bg-card/95 px-2 py-0.5 text-[9px] font-normal text-primary shadow-sm">
             ⭐ صالون مميز
           </span>
         )}
@@ -168,8 +168,8 @@ export function BusinessCard({
           <span
             className={`absolute z-[2] ${b.is_featured ? 'bottom-9' : 'bottom-2'} start-2 rounded-full border border-primary/25 px-2 py-0.5 text-[9px] font-normal shadow-sm ${
               sponsorLabel === 'featured'
-                ? 'bg-muted text-accent'
-                : 'bg-card/95 text-accent'
+                ? 'bg-muted text-primary'
+                : 'bg-card/95 text-primary'
             }`}
           >
             {sponsorLabel === 'featured' ? 'Featured' : 'مُموَّل'}
@@ -183,7 +183,7 @@ export function BusinessCard({
             onClick={toggleFav}
           >
             <Heart
-              className={cn('h-5 w-5', fav ? 'fill-accent text-accent' : 'text-muted-foreground')}
+              className={cn('h-5 w-5', fav ? 'fill-accent text-primary' : 'text-foreground')}
             />
           </button>
         )}
@@ -193,10 +193,10 @@ export function BusinessCard({
           <h3 dir="auto" className="line-clamp-2 text-start font-serif text-lg font-normal leading-snug text-foreground">
             {b.name_ar}
           </h3>
-          <div className="mt-1 flex flex-wrap items-center gap-2 text-sm font-light text-muted-foreground">
+          <div className="mt-1 flex flex-wrap items-center gap-2 text-sm font-light text-foreground">
             <span
               dir="ltr"
-              className="flex items-center gap-1.5 tabular-nums text-accent"
+              className="flex items-center gap-1.5 tabular-nums text-primary"
               style={{ unicodeBidi: 'isolate' }}
             >
               <LuxuryStarRating rating={Number(b.average_rating ?? 0)} />
@@ -210,7 +210,7 @@ export function BusinessCard({
             </span>
             <span className="flex min-w-0 items-start gap-1">
               <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden />
-              <span className="min-w-0 whitespace-normal text-[15px] font-light leading-snug text-muted-foreground">
+              <span className="min-w-0 whitespace-normal text-[15px] font-light leading-snug text-foreground">
                 {locationLine || b.city}
               </span>
             </span>
@@ -268,13 +268,13 @@ export function BusinessRow({ b }: { b: Business }) {
         <h3 dir="auto" className="line-clamp-2 text-start font-serif font-normal text-foreground">
           {b.name_ar}
         </h3>
-        <p className="whitespace-normal text-[15px] font-light leading-snug text-muted-foreground">
+        <p className="whitespace-normal text-[15px] font-light leading-snug text-foreground">
           {locationLine || b.city}
         </p>
         <div
           dir="ltr"
           style={{ unicodeBidi: 'isolate' }}
-          className="mt-1 flex items-center gap-1.5 text-sm font-light tabular-nums text-accent"
+          className="mt-1 flex items-center gap-1.5 text-sm font-light tabular-nums text-primary"
         >
           <LuxuryStarRating rating={Number(b.average_rating ?? 0)} />
           {new Intl.NumberFormat(lang === 'ar' ? 'ar-SA' : 'en-US', {

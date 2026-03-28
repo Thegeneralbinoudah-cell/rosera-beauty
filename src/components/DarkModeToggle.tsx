@@ -25,7 +25,7 @@ export function DarkModeToggle({ className }: { className?: string }) {
       {dark ? (
         <IoMoonOutline className="h-[18px] w-[18px] text-foreground" aria-hidden />
       ) : (
-        <IoSunnyOutline className="h-[18px] w-[18px] text-accent" aria-hidden />
+        <IoSunnyOutline className="h-[18px] w-[18px] text-primary" aria-hidden />
       )}
     </button>
   )

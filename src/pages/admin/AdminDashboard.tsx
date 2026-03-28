@@ -199,11 +199,11 @@ export default function AdminDashboard() {
         <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
           <h2 className="text-lg font-bold text-foreground">{t('admin.dashboard.monetizationHub')}</h2>
           <div className="flex flex-wrap gap-2 text-sm font-semibold">
-            <Link to="/admin/monetization" className="text-accent underline">
+            <Link to="/admin/monetization" className="text-primary underline">
               {t('admin.dashboard.openMonetization')}
             </Link>
-            <span className="text-muted-foreground">·</span>
-            <Link to="/admin/revenue" className="text-accent underline">
+            <span className="text-foreground">·</span>
+            <Link to="/admin/revenue" className="text-primary underline">
               {t('admin.dashboard.openRevenue')}
             </Link>
           </div>
@@ -211,7 +211,7 @@ export default function AdminDashboard() {
         <div className="grid gap-4 sm:grid-cols-3">
           {monetizationItems.map((x) => (
             <Card key={x.id} className="border-primary/15 bg-gradient-to-br from-primary/[0.06] to-card p-5">
-              <p className="text-xs font-semibold text-muted-foreground">{t(x.titleKey)}</p>
+              <p className="text-xs font-semibold text-foreground">{t(x.titleKey)}</p>
               <p className="mt-2 text-2xl font-extrabold tabular-nums text-primary">{x.v}</p>
             </Card>
           ))}
@@ -263,7 +263,7 @@ export default function AdminDashboard() {
       <Card className="mt-8 p-6">
         <div className="mb-4 flex items-center justify-between">
           <p className="font-bold text-primary">{t('admin.dashboard.recentBookings')}</p>
-          <Link to="/admin/bookings" className="text-sm font-semibold text-accent underline">
+          <Link to="/admin/bookings" className="text-sm font-semibold text-primary underline">
             {t('admin.dashboard.all')}
           </Link>
         </div>

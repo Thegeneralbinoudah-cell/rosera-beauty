@@ -251,7 +251,7 @@ export default function CitySalons() {
           )}
           <div className="min-w-0 flex-1">
             <h1 className="truncate text-xl font-semibold text-foreground">{cityName || '...'}</h1>
-            <p className="text-sm font-medium text-muted-foreground">{t('city.subtitle')}</p>
+            <p className="text-sm font-medium text-foreground">{t('city.subtitle')}</p>
           </div>
         </div>
       </header>

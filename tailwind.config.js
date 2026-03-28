@@ -282,9 +282,9 @@ export default {
           'scrollbar-width': 'none',
           '&::-webkit-scrollbar': { display: 'none' },
         },
+        /** Do not set opacity:0 here — if the animation fails to run, content stays invisible forever. */
         '.motion-stagger > *': {
-          animation: 'fade-in-up 0.5s ease forwards',
-          opacity: '0',
+          animation: 'fade-in-up 0.5s ease both',
         },
         ...staggerDelays,
       })

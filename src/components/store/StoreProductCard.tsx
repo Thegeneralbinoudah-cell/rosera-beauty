@@ -68,7 +68,7 @@ export function StoreProductCard({ product, sponsored, onAddToCart, className }:
             </span>
           </div>
           {reviews > 0 && (
-            <span className="font-cairo text-[11px] text-muted-foreground">
+            <span className="font-cairo text-[11px] text-foreground">
               ({reviews.toLocaleString(lang === 'en' ? 'en-US' : 'ar-SA')} {t('store.reviews')})
             </span>
           )}
@@ -77,7 +77,7 @@ export function StoreProductCard({ product, sponsored, onAddToCart, className }:
         <div className="mt-3 flex items-end justify-between gap-2 border-t border-primary/15 pt-3">
           <p className="font-cairo text-lg font-extrabold tabular-nums text-primary dark:text-primary">
             {priceStr}
-            <span className="ms-1 text-xs font-bold text-muted-foreground">
+            <span className="ms-1 text-xs font-bold text-foreground">
               {t('common.sar')}
             </span>
           </p>

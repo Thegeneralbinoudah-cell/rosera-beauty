@@ -92,7 +92,7 @@ function PageFallback() {
           <div className="h-3 w-4/5 rounded-md bg-muted/40" />
           <div className="h-3 w-3/5 rounded-md bg-muted/35" />
         </div>
-        <p className="text-center text-body-sm text-muted-foreground" role="status" aria-live="polite">
+        <p className="text-center text-body-sm text-foreground" role="status" aria-live="polite">
           {lang === 'ar' ? 'جاري التحميل…' : 'Loading…'}
         </p>
       </div>

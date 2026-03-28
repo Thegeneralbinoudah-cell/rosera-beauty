@@ -119,7 +119,7 @@ export default function OwnerSchedule() {
                     </li>
                   ))}
                 {bookings.filter((b) => b.booking_date === day.date).length === 0 && (
-                  <li className="text-xs text-muted-foreground">لا حجوزات</li>
+                  <li className="text-xs text-foreground">لا حجوزات</li>
                 )}
               </ul>
             </Card>

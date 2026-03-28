@@ -58,7 +58,7 @@ export default function InstallOnboarding() {
           <h1 className="bg-gradient-to-r from-rose-700 via-pink-600 to-amber-600 bg-clip-text text-2xl font-extrabold tracking-tight text-transparent dark:from-rose-300 dark:via-pink-300 dark:to-amber-200">
             {tr(lang, 'pwa.pageTitle')}
           </h1>
-          <p className="mt-2 text-sm text-muted-foreground">{tr(lang, 'pwa.pageSubtitle')}</p>
+          <p className="mt-2 text-sm text-foreground">{tr(lang, 'pwa.pageSubtitle')}</p>
         </header>
 
         <section className="mt-10" aria-labelledby="preview-heading">
@@ -109,13 +109,13 @@ export default function InstallOnboarding() {
               labelKey="pwa.installCtaStrong"
               className="min-h-[3.25rem] min-w-[240px] px-10 text-base"
             />
-            <p className="max-w-sm text-center text-xs text-muted-foreground">{tr(lang, 'pwa.installHint')}</p>
+            <p className="max-w-sm text-center text-xs text-foreground">{tr(lang, 'pwa.installHint')}</p>
           </div>
         )}
 
         <section className="mt-12 rounded-2xl border border-amber-200/40 bg-white/60 p-5 dark:border-amber-900/30 dark:bg-card/50">
           <h2 className="text-sm font-bold text-rose-900 dark:text-rose-100">{tr(lang, 'pwa.instructionsTitle')}</h2>
-          <ul className={cn('mt-3 space-y-2 text-sm text-muted-foreground', lang === 'ar' ? 'list-disc pr-5' : 'list-disc pl-5')}>
+          <ul className={cn('mt-3 space-y-2 text-sm text-foreground', lang === 'ar' ? 'list-disc pr-5' : 'list-disc pl-5')}>
             <li>{tr(lang, 'pwa.instructionsAndroid')}</li>
             <li>{tr(lang, 'pwa.instructionsIos')}</li>
           </ul>

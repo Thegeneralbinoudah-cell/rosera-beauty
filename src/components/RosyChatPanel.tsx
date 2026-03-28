@@ -42,7 +42,7 @@ export function RosyChatPanel() {
               <p className="bg-gradient-to-l from-destructive via-primary to-accent bg-clip-text text-lg font-extrabold tracking-tight text-transparent dark:from-pink-200 dark:via-primary dark:to-amber-200">
                 روزي ✨
               </p>
-              <p className="text-xs font-medium text-muted-foreground">مساعدتك الجمالية بالذكاء الاصطناعي</p>
+              <p className="text-xs font-medium text-foreground">مساعدتك الجمالية بالذكاء الاصطناعي</p>
             </div>
             <div className="flex shrink-0 items-center gap-2">
             <Button
@@ -56,7 +56,7 @@ export function RosyChatPanel() {
               </Button>
               <button
                 type="button"
-                className="flex min-h-[44px] min-w-[44px] touch-manipulation items-center justify-center rounded-2xl p-2 text-muted-foreground transition-colors hover:bg-pink-50 hover:text-foreground dark:hover:bg-pink-950/40"
+                className="flex min-h-[44px] min-w-[44px] touch-manipulation items-center justify-center rounded-2xl p-2 text-foreground transition-colors hover:bg-pink-50 hover:text-foreground dark:hover:bg-pink-950/40"
                 aria-label="إغلاق"
                 onClick={() => setOpen(false)}
               >
@@ -69,7 +69,7 @@ export function RosyChatPanel() {
             {open && location.pathname !== '/chat' ? (
               <Suspense
                 fallback={
-                  <div className="flex min-h-[12rem] items-center justify-center p-8 text-sm font-medium text-muted-foreground">
+                  <div className="flex min-h-[12rem] items-center justify-center p-8 text-sm font-medium text-foreground">
                     جاري فتح روزي…
                   </div>
                 }

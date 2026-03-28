@@ -45,7 +45,7 @@ function SalonPickCard({
         />
         <div className="min-w-0 flex-1">
           <p className="line-clamp-2 font-bold leading-snug text-foreground">{s.name_ar}</p>
-          <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
+          <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-foreground">
             <span className="inline-flex items-center gap-1">
               <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-500" aria-hidden />
               {ratingLabel}
@@ -207,7 +207,7 @@ export function RosyBookingGuide({
           type="button"
           variant="ghost"
           size="sm"
-          className="h-auto px-2 py-1 text-xs text-muted-foreground"
+          className="h-auto px-2 py-1 text-xs text-foreground"
           disabled={loading}
           onClick={reset}
         >
@@ -216,7 +216,7 @@ export function RosyBookingGuide({
       ) : null}
 
       {loading ? (
-        <p className="text-sm font-medium text-muted-foreground">{t('aiChat.loadingSalons')}</p>
+        <p className="text-sm font-medium text-foreground">{t('aiChat.loadingSalons')}</p>
       ) : items.length > 0 ? (
         <div className="space-y-4">
           <p className="text-sm font-semibold text-foreground">{t('aiChat.pickSalons')}</p>
@@ -225,7 +225,7 @@ export function RosyBookingGuide({
           ))}
         </div>
       ) : mode === 'service' && serviceType && !loading ? (
-        <p className="text-sm leading-relaxed text-muted-foreground">{t('aiChat.serviceNoMatch')}</p>
+        <p className="text-sm leading-relaxed text-foreground">{t('aiChat.serviceNoMatch')}</p>
       ) : null}
     </div>
   )

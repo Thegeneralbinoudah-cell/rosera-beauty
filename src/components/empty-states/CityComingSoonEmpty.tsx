@@ -121,7 +121,7 @@ export function CityComingSoonEmpty({ ctaTo, className }: CityComingSoonEmptyPro
       <h2 className="font-cairo relative z-[1] max-w-[17rem] text-lg font-semibold leading-relaxed tracking-tight text-foreground">
         {t('city.emptySoon')}
       </h2>
-      <p className="font-cairo relative z-[1] mt-2 max-w-[18rem] text-sm leading-relaxed text-muted-foreground">
+      <p className="font-cairo relative z-[1] mt-2 max-w-[18rem] text-sm leading-relaxed text-foreground">
         {t('city.emptySoonSub')}
       </p>
       <Button

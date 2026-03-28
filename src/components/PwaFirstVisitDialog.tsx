@@ -148,7 +148,7 @@ export function PwaFirstVisitDialog() {
         type="button"
         variant="ghost"
         onClick={onLater}
-        className="order-2 min-h-[3rem] flex-1 rounded-2xl text-base font-semibold text-muted-foreground hover:bg-pink-50/80 dark:hover:bg-pink-950/30"
+        className="order-2 min-h-[3rem] flex-1 rounded-2xl text-base font-semibold text-foreground hover:bg-pink-50/80 dark:hover:bg-pink-950/30"
       >
         {tr(lang, 'pwa.installNudgeDismiss')}
       </Button>
@@ -169,7 +169,7 @@ export function PwaFirstVisitDialog() {
           <DialogTitle className="text-balance text-xl font-extrabold leading-snug text-rose-950 dark:text-rose-50">
             {tr(lang, 'pwa.firstVisitTitle')}
           </DialogTitle>
-          <p className="text-pretty text-sm font-medium text-muted-foreground">{tr(lang, 'pwa.firstVisitSub')}</p>
+          <p className="text-pretty text-sm font-medium text-foreground">{tr(lang, 'pwa.firstVisitSub')}</p>
         </DialogHeader>
           {actions}
         </DialogContent>
@@ -191,7 +191,7 @@ export function PwaFirstVisitDialog() {
           <SheetTitle className="text-balance text-xl font-extrabold leading-snug text-rose-950 dark:text-rose-50">
             {tr(lang, 'pwa.firstVisitTitle')}
           </SheetTitle>
-          <p className="text-pretty text-sm font-medium text-muted-foreground">{tr(lang, 'pwa.firstVisitSub')}</p>
+          <p className="text-pretty text-sm font-medium text-foreground">{tr(lang, 'pwa.firstVisitSub')}</p>
         </SheetHeader>
         {actions}
       </SheetContent>

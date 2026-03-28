@@ -41,7 +41,7 @@ export function MapFallback({ onRetry }: { onRetry?: () => void }) {
       </div>
       <div className="max-w-sm space-y-2">
         <p className="text-base font-bold text-foreground">تعذّر تحميل الخريطة</p>
-        <p className="text-sm text-muted-foreground">جرّبي مرة ثانية أو تحديثي الصفحة.</p>
+        <p className="text-sm text-foreground">جرّبي مرة ثانية أو تحديثي الصفحة.</p>
       </div>
       <div className="flex flex-wrap items-center justify-center gap-2">
         {onRetry ? (

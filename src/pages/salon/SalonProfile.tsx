@@ -91,7 +91,7 @@ export default function SalonProfile() {
 
   if (loading) {
     return (
-      <div className="flex min-h-[40vh] items-center justify-center gap-2 text-muted-foreground">
+      <div className="flex min-h-[40vh] items-center justify-center gap-2 text-foreground">
         <Loader2 className="h-6 w-6 animate-spin" />
         جاري التحميل…
       </div>
@@ -110,7 +110,7 @@ export default function SalonProfile() {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-extrabold text-foreground">ملف الصالون</h1>
-        <p className="mt-1 text-sm text-muted-foreground">البيانات الظاهرة لعملائك في التطبيق</p>
+        <p className="mt-1 text-sm text-foreground">البيانات الظاهرة لعملائك في التطبيق</p>
       </div>
 
       <Card className="space-y-4 border-primary/15 p-4 dark:border-border">

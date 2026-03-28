@@ -30,7 +30,7 @@ export function Step3Services() {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h2 className="text-lg font-extrabold text-foreground">الخدمات</h2>
-          <p className="text-sm text-muted-foreground">أضيفي الخدمات مع السعر والمدة</p>
+          <p className="text-sm text-foreground">أضيفي الخدمات مع السعر والمدة</p>
         </div>
         <Button
           type="button"
@@ -124,7 +124,7 @@ export function Step3Services() {
       </div>
 
       {fields.length === 0 ? (
-        <p className="text-center text-sm text-muted-foreground">لا توجد خدمات بعد — اضغطي «إضافة خدمة»</p>
+        <p className="text-center text-sm text-foreground">لا توجد خدمات بعد — اضغطي «إضافة خدمة»</p>
       ) : null}
       {errors.services?.message ? (
         <p className="text-sm text-destructive">{String(errors.services.message)}</p>

@@ -38,7 +38,7 @@ export function Step4Team() {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h2 className="text-lg font-extrabold text-foreground">الفريق</h2>
-          <p className="text-sm text-muted-foreground">اختياري — أخصائيات الصالون</p>
+          <p className="text-sm text-foreground">اختياري — أخصائيات الصالون</p>
         </div>
         <Button
           type="button"
@@ -98,7 +98,7 @@ export function Step4Team() {
                     }}
                   />
                 </label>
-                {uploading === `${i}` ? <span className="text-xs text-muted-foreground">جاري الرفع…</span> : null}
+                {uploading === `${i}` ? <span className="text-xs text-foreground">جاري الرفع…</span> : null}
               </div>
               <Input className="rounded-xl" dir="ltr" readOnly placeholder="رابط الصورة" {...register(`team.${i}.image_url`)} />
             </div>
@@ -107,7 +107,7 @@ export function Step4Team() {
       </div>
 
       {fields.length === 0 ? (
-        <p className="text-center text-sm text-muted-foreground">يمكنكِ تخطي هذه الخطوة أو إضافة الفريق لاحقاً</p>
+        <p className="text-center text-sm text-foreground">يمكنكِ تخطي هذه الخطوة أو إضافة الفريق لاحقاً</p>
       ) : null}
     </Card>
   )

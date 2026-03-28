@@ -188,9 +188,9 @@ export default function Auth() {
 
           <div className="mt-8 space-y-8">
             <section className="space-y-4">
-              <Label className="text-sm font-normal text-muted-foreground">{ui.phone}</Label>
+              <Label className="text-sm font-normal text-foreground">{ui.phone}</Label>
               <div className="flex items-end gap-3">
-                <div className="flex h-12 shrink-0 items-center gap-2 px-1 text-accent" dir="ltr">
+                <div className="flex h-12 shrink-0 items-center gap-2 px-1 text-primary" dir="ltr">
                   <span aria-hidden>🇸🇦</span>
                   <span className="text-sm font-light tracking-wide">+966</span>
                 </div>
@@ -205,7 +205,7 @@ export default function Auth() {
                   disabled={phoneOtpSent}
                 />
               </div>
-              <p className="text-xs font-light text-muted-foreground">{ui.format}</p>
+              <p className="text-xs font-light text-foreground">{ui.format}</p>
               {!phoneOtpSent ? (
                 <Button
                   className="h-12 w-full text-base font-normal shadow-[0_4px_24px_rgba(139,26,74,0.35)]"
@@ -223,7 +223,7 @@ export default function Auth() {
                 </Button>
               ) : (
                 <>
-                  <Label className="text-sm font-normal text-muted-foreground">{ui.otpLabel}</Label>
+                  <Label className="text-sm font-normal text-foreground">{ui.otpLabel}</Label>
                   <Input
                     dir="ltr"
                     className={`${underlineInput} text-center text-2xl tracking-[0.5em]`}
@@ -250,7 +250,7 @@ export default function Auth() {
                   </Button>
                   <button
                     type="button"
-                    className="w-full text-center text-sm font-normal text-accent"
+                    className="w-full text-center text-sm font-normal text-primary"
                     onClick={() => {
                       setPhoneOtpSent(false)
                       setOtpCode('')
@@ -297,7 +297,7 @@ export default function Auth() {
                   />
                   <button
                     type="button"
-                    className="absolute end-0 top-1/2 -translate-y-1/2 rounded-full p-1.5 text-muted-foreground transition-colors hover:bg-muted/90"
+                    className="absolute end-0 top-1/2 -translate-y-1/2 rounded-full p-1.5 text-foreground transition-colors hover:bg-muted/90"
                     onClick={() => setShowPassword((s) => !s)}
                     aria-label={showPassword ? 'إخفاء كلمة المرور' : 'إظهار كلمة المرور'}
                   >
@@ -308,7 +308,7 @@ export default function Auth() {
               <Button
                 type="submit"
                 variant="secondary"
-                className="mt-1 h-11 w-full border-accent bg-transparent text-accent hover:bg-muted/80"
+                className="mt-1 h-11 w-full border-accent bg-transparent text-primary hover:bg-muted/80"
                 disabled={loadingEmail}
               >
                 {loadingEmail ? (
@@ -325,7 +325,7 @@ export default function Auth() {
               </Button>
               <Link
                 to="/auth/email"
-                className="mt-2 block text-center text-xs font-normal text-accent underline-offset-4 hover:underline"
+                className="mt-2 block text-center text-xs font-normal text-primary underline-offset-4 hover:underline"
               >
                 إنشاء حساب جديد / خيارات متقدمة
               </Link>
@@ -334,7 +334,7 @@ export default function Auth() {
             <div className="relative flex items-center gap-2" aria-hidden>
               <span className="h-px flex-1 bg-primary/25" />
               <span
-                className="shrink-0 text-[13px] font-medium text-muted-foreground"
+                className="shrink-0 text-[13px] font-medium text-foreground"
                 dir={lang === 'ar' ? 'rtl' : 'ltr'}
               >
                 {lang === 'ar' ? '── أو ──' : '— or —'}
@@ -347,15 +347,15 @@ export default function Auth() {
             <button
               type="button"
               onClick={guest}
-              className="w-full pt-2 text-center text-sm font-normal text-accent"
+              className="w-full pt-2 text-center text-sm font-normal text-primary"
             >
               {ui.guest}
             </button>
-            <div className="mt-8 flex flex-wrap justify-center gap-4 text-xs text-muted-foreground">
-              <Link to="/privacy" className="text-accent hover:text-accent/90">
+            <div className="mt-8 flex flex-wrap justify-center gap-4 text-xs text-foreground">
+              <Link to="/privacy" className="text-primary hover:text-primary/90">
                 سياسة الخصوصية
               </Link>
-              <Link to="/terms" className="text-accent hover:text-accent/90">
+              <Link to="/terms" className="text-primary hover:text-primary/90">
                 الشروط والأحكام
               </Link>
             </div>

@@ -104,13 +104,13 @@ export default function AdminBookings() {
           <div key={r.id} className="flex flex-wrap items-center justify-between gap-2 rounded-xl border bg-card p-4 dark:bg-card">
             <div className="min-w-0 flex-1">
               <span className="font-medium">{r.businesses?.name_ar}</span>
-              <p className="mt-1 text-xs text-muted-foreground" dir="ltr">
+              <p className="mt-1 text-xs text-foreground" dir="ltr">
                 {r.booking_date} · {r.id.slice(0, 8)}
               </p>
             </div>
             <div className="text-end text-sm">
               <p className="font-semibold">{r.total_price != null ? formatPrice(Number(r.total_price)) : '—'}</p>
-              <p className="text-xs text-muted-foreground">
+              <p className="text-xs text-foreground">
                 عمولة: {r.commission_amount != null ? formatPrice(Number(r.commission_amount)) : '—'}
                 {r.platform_fee_percentage != null ? ` · ${Number(r.platform_fee_percentage)}٪` : ''}
               </p>

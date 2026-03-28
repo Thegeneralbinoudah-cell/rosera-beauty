@@ -57,7 +57,7 @@ export default function ForSalonsLanding() {
           <h1 className="text-2xl font-extrabold leading-snug text-foreground sm:text-3xl">
             زيدي حجوزاتك بسهولة ✨
           </h1>
-          <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
+          <p className="mt-3 text-sm leading-relaxed text-foreground">
             انضمي لآلاف العميلات اللي يدورن صالونات موثوقة على روزيرا — تسجيل سريع وظهور فوري.
           </p>
         </div>
@@ -89,7 +89,7 @@ export default function ForSalonsLanding() {
               </div>
               <div>
                 <p className="font-bold text-foreground">{title}</p>
-                <p className="mt-0.5 text-sm text-muted-foreground">{desc}</p>
+                <p className="mt-0.5 text-sm text-foreground">{desc}</p>
               </div>
             </div>
           ))}
@@ -104,7 +104,7 @@ export default function ForSalonsLanding() {
                 <li>• أول شهر اشتراك باقة أساسية — مجاني 🎁</li>
                 <li>• بدون عمولة منصة على الحجوزات في أول أسبوع</li>
               </ul>
-              <p className="mt-2 text-xs text-muted-foreground">
+              <p className="mt-2 text-xs text-foreground">
                 التفاصيل الكاملة بعد إكمال التسجيل من صفحة الاشتراك.
               </p>
             </div>
@@ -133,13 +133,13 @@ export default function ForSalonsLanding() {
           </Button>
         </div>
 
-        <p className="mt-8 text-center text-xs text-muted-foreground">
+        <p className="mt-8 text-center text-xs text-foreground">
           بالمتابعة أنتِ توافقين على{' '}
-          <Link to="/terms" className="font-semibold text-accent underline-offset-2 hover:underline">
+          <Link to="/terms" className="font-semibold text-primary underline-offset-2 hover:underline">
             الشروط
           </Link>{' '}
           و{' '}
-          <Link to="/privacy" className="font-semibold text-accent underline-offset-2 hover:underline">
+          <Link to="/privacy" className="font-semibold text-primary underline-offset-2 hover:underline">
             الخصوصية
           </Link>
           .

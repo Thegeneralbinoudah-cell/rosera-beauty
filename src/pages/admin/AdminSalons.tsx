@@ -96,7 +96,7 @@ export default function AdminSalons() {
                   </Button>
                 </td>
                 <td className="p-3 text-center">
-                  <Link to={`/salon/${r.id}`} className="font-semibold text-accent underline">
+                  <Link to={`/salon/${r.id}`} className="font-semibold text-primary underline">
                     عرض
                   </Link>
                 </td>

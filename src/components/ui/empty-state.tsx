@@ -53,7 +53,7 @@ export function EmptyState({
       <h2 className="text-heading-2 font-semibold tracking-luxury-tight text-foreground">
         {title}
       </h2>
-      <p className="max-w-[22rem] text-body font-medium leading-relaxed tracking-luxury text-muted-foreground">
+      <p className="max-w-[22rem] text-body font-medium leading-relaxed tracking-luxury text-foreground">
         {subtitle}
       </p>
       <Button

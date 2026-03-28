@@ -27,7 +27,7 @@ export default function RegionCities() {
             {t('region.home')}
           </Link>
           <h1 className="text-2xl font-extrabold text-white drop-shadow-md">{regionName || '...'}</h1>
-          <p className="mt-1 text-sm text-white/90">{t('region.chooseCity')}</p>
+          <p className="mt-1 text-sm text-white">{t('region.chooseCity')}</p>
         </div>
       </div>
 
@@ -58,7 +58,7 @@ export default function RegionCities() {
                 >
                   <div>
                     <p className="font-bold text-foreground">{city.name_ar}</p>
-                    <p className="text-sm text-rosera-gray">
+                    <p className="text-sm font-medium text-foreground">
                       {city.salonCount}{' '}
                       {city.salonCount === 1 ? t('region.salonOne') : t('region.salonMany')}
                     </p>

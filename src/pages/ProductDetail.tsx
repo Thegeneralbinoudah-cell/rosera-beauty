@@ -91,7 +91,7 @@ export default function ProductDetail() {
     return (
       <div className="flex min-h-dvh flex-col items-center justify-center gap-4 px-6 pb-28">
         <p className="text-xl font-bold text-rosera-gray">المنتج غير موجود</p>
-        <Link to="/store" className="font-bold text-accent underline">العودة للمتجر</Link>
+        <Link to="/store" className="font-bold text-primary underline">العودة للمتجر</Link>
       </div>
     )
   if (!product) return <div className="p-8 text-center">جاري التحميل...</div>
@@ -124,7 +124,7 @@ export default function ProductDetail() {
           <span className="font-bold">{Number(product.rating || 0).toFixed(1)}</span>
           <span className="text-sm text-rosera-gray">({product.review_count ?? 0})</span>
         </div>
-        <p className="mt-4 text-3xl font-extrabold text-accent">{Number(product.price).toLocaleString('ar-SA')} ر.س</p>
+        <p className="mt-4 text-3xl font-extrabold text-primary">{Number(product.price).toLocaleString('ar-SA')} ر.س</p>
         {product.description_ar && (
           <p className="mt-4 leading-relaxed text-rosera-gray">{product.description_ar}</p>
         )}
