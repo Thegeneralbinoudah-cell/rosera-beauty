@@ -7,10 +7,14 @@ import { Card } from '@/components/ui/card'
 import { SalonPremiumCard } from '@/components/salon/SalonPremiumCard'
 import { rankSalons, fetchAiUserProfile, type RankableSalon, type RankedSalon } from '@/lib/aiRanking'
 import { fetchBestActiveOffersByBusinessIds } from '@/lib/offers'
+import { filterFemaleBeautyBusinesses } from '@/lib/roseraBusinessFilters'
 
 type TopClinicRow = RankableSalon & {
   name_ar: string
+  name_en?: string | null
   cover_image: string | null
+  category_value?: string | null
+  description_ar?: string | null
 }
 
 function TopClinicCardSkeleton() {
@@ -74,13 +78,12 @@ export default function TopClinics() {
         setError(null)
       }
 
-      const { data, error: qErr } = await supabase
+      let { data, error: qErr } = await supabase
         .from('businesses')
-        .select('id,name_ar,cover_image,average_rating,total_reviews,category,category_label')
-        .eq('category', 'clinic')
+        .select('id,name_ar,name_en,cover_image,average_rating,total_reviews,category,category_label,category_value,description_ar')
+        .or('category.eq.clinic,category.eq.doctor,category.eq.dermatologist,category_value.eq.clinic')
         .gte('average_rating', 4.0)
-        .gt('total_reviews', 20)
-        .limit(48)
+        .limit(80)
 
       if (cancelled) return
       if (qErr) {
@@ -90,7 +93,19 @@ export default function TopClinics() {
         return
       }
 
-      const raw = (data ?? []) as TopClinicRow[]
+      let raw = filterFemaleBeautyBusinesses((data ?? []) as TopClinicRow[]) as TopClinicRow[]
+
+      if (raw.length === 0) {
+        const fallback = await supabase
+          .from('businesses')
+          .select('id,name_ar,name_en,cover_image,average_rating,total_reviews,category,category_label,category_value,description_ar')
+          .or('category.eq.clinic,category.eq.doctor,category.eq.dermatologist,category_value.eq.clinic')
+          .order('average_rating', { ascending: false })
+          .limit(48)
+        if (!cancelled && !fallback.error) {
+          raw = filterFemaleBeautyBusinesses((fallback.data ?? []) as TopClinicRow[]) as TopClinicRow[]
+        }
+      }
       const offerMap = await fetchBestActiveOffersByBusinessIds(raw.map((r) => r.id))
       const withOffers = raw.map((r) => ({ ...r, activeOffer: offerMap.get(r.id) ?? null }))
       let profile = undefined
@@ -127,7 +142,7 @@ export default function TopClinics() {
       <header className="sticky top-0 z-20 border-b border-primary/10 bg-white/80 px-4 py-5 backdrop-blur-xl dark:bg-rosera-dark/90">
         <div className="mx-auto max-w-5xl">
           <h1 className="text-2xl font-extrabold tracking-tight text-foreground">{ui.title}</h1>
-          <p className="mt-1.5 text-sm font-medium text-muted-foreground">{ui.subtitle}</p>
+          <p className="mt-1.5 text-sm font-medium text-foreground/70">{ui.subtitle}</p>
         </div>
       </header>
 

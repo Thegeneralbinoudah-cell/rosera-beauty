@@ -13,7 +13,7 @@ import { useI18n } from '@/hooks/useI18n'
 import { usePreferences } from '@/contexts/PreferencesContext'
 import { openNativeMapsDirections } from '@/lib/openNativeMapsDirections'
 import { fetchGooglePlacesBeautySalons } from '@/lib/fetchGooglePlacesBeauty'
-import { dedupeBusinessesForDisplay, filterMapDisplayBusinesses } from '@/lib/roseraBusinessFilters'
+import { dedupeBusinessesForDisplay, filterFemaleBeautyBusinesses } from '@/lib/roseraBusinessFilters'
 import { GOOGLE_MAPS_API_KEY_EMBEDDED } from '@/config/googleMapsApiKey'
 import { tr } from '@/lib/i18n'
 import { hasGeolocationKnown, markGeolocationKnown } from '@/lib/geoSession'
@@ -896,7 +896,7 @@ export default function MapPage() {
     const a = Array.isArray(businesses) ? businesses : []
     const b = Array.isArray(googlePlaces) ? googlePlaces : []
     const merged = dedupeBusinessesForDisplay([...a, ...b])
-    return filterMapDisplayBusinesses(merged)
+    return filterFemaleBeautyBusinesses(merged)
   }, [businesses, googlePlaces])
 
   useEffect(() => {

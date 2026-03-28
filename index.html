@@ -26,10 +26,15 @@
     <link rel="preload" href="/rosera-logo.svg" as="image" type="image/svg+xml" fetchpriority="high" />
     <title>روزيرا — ROSERA</title>
     <script>
-      /* Luxury UI is light-only; keep `.dark` class off so surfaces stay warm cream (see `index.css`). */
       (function () {
         try {
-          document.documentElement.classList.remove('dark')
+          var t = localStorage.getItem('themeMode')
+          var d = localStorage.getItem('rosera_dark')
+          if (t === 'dark' || (!t && d === '1')) {
+            document.documentElement.classList.add('dark')
+          } else {
+            document.documentElement.classList.remove('dark')
+          }
         } catch (e) {}
       })()
     </script>

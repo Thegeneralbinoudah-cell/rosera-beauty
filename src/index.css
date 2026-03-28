@@ -262,8 +262,8 @@
 
   /** Category + filter pill — premium feminine, horizontal scroll rows */
   .category-chip {
-    @apply ripple min-h-12 min-w-fit shrink-0 rounded-2xl border border-border bg-card px-4 py-2 text-sm font-medium text-foreground shadow-sm transition-all duration-200 ease-out;
-    @apply hover:border-primary/30 hover:bg-primary/10 hover:shadow-md;
+    @apply ripple min-h-12 min-w-fit shrink-0 rounded-2xl border border-border bg-card px-4 py-2 text-sm font-semibold text-foreground shadow-sm transition-all duration-200 ease-out;
+    @apply hover:border-primary/30 hover:bg-muted hover:shadow-md;
   }
   .category-chip--selected {
     @apply gradient-rosera border-transparent text-primary-foreground shadow-md;

@@ -36,13 +36,13 @@ export function BottomNav() {
               }}
               className={cn(
                 'relative flex flex-1 flex-col items-center gap-0.5 py-2 text-[10px] font-normal tracking-luxury-tight transition-opacity duration-slow active:opacity-90',
-                active ? 'text-accent' : 'text-muted-foreground'
+                active ? 'text-primary font-semibold' : 'text-muted-foreground'
               )}
             >
               {active && (
                 <motion.span
                   layoutId="navdot"
-                  className="absolute -top-1 inset-x-0 mx-auto h-1.5 w-1.5 rounded-full bg-accent"
+                  className="absolute -top-1 inset-x-0 mx-auto h-1.5 w-1.5 rounded-full bg-primary"
                   transition={{ type: 'spring', stiffness: 400, damping: 30 }}
                 />
               )}
@@ -57,7 +57,7 @@ export function BottomNav() {
                 <Icon
                   className={cn(
                     'h-5 w-5 transition-colors duration-300 ease-out',
-                    active ? 'text-accent' : 'text-muted-foreground'
+                    active ? 'text-primary' : 'text-muted-foreground'
                   )}
                   strokeWidth={1.25}
                 />

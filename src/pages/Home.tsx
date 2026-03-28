@@ -162,7 +162,7 @@ function Home() {
           <div className="flex min-w-0 flex-1 items-center justify-center gap-2 sm:gap-3">
             <RoseraLogoMark className="h-11 w-11 shrink-0 sm:h-14 sm:w-14" aria-hidden />
             <div className="min-w-0">
-              <p className="text-body-sm font-light text-muted-foreground">{ui.hello}</p>
+              <p className="text-body-sm font-medium text-foreground/80">{ui.hello}</p>
               <h1 className="truncate font-serif text-title font-normal tracking-wide text-foreground">{ui.title}</h1>
             </div>
           </div>
@@ -199,7 +199,7 @@ function Home() {
         <div className="relative overflow-hidden rounded-[20px] border border-primary/30 bg-gradient-to-br from-card via-popover to-muted px-6 py-8 text-center text-foreground shadow-[0_8px_32px_rgba(139,26,74,0.2)]">
           <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_80%_60%_at_50%_0%,rgba(139,26,74,0.25),transparent_55%)]" />
           <div className="absolute inset-0 bg-[url('data:image/svg+xml,%3Csvg width=\'60\' height=\'60\' viewBox=\'0 0 60 60\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cg fill=\'none\' fill-rule=\'evenodd\'%3E%3Cg fill=\'%23C9963F\' fill-opacity=\'0.07\'%3E%3Cpath d=\'M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z\'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E')] opacity-100" />
-          <p className="relative text-sm font-light text-muted-foreground">{ui.heroSub}</p>
+          <p className="relative text-sm font-medium text-foreground/80">{ui.heroSub}</p>
           <h2 className="relative mt-2 font-serif text-2xl font-normal leading-tight text-foreground">{ui.heroTitle}</h2>
           <button
             ref={heroSearchTriggerRef}
@@ -219,8 +219,8 @@ function Home() {
               setHeroSearchOpen(true)
             }}
           >
-            <Search className="h-6 w-6 shrink-0 text-accent" aria-hidden />
-            <span className="text-muted-foreground">{ui.searchPlaceholder}</span>
+            <Search className="h-6 w-6 shrink-0 text-primary" aria-hidden />
+            <span className="text-foreground/60">{ui.searchPlaceholder}</span>
           </button>
           {heroSearchOpen &&
             typeof document !== 'undefined' &&
@@ -251,8 +251,8 @@ function Home() {
                       nav('/search')
                     }}
                   >
-                    <Search className="h-6 w-6 shrink-0 text-accent" aria-hidden />
-                    <span className="text-muted-foreground">{ui.searchPlaceholder}</span>
+                    <Search className="h-6 w-6 shrink-0 text-primary" aria-hidden />
+                    <span className="text-foreground/60">{ui.searchPlaceholder}</span>
                   </button>
                 </div>
               </div>,
@@ -339,7 +339,7 @@ function Home() {
               <span className="block font-serif text-lg font-normal text-foreground">
                 {ui.topSalons}
               </span>
-              <span className="mt-0.5 block text-xs font-light text-muted-foreground">{ui.topSalonsHint}</span>
+              <span className="mt-0.5 block text-xs font-medium text-foreground/70">{ui.topSalonsHint}</span>
             </div>
             <span className="shrink-0 text-2xl" aria-hidden>
               →
@@ -360,7 +360,7 @@ function Home() {
               <span className="block font-serif text-lg font-normal text-foreground">
                 {ui.topClinics}
               </span>
-              <span className="mt-0.5 block text-xs font-light text-muted-foreground">{ui.topClinicsHint}</span>
+              <span className="mt-0.5 block text-xs font-medium text-foreground/70">{ui.topClinicsHint}</span>
             </div>
             <span className="shrink-0 text-2xl" aria-hidden>
               →
@@ -378,7 +378,7 @@ function Home() {
               <span className="block font-serif text-lg font-normal text-foreground">
                 {ui.recommended}
               </span>
-              <span className="mt-0.5 block text-xs font-light text-muted-foreground">{ui.recommendedHint}</span>
+              <span className="mt-0.5 block text-xs font-medium text-foreground/70">{ui.recommendedHint}</span>
             </div>
             <span className="shrink-0 text-2xl" aria-hidden>
               →

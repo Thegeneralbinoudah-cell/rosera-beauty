@@ -4,6 +4,7 @@ import { haversineKm } from '@/lib/utils'
 import { businessMatchesServiceType, type RosyServiceType } from '@/lib/roseySalonSuggestions'
 import { ROSY_BOOKING_ASSISTANT_SUBTITLE, ROSY_BOOKING_ASSISTANT_TITLE } from '@/lib/roseyChatCopy'
 import { fetchRosyMemoryLayer, type RosyMemoryLayer } from '@/lib/roseyMemory'
+import { filterFemaleBeautyBusinesses } from '@/lib/roseraBusinessFilters'
 import { isSalonSubscriptionPlan, type SalonSubscriptionPlan } from '@/lib/salonSubscriptionPlans'
 import { FEATURED_AD_AI_RANK_BOOST, fetchActiveSalonFeaturedAdSalonIds } from '@/lib/salonAds'
 
@@ -517,7 +518,7 @@ export async function getRecommendedSalons(
 
   if (poolErr || !pool?.length) return []
 
-  let businesses = pool as Business[]
+  let businesses = filterFemaleBeautyBusinesses(pool as Business[])
   if (serviceType) {
     businesses = businesses.filter((b) => businessMatchesServiceType(b, serviceType))
   }
