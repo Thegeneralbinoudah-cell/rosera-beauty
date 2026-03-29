@@ -205,6 +205,21 @@ export function businessMatchesCategoryValue(
     if (allowed.some((a) => normalizeArabicLabel(a) === lbl)) return true
   }
 
+  /**
+   * Relaxed salon matching:
+   * many legacy rows are women/family salons but not labeled exactly "صالون نسائي".
+   * Keep excluding explicit clinic/spa/makeup/skincare.
+   */
+  if (v === 'salon') {
+    if (cat === 'clinic' || cat === 'spa' || cat === 'makeup' || cat === 'skincare') return false
+    if (lbl) {
+      if (['سبا ومساج', 'مكياج', 'عناية بالبشرة', 'عيادات تجميل', 'عيادة تجميل'].includes(lbl)) return false
+      if (/^صالون\b|^مشغل\b|نسائي|سيدات|للنساء|للعائلة|عائلي|beauty salon|ladies|women|female|family/i.test(lbl))
+        return true
+    }
+    if (cat === 'salon' || cat === 'beauty_salon') return true
+  }
+
   if (v === 'clinic' && cat === 'clinic') return true
   if (v === 'spa' && cat === 'spa') return true
   if (v === 'makeup' && cat === 'makeup') return true

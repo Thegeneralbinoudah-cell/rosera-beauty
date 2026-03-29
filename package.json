@@ -19,7 +19,8 @@
     "icons": "node scripts/resize-pwa-icons.mjs",
     "seed:eastern-places": "node scripts/seed-eastern-google-places.mjs",
     "fix:business-coords": "node scripts/fix-business-coordinates.mjs",
-    "seed:gcc-clean": "node scripts/seed-gcc-clean.mjs"
+    "seed:gcc-clean": "node scripts/seed-gcc-clean.mjs",
+    "audit:salon-categories": "node scripts/audit-salon-categories.mjs"
   },
   "dependencies": {
     "@capacitor/cli": "^8.2.0",
