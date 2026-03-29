@@ -1,6 +1,7 @@
 import { lazy, Suspense, type ReactElement } from 'react'
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import { CustomerLayout } from '@/components/layout/CustomerLayout'
+import { RosieFAB } from '@/components/RosieFAB'
 import SplashScreen from '@/pages/SplashScreen'
 import SalonPortalRoute from '@/components/SalonPortalRoute'
 import ProtectedRoute from '@/components/ProtectedRoute'
@@ -226,6 +227,7 @@ export default function App() {
 
         <Route path="*" element={<NotFound />} />
       </Routes>
+      <RosieFAB />
     </Suspense>
   )
 }

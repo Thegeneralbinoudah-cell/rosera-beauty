@@ -5,7 +5,6 @@ import { FloatingBackButton } from '@/components/FloatingBackButton'
 import { IssueFeedbackPrompt } from '@/components/IssueFeedbackPrompt'
 import { InstallAutoSuggest } from '@/components/InstallAutoSuggest'
 import { PwaFirstVisitDialog } from '@/components/PwaFirstVisitDialog'
-import { RosieFAB } from '@/components/RosieFAB'
 
 /** مساحة سفلية للمحتوى — BottomNav + FAB روزي (~76px) + safe area */
 const LAYOUT_BOTTOM_PAD = 'calc(6rem + 84px + env(safe-area-inset-bottom, 0px) + 12px)'
@@ -24,7 +23,6 @@ export function CustomerLayout() {
       <IssueFeedbackPrompt />
       <FloatingBackButton />
       <BottomNav />
-      <RosieFAB />
       <PwaFirstVisitDialog />
       <InstallAutoSuggest />
     </div>

@@ -1,14 +1,24 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useInRouterContext, useLocation, useNavigate } from 'react-router-dom'
 import { useI18n } from '@/hooks/useI18n'
-/** Bundled portrait (woman, beauty/spa — Unsplash license at source) — always available offline */
-import rozyFabPortrait from '@/assets/rozy-fab-portrait.jpg'
+/** Bundled Rosie icon image — always available offline */
+import rozyFabPortrait from '@/assets/rozy.png'
 
 const ROSEY_FAB_TIP_KEY = 'rosera_rosy_fab_tip_v1'
 
 export type RosieFABProps = {
   /** Defaults to navigating to `/chat` (Rosy / Ai chat). */
   onPress?: () => void
+}
+
+function shouldHideRosieFab(pathname: string): boolean {
+  return (
+    pathname === '/chat' ||
+    pathname.startsWith('/chat/') ||
+    pathname.startsWith('/admin') ||
+    pathname.startsWith('/owner') ||
+    pathname.startsWith('/salon')
+  )
 }
 
 function RosieFABShell({
@@ -81,7 +91,7 @@ function RosieFABShell({
             decoding="async"
             fetchPriority="high"
             onError={() => setImgOk(false)}
-            className="h-full w-full object-cover object-[center_20%]"
+            className="h-full w-full object-cover object-center"
           />
         ) : (
           <span className="inline-flex h-full w-full items-center justify-center bg-gradient-to-br from-primary/15 to-accent/20 text-xl font-bold text-primary">
@@ -103,7 +113,7 @@ function RosieFABInRouter(props: RosieFABProps) {
   return (
     <RosieFABShell
       {...props}
-      onChatRoute={pathname === '/chat' || pathname.startsWith('/chat/')}
+      onChatRoute={shouldHideRosieFab(pathname)}
       onDefaultNavigate={onDefaultNavigate}
     />
   )
@@ -118,7 +128,7 @@ function RosieFABOutsideRouter(props: RosieFABProps) {
   return (
     <RosieFABShell
       {...props}
-      onChatRoute={pathname === '/chat' || pathname.startsWith('/chat/')}
+      onChatRoute={shouldHideRosieFab(pathname)}
       onDefaultNavigate={onDefaultNavigate}
     />
   )
