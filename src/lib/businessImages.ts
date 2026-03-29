@@ -15,6 +15,17 @@ const FALLBACK_COVERS = [
   'https://images.unsplash.com/photo-1519699047748-de8e457a634e?w=800&q=80&auto=format&fit=crop',
 ]
 
+const PLACEHOLDER_UNSPLASH_PATHS = new Set(
+  FALLBACK_COVERS.map((u) => {
+    try {
+      const p = new URL(u).pathname
+      return p
+    } catch {
+      return u
+    }
+  })
+)
+
 function simpleHash(s: string): number {
   let h = 0
   for (let i = 0; i < s.length; i++) {
@@ -28,6 +39,22 @@ export function fallbackCoverForBusinessId(id: string): string {
   return FALLBACK_COVERS[idx]
 }
 
+function sanitizeUrl(raw: string | null | undefined): string {
+  return typeof raw === 'string' ? raw.trim() : ''
+}
+
+/** Seeded generic Unsplash image shouldn't override a salon's real photo source. */
+function isSeedPlaceholderImage(url: string): boolean {
+  if (!url) return true
+  try {
+    const parsed = new URL(url)
+    if (!parsed.hostname.includes('images.unsplash.com')) return false
+    return PLACEHOLDER_UNSPLASH_PATHS.has(parsed.pathname)
+  } catch {
+    return false
+  }
+}
+
 /** يدعم cover_image و image_url و google_photo_resource (صور Google بدون تخزين المفتاح في DB) */
 export function resolveBusinessCoverImage(b: {
   id?: string | null
@@ -36,14 +63,18 @@ export function resolveBusinessCoverImage(b: {
   images?: string[] | null
   google_photo_resource?: string | null
 }): string {
-  const fromImages = b.images?.find((u) => typeof u === 'string' && u.trim().length > 0)
-  const fromGoogle = googlePlacePhotoMediaUrl(b.google_photo_resource)
-  const raw = (
-    (b.cover_image || '').trim() ||
-    (fromGoogle || '').trim() ||
-    ((b as { image_url?: string }).image_url || '').trim() ||
-    (fromImages || '').trim()
-  ).trim()
-  if (!raw) return b.id ? fallbackCoverForBusinessId(b.id) : DEFAULT_BUSINESS_COVER_IMAGE
-  return raw
+  const fromGoogle = sanitizeUrl(googlePlacePhotoMediaUrl(b.google_photo_resource))
+  if (fromGoogle) return fromGoogle
+
+  const fromImageUrl = sanitizeUrl((b as { image_url?: string }).image_url)
+  if (fromImageUrl && !isSeedPlaceholderImage(fromImageUrl)) return fromImageUrl
+
+  const fromImages =
+    b.images?.map((u) => sanitizeUrl(u)).find((u) => u && !isSeedPlaceholderImage(u)) ?? ''
+  if (fromImages) return fromImages
+
+  const fromCover = sanitizeUrl(b.cover_image)
+  if (fromCover && !isSeedPlaceholderImage(fromCover)) return fromCover
+
+  return b.id ? fallbackCoverForBusinessId(b.id) : DEFAULT_BUSINESS_COVER_IMAGE
 }
