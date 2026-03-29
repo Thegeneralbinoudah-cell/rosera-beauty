@@ -18,6 +18,7 @@ import { attachRipple } from '@/lib/ripple'
 import { cn } from '@/lib/utils'
 import { Reveal } from '@/components/ui/Reveal'
 import { CountUp } from '@/components/ui/CountUp'
+import rozyFabPortrait from '@/assets/rozy.png'
 
 function Home() {
   const { profile, user } = useAuth()
@@ -139,7 +140,7 @@ function Home() {
       lang === 'ar' ? 'ترتيب مخصص حسب ذوقك' : 'Personalized ranking for you',
     tagline:
       lang === 'ar'
-        ? 'مساعدك الذكي لاكتشاف أفضل الصالونات والعيادات بسهولة'
+        ? 'مرحبا أنا روزي مساعدتك الذكية لاكتشاف أفضل الصالونات والعيادات بسهولة'
         : 'Your smart assistant to discover the best salons and clinics with ease',
   }
 
@@ -444,6 +445,26 @@ function Home() {
           />
           <p className="relative text-center font-serif text-base font-semibold leading-relaxed tracking-wide text-foreground">
             {ui.tagline}
+          </p>
+          <div className="relative mt-4 flex justify-center">
+            <button
+              type="button"
+              onClick={() => nav('/chat')}
+              aria-label={lang === 'ar' ? 'الانتقال إلى روزي للمحادثة والتصوير' : 'Go to Rosy chat and camera'}
+              className="flex h-16 w-16 items-center justify-center overflow-hidden rounded-full border-2 border-primary/35 bg-card shadow-md transition-transform active:scale-95"
+            >
+              <img
+                src={rozyFabPortrait}
+                alt=""
+                width={64}
+                height={64}
+                decoding="async"
+                className="h-full w-full object-cover object-center"
+              />
+            </button>
+          </div>
+          <p className="relative mt-2 text-center text-sm font-semibold text-primary">
+            {lang === 'ar' ? 'اضغطي على الصورة' : 'Tap the image'}
           </p>
         </div>
       </section>
