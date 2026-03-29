@@ -260,6 +260,7 @@ export default function CitySalons() {
         {!loading && salons.length > 0 && (
           <div className="mb-4 space-y-3">
             <SortPills
+              variant="secondary"
               value={sortBy}
               onChange={(v) => setSortBy(v)}
               ariaLabel={t('a11y.sortResults')}

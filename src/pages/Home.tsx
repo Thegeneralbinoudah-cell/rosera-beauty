@@ -44,6 +44,10 @@ function Home() {
     }
   })
 
+  const homePrimaryCategories = HOME_CATEGORY_CHIPS.filter((c) =>
+    ['salon', 'clinic', 'spa', 'makeup'].includes(c.categoryValue)
+  )
+
   useEffect(() => {
     const sync = () => {
       try {
@@ -253,35 +257,9 @@ function Home() {
 
       <Reveal className="mx-auto max-w-lg space-y-6 px-4 py-4">
         <div className="space-y-2">
-          <h2 className="luxury-section-heading mb-2">{t('search.sortLabel')}</h2>
-          <div
-            className="flex min-h-12 flex-nowrap gap-2 overflow-x-auto pb-2 scrollbar-hide"
-            role="group"
-            aria-label={t('a11y.sortResults')}
-          >
-            {(
-              [
-                { sort: 'nearest' as const, label: t('search.sortNearest') },
-                { sort: 'booked' as const, label: t('city.sort.booked') },
-                { sort: 'rating' as const, label: t('city.sort.rating') },
-              ] as const
-            ).map(({ sort, label }) => (
-              <Link
-                key={sort}
-                to={`/search?sort=${sort}`}
-                className="category-chip inline-flex items-center justify-center gap-2 whitespace-nowrap"
-                onClick={(e) => attachRipple(e)}
-              >
-                {label}
-              </Link>
-            ))}
-          </div>
-        </div>
-
-        <div className="space-y-2">
-          <h2 className="luxury-section-heading mt-4 mb-2">{ui.categories}</h2>
-          <div className="flex min-h-12 flex-nowrap gap-2 overflow-x-auto pb-2 scrollbar-hide">
-          {HOME_CATEGORY_CHIPS.map(({ id, label, icon, categoryValue }) => {
+          <h2 className="luxury-section-heading mb-2">{ui.categories}</h2>
+          <div className="grid grid-cols-4 gap-2 pb-1">
+          {homePrimaryCategories.map(({ id, label, categoryValue }) => {
             const active = activeCategoryValue === categoryValue
             return (
               <motion.button
@@ -301,15 +279,40 @@ function Home() {
                   nav(`/search?categoryValue=${encodeURIComponent(categoryValue)}`)
                 }}
                 className={cn(
-                  'category-chip flex min-w-fit items-center justify-center gap-2 whitespace-nowrap',
+                  'category-chip category-chip--uniform flex items-center justify-center gap-2',
                   active && 'category-chip--selected'
                 )}
               >
-                <span aria-hidden>{icon}</span>
                 {label}
               </motion.button>
             )
           })}
+          </div>
+        </div>
+
+        <div className="space-y-2">
+          <h2 className="luxury-section-heading mt-4 mb-2">{t('search.sortLabel')}</h2>
+          <div
+            className="flex min-h-12 flex-nowrap gap-2 overflow-x-auto pb-2 scrollbar-hide"
+            role="group"
+            aria-label={t('a11y.sortResults')}
+          >
+            {(
+              [
+                { sort: 'nearest' as const, label: t('search.sortNearest') },
+                { sort: 'booked' as const, label: t('city.sort.booked') },
+                { sort: 'rating' as const, label: t('city.sort.rating') },
+              ] as const
+            ).map(({ sort, label }) => (
+              <Link
+                key={sort}
+                to={`/search?sort=${sort}`}
+                className="category-chip category-chip--secondary inline-flex items-center justify-center gap-2 whitespace-nowrap"
+                onClick={(e) => attachRipple(e)}
+              >
+                {label}
+              </Link>
+            ))}
           </div>
         </div>
 

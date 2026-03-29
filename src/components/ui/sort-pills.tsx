@@ -16,9 +16,10 @@ type SortPillsProps<T extends string> = {
   ariaLabel?: string
   /**
    * `mapLuxury` — fixed charcoal + gold border + pearl text (always readable on map overlay).
+   * `secondary` — softer visual weight for secondary controls.
    * `default` — theme-aware segmented control.
    */
-  variant?: 'default' | 'mapLuxury'
+  variant?: 'default' | 'secondary' | 'mapLuxury'
 }
 
 /**
@@ -35,6 +36,7 @@ export function SortPills<T extends string>({
   variant = 'default',
 }: SortPillsProps<T>) {
   const isMap = variant === 'mapLuxury'
+  const isSecondary = variant === 'secondary'
 
   return (
     <div
@@ -71,7 +73,9 @@ export function SortPills<T extends string>({
                     dense ? 'px-3 py-2 text-xs' : 'px-4 py-2 text-sm',
                     active
                       ? 'gradient-rosera border-transparent text-primary-foreground shadow-md'
-                      : 'hover:border-primary/30 hover:bg-primary/10 hover:shadow-md'
+                      : isSecondary
+                        ? 'border-primary/15 bg-muted/45 text-foreground/90 shadow-none hover:border-primary/25 hover:bg-muted/65 hover:shadow-sm'
+                        : 'hover:border-primary/30 hover:bg-primary/10 hover:shadow-md'
                   )
             )}
           >

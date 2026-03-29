@@ -269,6 +269,15 @@
   .category-chip--selected {
     @apply gradient-rosera border-transparent text-primary-foreground shadow-md;
   }
+  .category-chip--secondary {
+    @apply border-primary/15 bg-muted/45 text-foreground/90 shadow-none;
+    @apply hover:border-primary/25 hover:bg-muted/65 hover:shadow-sm;
+  }
+  .category-chip--uniform {
+    @apply min-h-[3.25rem] min-w-0 w-full px-2 py-2 text-[0.9rem] leading-tight;
+    white-space: normal;
+    text-wrap: balance;
+  }
 
   .ripple {
     position: relative;

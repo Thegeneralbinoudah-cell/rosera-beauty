@@ -20,7 +20,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { SortPills } from '@/components/ui/sort-pills'
 import { EmptyState } from '@/components/ui/empty-state'
 import { haversineKm, cn } from '@/lib/utils'
 import { toast } from 'sonner'
@@ -374,24 +373,12 @@ export default function SearchPage() {
           />
         </div>
         <div className="mx-auto mt-4 max-w-lg space-y-4">
-          <SortPills
-            value={sortBy}
-            onChange={(v) => setSortBy(v)}
-            ariaLabel={t('a11y.sortResults')}
-            nowrap
-            className="min-h-12 flex-nowrap gap-2 overflow-x-auto pb-2 scrollbar-hide"
-            options={[
-              { value: 'rating', label: t('city.sort.rating') },
-              { value: 'booked', label: t('city.sort.booked') },
-              { value: 'nearest', label: t('search.sortNearest') },
-            ]}
-          />
           <div
-            className="flex min-h-12 flex-nowrap gap-2 overflow-x-auto pb-2 scrollbar-hide"
+            className="grid grid-cols-3 gap-2"
             role="group"
             aria-label={t('search.categoryLabel')}
           >
-            {HOME_CATEGORY_CHIPS.map(({ id, label, icon, categoryValue }) => {
+            {HOME_CATEGORY_CHIPS.map(({ id, label, categoryValue }) => {
               const active = effectiveCategoryValue === categoryValue
               return (
                 <button
@@ -407,11 +394,39 @@ export default function SearchPage() {
                     trackCategoryFilterSelected('search_chip', categoryValue)
                   }}
                   className={cn(
-                    'category-chip inline-flex items-center justify-center gap-2 whitespace-nowrap',
+                    'category-chip category-chip--uniform category-chip--secondary inline-flex items-center justify-center',
                     active && 'category-chip--selected'
                   )}
                 >
-                  <span aria-hidden>{icon}</span>
+                  {label}
+                </button>
+              )
+            })}
+          </div>
+          <div className="grid grid-cols-3 gap-2" role="tablist" aria-label={t('a11y.sortResults')}>
+            {(
+              [
+                { value: 'nearest' as const, label: t('search.sortNearest') },
+                { value: 'booked' as const, label: t('city.sort.booked') },
+                { value: 'rating' as const, label: t('city.sort.rating') },
+              ] as const
+            ).map(({ value, label }) => {
+              const active = sortBy === value
+              return (
+                <button
+                  key={value}
+                  type="button"
+                  role="tab"
+                  aria-selected={active}
+                  onClick={(e) => {
+                    attachRipple(e)
+                    setSortBy(value)
+                  }}
+                  className={cn(
+                    'category-chip category-chip--uniform inline-flex items-center justify-center',
+                    active && 'category-chip--selected'
+                  )}
+                >
                   {label}
                 </button>
               )
