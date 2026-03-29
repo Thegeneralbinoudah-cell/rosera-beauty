@@ -449,9 +449,14 @@ function Home() {
           <div className="relative mt-4 flex justify-center">
             <button
               type="button"
-              onClick={() => nav('/chat')}
+              onClick={(e) => {
+                e.preventDefault()
+                e.stopPropagation()
+                if (typeof window !== 'undefined') window.location.assign('/chat')
+                else nav('/chat')
+              }}
               aria-label={lang === 'ar' ? 'الانتقال إلى روزي للمحادثة والتصوير' : 'Go to Rosy chat and camera'}
-              className="flex h-16 w-16 items-center justify-center overflow-hidden rounded-full border-2 border-primary/35 bg-card shadow-md transition-transform active:scale-95"
+              className="relative z-10 flex h-16 w-16 items-center justify-center overflow-hidden rounded-full border-2 border-primary/35 bg-card shadow-md transition-transform active:scale-95"
             >
               <img
                 src={rozyFabPortrait}

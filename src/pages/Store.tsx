@@ -15,6 +15,7 @@ import { useI18n } from '@/hooks/useI18n'
 import { cn } from '@/lib/utils'
 import { buildMapExploreUrl } from '@/lib/mapExploreUrl'
 import { trackCategoryFilterSelected } from '@/lib/analytics'
+import rozyFabPortrait from '@/assets/rozy.png'
 
 type CatDef = { key: string; tKey: string; Icon: LucideIcon }
 
@@ -117,7 +118,24 @@ export default function Store() {
                 {t('store.subtitle')}
               </p>
             </div>
-            <CartHeaderButton />
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => nav('/chat')}
+                aria-label="التحدث مع روزي"
+                className="flex h-11 w-11 items-center justify-center overflow-hidden rounded-full border border-primary/35 bg-card p-0 shadow-sm transition-transform active:scale-95"
+              >
+                <img
+                  src={rozyFabPortrait}
+                  alt=""
+                  width={44}
+                  height={44}
+                  decoding="async"
+                  className="h-full w-full object-cover object-center"
+                />
+              </button>
+              <CartHeaderButton />
+            </div>
           </div>
 
           <div className="relative mt-5">
