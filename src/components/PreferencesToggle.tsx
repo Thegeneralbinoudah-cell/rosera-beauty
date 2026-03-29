@@ -1,12 +1,10 @@
-import { DarkModeToggle } from '@/components/DarkModeToggle'
 import { usePreferences } from '@/contexts/PreferencesContext'
 
-/** Dark mode + language — same row as notifications in headers that use this component. */
+/** Language switch only — dark mode is rendered globally once. */
 export default function PreferencesToggle() {
   const { lang, setLang } = usePreferences()
   return (
-    <div className="flex items-center gap-2">
-      <DarkModeToggle />
+    <div className="flex items-center">
       <button
         type="button"
         onClick={() => setLang(lang === 'ar' ? 'en' : 'ar')}

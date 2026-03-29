@@ -10,7 +10,6 @@ import { usePreferences } from '@/contexts/PreferencesContext'
 import { useI18n } from '@/hooks/useI18n'
 import { useRegions } from '@/hooks/useRegions'
 import { RoseraLogoMark } from '@/components/branding/RoseraLogoMark'
-import { DarkModeToggle } from '@/components/DarkModeToggle'
 import { RosyHomeFirstIntro } from '@/components/RosyHomeFirstIntro'
 import { InstallAppButton } from '@/components/InstallAppButton'
 import { captureProductEvent, trackCategoryFilterSelected } from '@/lib/analytics'
@@ -169,7 +168,6 @@ function Home() {
               <Bell className="h-5 w-5 text-foreground" aria-hidden />
               <span className="absolute top-1.5 end-1.5 h-2 w-2 rounded-full bg-primary" aria-hidden />
             </Link>
-            <DarkModeToggle />
             <Link
               to="/profile"
               aria-label={lang === 'ar' ? 'الملف الشخصي' : 'Profile'}

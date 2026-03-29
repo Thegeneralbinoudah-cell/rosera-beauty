@@ -5,8 +5,13 @@
       <stop offset="45%" style="stop-color:#D4A5A5"/>
       <stop offset="100%" style="stop-color:#A67B7B"/>
     </linearGradient>
+    <linearGradient id="roseraLogoRGrad" x1="36" y1="28" x2="84" y2="86" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" style="stop-color:#8C5F5F"/>
+      <stop offset="100%" style="stop-color:#6F3E49"/>
+    </linearGradient>
   </defs>
-  <circle cx="60" cy="60" r="56" fill="url(#roseraLogoGrad)" opacity="0.15"/>
-  <path fill="url(#roseraLogoGrad)" d="M60 18c-4 12-14 20-26 22 12 2 22 10 26 22 4-12 14-20 26-22-12-2-22-10-26-22zm0 62c-3 9-10 15-19 17 9 2 16 8 19 17 3-9 10-15 19-17-9-2-16-8-19-17z"/>
-  <text x="60" y="72" text-anchor="middle" font-family="Georgia,serif" font-size="28" font-weight="700" fill="#9B6B6B">R</text>
+  <circle cx="60" cy="60" r="56" fill="url(#roseraLogoGrad)" opacity="0.22"/>
+  <circle cx="60" cy="60" r="43" fill="#FFFFFF" opacity="0.6"/>
+  <path d="M42 30V90" stroke="url(#roseraLogoRGrad)" stroke-width="8" stroke-linecap="round"/>
+  <path d="M42 30C69 30 83 41 83 55C83 70 66 78 42 75M53 76L84 92" stroke="url(#roseraLogoRGrad)" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
 </svg>
