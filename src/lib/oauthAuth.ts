@@ -54,6 +54,16 @@ export function describeOAuthFailure(err: AuthError | Error | string | null | un
   if (lower.includes('not enabled') || (lower.includes('provider') && lower.includes('disabled')))
     return 'هذا المزوّد غير مفعّل حالياً. جرّبي البريد أو رقم الجوال، أو راجعي إعدادات المشروع في Supabase.'
   if (lower.includes('popup') || lower.includes('closed')) return 'تم إغلاق نافذة تسجيل الدخول'
+  if (
+    lower.includes('unable to exchange external code') ||
+    lower.includes('ca20') ||
+    lower.includes('ccec') ||
+    lower.includes('invalid_client') ||
+    lower.includes('client secret')
+  ) {
+    const u = getSupabaseOAuthProviderRedirectUri()
+    return `فشل تسجيل Apple بسبب إعدادات Apple Developer (ca20). تأكدي من: Services ID الصحيح في Supabase، وتحديث Secret/Key في Supabase، وتطابق Return URL في Apple مع ${u || 'https://YOUR_PROJECT.supabase.co/auth/v1/callback'}.`
+  }
   if (isRedirectUriMismatchMessage(raw)) {
     const u = getSupabaseOAuthProviderRedirectUri()
     if (u) {

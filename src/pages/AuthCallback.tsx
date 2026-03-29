@@ -75,20 +75,28 @@ export default function AuthCallback() {
         })
 
         if (sessionErr && !code) {
-          const detail =
-            describeOAuthFailure(sessionErr) || sessionErr.message || 'تعذر استعادة الجلسة'
-          console.error('[AUTH CALLBACK] final error:', detail)
-          toast.error(`${detail} (no authorization code in URL; check Apple Return URL and Supabase Redirect URLs)`)
-          nav('/auth', { replace: true })
-          return
+          console.warn('[AUTH CALLBACK] initial getSession warning without code:', sessionErr.message)
         }
 
         let session = sessionData.session
         if (cancelled) return
+        const fetchSessionAgain = async () => {
+          const { data, error } = await supabase.auth.getSession()
+          if (error) console.warn('[AUTH CALLBACK] getSession retry warning:', error.message)
+          return data.session ?? null
+        }
 
         if (!session?.user && code) {
           const { data: exchanged, error: exchangeErr } = await supabase.auth.exchangeCodeForSession(code)
           if (exchangeErr) {
+            const isPkceVerifierMissing = /code verifier not found/i.test(exchangeErr.message ?? '')
+            if (isPkceVerifierMissing) {
+              console.warn('[AUTH CALLBACK] PKCE verifier missing; trying session fallback', {
+                message: exchangeErr.message,
+              })
+              await sleep(250)
+              session = await fetchSessionAgain()
+            } else {
             const detail =
               describeOAuthFailure(exchangeErr) ||
               exchangeErr.message ||
@@ -102,18 +110,15 @@ export default function AuthCallback() {
             toast.error(`${detail} | exchangeCodeForSession failed`)
             nav('/auth', { replace: true })
             return
+            }
           }
-          session = exchanged.session ?? null
-          console.log('[AUTH CALLBACK] after exchangeCodeForSession', {
-            hasSession: !!session?.user,
-            userId: session?.user?.id ?? null,
-          })
-        }
-
-        const fetchSessionAgain = async () => {
-          const { data, error } = await supabase.auth.getSession()
-          if (error) console.warn('[AUTH CALLBACK] getSession retry warning:', error.message)
-          return data.session ?? null
+          if (exchanged?.session) {
+            session = exchanged.session
+            console.log('[AUTH CALLBACK] after exchangeCodeForSession', {
+              hasSession: !!session?.user,
+              userId: session?.user?.id ?? null,
+            })
+          }
         }
 
         if (!session?.user) {
