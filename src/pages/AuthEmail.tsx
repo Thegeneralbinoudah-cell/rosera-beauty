@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
-import { Loader2, Eye, EyeOff } from 'lucide-react'
+import { Loader2, Eye, EyeOff, ArrowLeft, ArrowRight } from 'lucide-react'
 import { ROSERA_LOGO_SRC } from '@/lib/branding'
 import { supabase, isSupabaseConfigured } from '@/lib/supabase'
 import { Button } from '@/components/ui/button'
@@ -12,6 +12,7 @@ import PreferencesToggle from '@/components/PreferencesToggle'
 import { OAuthSocialButtons } from '@/components/auth/OAuthSocialButtons'
 import { consumePostAuthPath } from '@/lib/salonAcquisition'
 import { isPrivilegedStaffClient } from '@/lib/privilegedStaff'
+import { ensureUserProfile } from '@/lib/ensureUserProfile'
 
 /** بعد تسجيل الدخول بالإيميل: توجيه — يطابق public.is_privileged_staff() */
 async function redirectAfterEmailLogin(nav: (path: string, opts?: { replace: boolean }) => void, uid: string) {
@@ -54,6 +55,7 @@ export default function AuthEmail() {
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirm, setShowConfirm] = useState(false)
   const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms))
+  const isAr = lang === 'ar'
 
   const onLogin = async () => {
     if (!isSupabaseConfigured) {
@@ -108,6 +110,12 @@ export default function AuthEmail() {
       toast.error('أدخلي البريد الإلكتروني')
       return
     }
+    const normalizedEmail = email.trim().toLowerCase()
+    const emailLooksValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)
+    if (!emailLooksValid) {
+      toast.error('صيغة البريد الإلكتروني غير صحيحة')
+      return
+    }
     if (password.length < 6) {
       toast.error('كلمة المرور 6 أحرف على الأقل')
       return
@@ -119,18 +127,35 @@ export default function AuthEmail() {
     console.info('[Auth][email] signup start')
     setLoading(true)
     try {
-      const { error } = await supabase.auth.signUp({
-        email: email.trim().toLowerCase(),
+      const { data, error } = await supabase.auth.signUp({
+        email: normalizedEmail,
         password,
         options: { emailRedirectTo: `${window.location.origin}/auth/email` },
       })
       if (error) throw error
+      const uid = data.user?.id
+      const hasSession = !!data.session?.user?.id
+      if (uid && hasSession) {
+        const profileOk = await ensureUserProfile(data.session!.user)
+        if (!profileOk) {
+          toast.error('تم إنشاء الحساب لكن تعذر إعداد الملف الشخصي الآن')
+        }
+        toast.success('تم إنشاء الحساب وتسجيل الدخول')
+        await redirectAfterEmailLogin(nav, uid)
+        return
+      }
       console.info('[Auth][email] signup success (verification email sent)')
       setSignupSent(true)
       toast.success('تم إرسال رسالة التحقق إلى بريدكِ — فعّلي الحساب من الرابط ثم سجّلي الدخول')
     } catch (e: unknown) {
       console.error('[Auth][email] signup error', e)
-      toast.error(e instanceof Error ? e.message : 'فشل إنشاء الحساب')
+      const msg = e instanceof Error ? e.message : 'فشل إنشاء الحساب'
+      if (/already registered|already exists|user already registered/i.test(msg)) {
+        toast.error('هذا البريد مسجّل مسبقًا — سجّلي الدخول مباشرة')
+        setMode('login')
+        return
+      }
+      toast.error(msg)
     } finally {
       setLoading(false)
     }
@@ -142,6 +167,15 @@ export default function AuthEmail() {
     <div className="min-h-dvh bg-background px-6 py-12 dark:bg-rosera-dark">
       <div className="mx-auto max-w-md">
         <div className="rounded-3xl border border-rose-200 bg-white p-8 shadow-soft dark:border-primary/20 dark:bg-card">
+          <button
+            type="button"
+            onClick={() => nav('/auth', { replace: true })}
+            className="mb-3 inline-flex items-center gap-2 rounded-full border border-primary/20 px-3 py-1.5 text-sm font-semibold text-foreground hover:bg-primary/10"
+            aria-label="الرجوع لصفحة تسجيل الدخول"
+          >
+            {isAr ? <ArrowRight className="h-4 w-4" /> : <ArrowLeft className="h-4 w-4" />}
+            <span>{isAr ? 'الرجوع لتسجيل الدخول' : 'Back to sign in'}</span>
+          </button>
           <div className="mb-3 flex justify-end">
             <PreferencesToggle />
           </div>

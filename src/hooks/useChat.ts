@@ -661,6 +661,8 @@ export function useChat(userId: string | undefined, options?: UseChatOptions) {
       const rawTrim = text.trim()
       const normalizedText = rawTrim ? normalizeArabic(rawTrim) : ''
       if (!normalizedText && !image) return
+      // History load failure should not freeze chat actions; clear banner on new interaction.
+      setHistoryError(null)
 
       if (sendBusyRef.current) return
       const sendNow = Date.now()

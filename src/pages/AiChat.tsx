@@ -625,7 +625,7 @@ export default function AiChat({ embedded = false }: { embedded?: boolean }) {
   }, [clearResumeListenTimeout, syncStopVoiceCapture])
 
   const toggleVoiceInput = useCallback(() => {
-    if (historyError || loading) return
+    if (loading) return
     const Ctor = getRosySpeechRecognitionCtor()
     if (!Ctor) {
       toast.message('المتصفح ما يدعم التحدث حالياً — اكتبي لروزي 💕')
@@ -678,7 +678,6 @@ export default function AiChat({ embedded = false }: { embedded?: boolean }) {
     clearResumeListenTimeout()
     startVoiceListeningInner({ silentHaptic: false, skipCancelTts: false })
   }, [
-    historyError,
     loading,
     sending,
     voiceUi,
@@ -1569,7 +1568,7 @@ export default function AiChat({ embedded = false }: { embedded?: boolean }) {
             variant="outline"
             className="min-h-[44px] min-w-[44px] shrink-0 touch-manipulation rounded-2xl border border-primary/30 bg-card text-primary"
             aria-label="فتح الكاميرا"
-            disabled={!!historyError || loading}
+            disabled={loading}
             onClick={openFaceScanFlow}
           >
             <Camera className="h-4 w-4" aria-hidden />
@@ -1583,7 +1582,7 @@ export default function AiChat({ embedded = false }: { embedded?: boolean }) {
               (voiceUi === 'listening' || voiceUi === 'speaking') && 'ring-2 ring-primary/45'
             )}
             aria-label="بدء/إيقاف المحادثة الصوتية"
-            disabled={!!historyError || loading}
+            disabled={loading}
             onClick={() => void toggleVoiceInput()}
           >
             <Mic className="h-4 w-4" aria-hidden />
@@ -1593,7 +1592,7 @@ export default function AiChat({ embedded = false }: { embedded?: boolean }) {
             className="flex-1 touch-manipulation rounded-2xl"
             placeholder="اكتبي لروزي..."
             value={input}
-            disabled={!!historyError || loading}
+            disabled={loading}
             autoComplete="off"
             enterKeyHint="send"
             inputMode="text"
@@ -1608,7 +1607,7 @@ export default function AiChat({ embedded = false }: { embedded?: boolean }) {
           <Button
             size="icon"
             className="min-h-[44px] min-w-[44px] shrink-0 touch-manipulation rounded-2xl gradient-primary"
-            disabled={!!historyError || loading || sending}
+            disabled={loading || sending}
             onClick={() => void send(input)}
           >
             <Send className="h-5 w-5" />
