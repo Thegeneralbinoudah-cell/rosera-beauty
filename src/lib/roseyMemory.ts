@@ -25,13 +25,13 @@ function phraseAndEmojiFromKey(
   key: PreferenceServiceKey | null,
   fallbackServiceName: string
 ): { phrase: string; emoji: string } {
-  if (key === 'nails') return { phrase: 'أظافر', emoji: '💅' }
-  if (key === 'hair') return { phrase: 'شعرك', emoji: '💇‍♀️' }
-  if (key === 'laser') return { phrase: 'ليزر', emoji: '✨' }
-  if (key === 'spa') return { phrase: 'سبا وعناية', emoji: '💆‍♀️' }
+  if (key === 'nails') return { phrase: 'أظافر', emoji: '' }
+  if (key === 'hair') return { phrase: 'شعرك', emoji: '' }
+  if (key === 'laser') return { phrase: 'ليزر', emoji: '' }
+  if (key === 'spa') return { phrase: 'سبا وعناية', emoji: '' }
   const t = fallbackServiceName.trim()
-  if (t) return { phrase: t.length > 40 ? `${t.slice(0, 37)}…` : t, emoji: '✨' }
-  return { phrase: 'خدمة العناية', emoji: '💕' }
+  if (t) return { phrase: t.length > 40 ? `${t.slice(0, 37)}…` : t, emoji: '' }
+  return { phrase: 'خدمة العناية', emoji: '' }
 }
 
 function preferenceKeyToRosyType(key: PreferenceServiceKey | null): RosyServiceType | null {

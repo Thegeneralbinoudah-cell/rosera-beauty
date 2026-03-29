@@ -73,13 +73,13 @@ export function SalonPremiumCard({
   const badge = ratingBadgeTier(rating)
   const cover = resolveBusinessCoverImage(salon)
   const src = imgBroken ? DEFAULT_BUSINESS_COVER_IMAGE : cover
-  const recLabel = lang === 'ar' ? '✨ موصى لك' : '✨ For you'
+  const recLabel = lang === 'ar' ? 'موصى لك' : 'For you'
   const trustLine =
     lang === 'ar'
       ? 'تم اختيار هذا لك بناءً على تفضيلاتك'
       : 'Chosen for you based on your preferences'
   const bookCtaRecommended =
-    lang === 'ar' ? 'احجزي الآن ✨ الأفضل لك' : 'Book now ✨ Best for you'
+    lang === 'ar' ? 'احجزي الآن - الأفضل لك' : 'Book now - Best for you'
   const salonIdOk = typeof salon.id === 'string' && salon.id.trim().length > 0
   const offerPct =
     activeOffer &&
@@ -217,8 +217,8 @@ export function SalonPremiumCard({
                 )}
               >
                 {lang === 'ar'
-                  ? `🎁 عرض خاص - خصم ${offerPct}%`
-                  : `🎁 Special offer — ${offerPct}% off`}
+                  ? `عرض خاص - خصم ${offerPct}%`
+                  : `Special offer — ${offerPct}% off`}
               </Badge>
             </div>
           ) : null}

@@ -26,13 +26,13 @@ export default function RecommendedSalons() {
   const [error, setError] = useState<string | null>(null)
 
   const ui = {
-    title: lang === 'ar' ? '✨ مقترحات ذكية' : '✨ Smart picks',
+    title: lang === 'ar' ? 'مقترحات ذكية' : 'Smart picks',
     subtitle:
       lang === 'ar' ? 'ترتيب مخصص حسب ذوقك' : 'Personalized ranking for you',
     empty: lang === 'ar' ? 'لا توجد توصيات حالياً' : 'No recommendations right now.',
     reviews: lang === 'ar' ? 'تقييم' : 'reviews',
-    badgeTop: '🔥 الأفضل',
-    badgeRec: '⭐ موصى به',
+    badgeTop: 'الأفضل',
+    badgeRec: 'موصى به',
     book: lang === 'ar' ? 'احجزي الآن' : 'Book now',
   }
 

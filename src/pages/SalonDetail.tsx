@@ -34,10 +34,10 @@ import { SalonRosyRecommendationCard } from '@/components/salon/SalonRosyRecomme
 import { colors } from '@/theme/colors'
 
 const catAr: Record<string, string> = {
-  salon: 'صالون نسائي 💇‍♀️',
+  salon: 'صالون نسائي',
   clinic: 'عيادة تجميل 🏥',
   spa: 'سبا ومساج 💆‍♀️',
-  beauty_center: 'مركز تجميل ✨',
+  beauty_center: 'مركز تجميل',
 }
 
 type BizRow = Business & {
@@ -529,11 +529,11 @@ export default function SalonDetail() {
             <div className="flex flex-wrap items-center justify-end gap-2">
               {featuredAdActive ? (
                 <Badge className="shrink-0 gradient-primary text-[11px] font-extrabold text-white">
-                  إعلان ⭐
+                  إعلان
                 </Badge>
               ) : null}
               {b.is_featured ? (
-                <Badge className="shrink-0 bg-amber-400/95 text-[11px] font-extrabold text-amber-950">⭐ صالون مميز</Badge>
+                <Badge className="shrink-0 bg-amber-400/95 text-[11px] font-extrabold text-amber-950">صالون مميز</Badge>
               ) : null}
             </div>
           </div>

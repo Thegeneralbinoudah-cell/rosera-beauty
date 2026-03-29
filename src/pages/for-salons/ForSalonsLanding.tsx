@@ -54,9 +54,7 @@ export default function ForSalonsLanding() {
           <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-primary-subtle to-primary/35 text-primary shadow-lg shadow-primary/20">
             <Sparkles className="h-7 w-7" strokeWidth={2} />
           </div>
-          <h1 className="text-2xl font-extrabold leading-snug text-foreground sm:text-3xl">
-            زيدي حجوزاتك بسهولة ✨
-          </h1>
+          <h1 className="text-2xl font-extrabold leading-snug text-foreground sm:text-3xl">زيدي حجوزاتك بسهولة</h1>
           <p className="mt-3 text-sm leading-relaxed text-foreground">
             انضمي لآلاف العميلات اللي يدورن صالونات موثوقة على روزيرا — تسجيل سريع وظهور فوري.
           </p>
@@ -101,7 +99,7 @@ export default function ForSalonsLanding() {
             <div>
               <p className="font-extrabold text-primary dark:text-primary">عرض الترحيب</p>
               <ul className="mt-2 space-y-1.5 text-sm text-foreground">
-                <li>• أول شهر اشتراك باقة أساسية — مجاني 🎁</li>
+                <li>• أول شهر اشتراك باقة أساسية — مجاني</li>
                 <li>• بدون عمولة منصة على الحجوزات في أول أسبوع</li>
               </ul>
               <p className="mt-2 text-xs text-foreground">

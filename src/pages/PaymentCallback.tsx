@@ -286,7 +286,7 @@ export default function PaymentCallback() {
           <CheckCircle className="h-12 w-12 text-green-600 dark:text-green-400" />
         </div>
         <h1 className="text-2xl font-extrabold text-foreground">
-          {kind === 'booking' ? 'تم الحجز ✨' : 'تم الدفع بنجاح'}
+          {kind === 'booking' ? 'تم الحجز' : 'تم الدفع بنجاح'}
         </h1>
         <div className="max-w-sm space-y-2 text-center text-foreground">
           {kind === 'booking' ? (

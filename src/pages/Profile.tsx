@@ -44,7 +44,7 @@ export default function Profile() {
     { to: '/notifications', label: t('profile.notifications') || 'الإشعارات', icon: Bell, emoji: '🔔' },
     { to: '/chat', label: t('profile.ai') || 'روزيرا الذكية', icon: Bot, emoji: '🤖' },
     { to: '/skin-analysis', label: t('profile.skin') || 'كشف البشرة', icon: ScanFace, emoji: '🪞' },
-    { to: '/rosy-vision', label: 'روزي فيجن', icon: Sparkles, emoji: '✨' },
+    { to: '/rosy-vision', label: 'روزي فيجن', icon: Sparkles, emoji: '' },
     { to: '/invite', label: t('profile.invite') || 'ادعي صديقاتكِ', icon: Crown, emoji: '👑' },
     { to: '/settings', label: t('profile.settings'), icon: Settings, emoji: '⚙️' },
     { to: '/privacy', label: t('authEmail.privacy'), icon: Shield, emoji: '🔒' },

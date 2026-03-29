@@ -170,7 +170,7 @@ export default function OwnerSubscription() {
         },
       })
 
-      toast.success('تم تفعيل الاشتراك بنجاح ✨')
+      toast.success('تم تفعيل الاشتراك بنجاح')
       setCheckoutPlan(null)
       setPendingSubId(null)
       await refresh()
@@ -283,7 +283,7 @@ export default function OwnerSubscription() {
               <div className="flex items-start justify-between gap-2">
                 <h3 className="font-extrabold text-foreground">
                   {cfg.labelAr}
-                  {plan === 'premium' ? ' ⭐' : ''}
+                  {plan === 'premium' ? ' مميز' : ''}
                 </h3>
                 {isCurrent ? (
                   <Badge variant="secondary" className="shrink-0 text-[10px]">

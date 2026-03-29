@@ -324,13 +324,13 @@ export function topRosyServiceFromPreferenceSignals(sig: UserPreferenceSignals):
 export function buildRosyWelcomeFromSignals(sig: UserPreferenceSignals): string {
   const top = sig.preferredCategories[0]
   if (top === 'nails')
-    return `بما إنك تحبين الأظافر 💅\nلقيت لك أفضل الخيارات 👇\n${ROSY_BOOKING_ASSISTANT_SUBTITLE}`
+    return `بما إنك تحبين الأظافر\nلقيت لك أفضل الخيارات\n${ROSY_BOOKING_ASSISTANT_SUBTITLE}`
   if (top === 'hair')
-    return `بما إنك تهتمين بالشعر 💇‍♀️\nخليني أوريكِ أحلى الخيارات ✨\n${ROSY_BOOKING_ASSISTANT_SUBTITLE}`
+    return `بما إنك تهتمين بالشعر\nخليني أوريكِ أحلى الخيارات\n${ROSY_BOOKING_ASSISTANT_SUBTITLE}`
   if (top === 'spa')
-    return `يبدو إنك تحبين السبا والعناية 💆‍♀️\nهذي أماكن تستحق التجربة 👇\n${ROSY_BOOKING_ASSISTANT_SUBTITLE}`
+    return `يبدو إنك تحبين السبا والعناية\nهذي أماكن تستحق التجربة\n${ROSY_BOOKING_ASSISTANT_SUBTITLE}`
   if (top === 'laser')
-    return `شايفة إنك تبحثين عن ليزر وعناية دقيقة ✨\nألقى لك الأنسب 👇\n${ROSY_BOOKING_ASSISTANT_SUBTITLE}`
+    return `شايفة إنك تبحثين عن ليزر وعناية دقيقة\nألقى لك الأنسب\n${ROSY_BOOKING_ASSISTANT_SUBTITLE}`
   const loc = sig.preferredLocationHints[0]
   if (loc)
     return `أشوف إنك تفضلين منطقة ${loc} 📍\n${ROSY_BOOKING_ASSISTANT_TITLE}\n${ROSY_BOOKING_ASSISTANT_SUBTITLE}`

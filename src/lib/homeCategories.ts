@@ -1,10 +1,10 @@
 /** Home screen category chips — single source of truth for Search `categoryValue` filter. */
 export const HOME_CATEGORY_CHIPS = [
-  { id: 'salon', label: 'صالون نسائي', icon: '💇‍♀️', categoryValue: 'salon' },
-  { id: 'clinic', label: 'عيادات تجميل', icon: '✨', categoryValue: 'clinic' },
-  { id: 'spa', label: 'سبا ومساج', icon: '🧖‍♀️', categoryValue: 'spa' },
-  { id: 'makeup', label: 'مكياج', icon: '💄', categoryValue: 'makeup' },
-  { id: 'skincare', label: 'عناية بالبشرة', icon: '🌿', categoryValue: 'skincare' },
+  { id: 'salon', label: 'صالون نسائي', icon: '', categoryValue: 'salon' },
+  { id: 'clinic', label: 'عيادات تجميل', icon: '', categoryValue: 'clinic' },
+  { id: 'spa', label: 'سبا ومساج', icon: '', categoryValue: 'spa' },
+  { id: 'makeup', label: 'مكياج', icon: '', categoryValue: 'makeup' },
+  { id: 'skincare', label: 'عناية بالبشرة', icon: '', categoryValue: 'skincare' },
 ] as const
 
 export type HomeCategoryValue = (typeof HOME_CATEGORY_CHIPS)[number]['categoryValue']

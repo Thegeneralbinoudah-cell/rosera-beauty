@@ -741,7 +741,7 @@ export default function BookingFlow() {
         >
           <Check className="h-10 w-10" strokeWidth={2.5} />
         </motion.div>
-        <h2 className="mt-6 text-2xl font-extrabold">تم الحجز ✨</h2>
+        <h2 className="mt-6 text-2xl font-extrabold">تم الحجز</h2>
         <p className="mt-2 text-rosera-gray">
           رقم الحجز: <span className="font-mono font-bold text-foreground">{bookingRef?.slice(0, 8)}</span>
         </p>
@@ -971,7 +971,7 @@ export default function BookingFlow() {
                       )}
                       {rosyAppliedNegotiationPct > 0 ? (
                         <p className="text-xs font-semibold text-primary">
-                          خصم روزي ✨ {rosyAppliedNegotiationPct}% (يُطبَّق بعد عروض الصالون إن وُجدت)
+                          خصم روزي {rosyAppliedNegotiationPct}% (يُطبَّق بعد عروض الصالون إن وُجدت)
                         </p>
                       ) : null}
                       <p className="text-xs text-foreground">
@@ -1248,7 +1248,7 @@ export default function BookingFlow() {
                     <p className="text-xl font-bold text-primary">{formatPrice(finalTotal)}</p>
                   )}
                   {rosyAppliedNegotiationPct > 0 ? (
-                    <p className="mt-2 text-xs font-semibold text-primary">خصم روزي ✨ {rosyAppliedNegotiationPct}%</p>
+                    <p className="mt-2 text-xs font-semibold text-primary">خصم روزي {rosyAppliedNegotiationPct}%</p>
                   ) : null}
                 </div>
               </div>

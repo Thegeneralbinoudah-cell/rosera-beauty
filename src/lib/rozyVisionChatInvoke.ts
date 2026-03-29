@@ -10,7 +10,7 @@ import type {
   SkinAnalysisAdvisorResult,
 } from '@/lib/rozyVisionChatTypes'
 
-export const VISION_FAIL_AR = 'عذراً، حدث خطأ في التحليل. حاولي مجدداً 🌸'
+export const VISION_FAIL_AR = 'عذراً، حدث خطأ في التحليل. حاولي مجدداً.'
 
 const ROZY_VISION_INVOKE_TIMEOUT_MS = 120_000
 

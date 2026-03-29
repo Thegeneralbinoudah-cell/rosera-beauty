@@ -127,7 +127,7 @@ export default function SalonFeaturedAds() {
         toast.error(err || error?.message || 'فشل التحقق من الدفع')
         return
       }
-      toast.success('تم تفعيل الإعلان المميز ✨')
+      toast.success('تم تفعيل الإعلان المميز')
       setCheckoutOpen(false)
       setPendingAdId(null)
       await refresh()
@@ -176,7 +176,7 @@ export default function SalonFeaturedAds() {
           إعلانات مميزة
         </h1>
         <p className="mt-1 text-sm text-foreground">
-          ظهور أوضح في القوائم والبحث مع شارة «إعلان ⭐» — {SALON_FEATURED_AD_SAR_PER_DAY} ر.س لكل يوم عبر Moyasar
+          ظهور أوضح في القوائم والبحث مع شارة «إعلان» — {SALON_FEATURED_AD_SAR_PER_DAY} ر.س لكل يوم عبر Moyasar
         </p>
       </div>
 
@@ -185,7 +185,7 @@ export default function SalonFeaturedAds() {
         {active ? (
           <div className="mt-3 space-y-2 text-sm">
             <div className="flex flex-wrap items-center gap-2">
-              <Badge className="gradient-primary">إعلان ⭐</Badge>
+              <Badge className="gradient-primary">إعلان</Badge>
               <span className="text-foreground">
                 {Number(active.budget).toFixed(0)} ر.س · {active.day_count} يوم
               </span>

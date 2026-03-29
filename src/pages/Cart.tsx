@@ -14,7 +14,7 @@ export default function Cart() {
   if (items.length === 0) {
     return (
       <div className="flex min-h-dvh flex-col items-center justify-center px-6 pb-28">
-        <div className="text-8xl">🛍️</div>
+        <div className="text-7xl font-bold text-primary/35">R</div>
         <h2 className="mt-6 text-xl font-bold">سلتك فارغة</h2>
         <p className="mt-2 text-rosera-gray">أضيفي منتجات من متجر الجمال</p>
         <Button asChild className="mt-8 rounded-2xl gradient-primary">

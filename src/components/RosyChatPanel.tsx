@@ -40,7 +40,7 @@ export function RosyChatPanel() {
             />
             <div className="min-w-0 flex-1 text-start">
               <p className="bg-gradient-to-l from-destructive via-primary to-accent bg-clip-text text-lg font-extrabold tracking-tight text-transparent dark:from-pink-200 dark:via-primary dark:to-amber-200">
-                روزي ✨
+                روزي
               </p>
               <p className="text-xs font-medium text-foreground">مساعدتك الجمالية بالذكاء الاصطناعي</p>
             </div>

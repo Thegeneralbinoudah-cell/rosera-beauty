@@ -48,7 +48,7 @@ export const SALON_PLAN_VALUE_PROPS: Record<
     rankingTier: 'boosted',
   },
   premium: {
-    bulletsAr: ['شارة صالون مميز ⭐', 'أعلى ترتيب وظهور أولوي'],
+    bulletsAr: ['شارة صالون مميز', 'أعلى ترتيب وظهور أولوي'],
     includesAnalytics: true,
     includesFeaturedBadge: true,
     rankingTier: 'top',

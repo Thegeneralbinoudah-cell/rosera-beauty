@@ -22,7 +22,7 @@ function splitNameReason(s: string): { name: string; reason?: string } {
   return { name: s }
 }
 
-const CUT_EMOJI = ['✨', '💇', '✂️', '🌸'] as const
+const CUT_EMOJI = [] as const
 
 function UndertoneBadge({ undertone, label }: { undertone: string; label: string }) {
   const tone = undertone.toLowerCase()
@@ -104,7 +104,7 @@ function LegacyHandFace({ result }: { result: RozyVisionResult }) {
         className="w-full rounded-2xl gradient-primary text-primary-foreground shadow-md"
         onClick={() => nav('/map')}
       >
-        استكشفي الصالونات على الخريطة ✨
+        استكشفي الصالونات على الخريطة
       </Button>
     </div>
   )
@@ -130,7 +130,7 @@ export function RosyVisionChatResults({ result }: { result: RozyVisionChatResult
         </div>
         <p className="text-sm font-medium leading-relaxed text-foreground">{a.explanation_ar}</p>
         <div>
-          <p className="text-sm font-bold text-foreground">ألوان تناسبك 💅</p>
+          <p className="text-sm font-bold text-foreground">ألوان تناسبك</p>
           <div className="mt-3 flex flex-wrap gap-4">
             {a.nail_colors.map((c, i) => (
               <div key={i} className="flex min-w-[4.5rem] flex-col items-center gap-1.5 text-center">
@@ -169,7 +169,7 @@ export function RosyVisionChatResults({ result }: { result: RozyVisionChatResult
           className="w-full rounded-2xl gradient-primary text-primary-foreground shadow-md ring-1 ring-gold/25"
           onClick={() => nav('/map')}
         >
-          احجزي جلسة مناكير 💅
+          احجزي جلسة مناكير
         </Button>
       </div>
     )
@@ -196,7 +196,7 @@ export function RosyVisionChatResults({ result }: { result: RozyVisionChatResult
         </div>
         <p className="text-sm font-medium leading-relaxed text-foreground">{summaryLine}</p>
         <div>
-          <p className="text-sm font-bold text-foreground">صبغات تناسبك ✨</p>
+          <p className="text-sm font-bold text-foreground">صبغات تناسبك</p>
           <div className="mt-3 flex flex-wrap gap-5">
             {a.recommended_colors.map((c, i) => (
               <div key={i} className="flex min-w-[5rem] max-w-[10rem] flex-col items-center gap-2 text-center">
@@ -239,7 +239,7 @@ export function RosyVisionChatResults({ result }: { result: RozyVisionChatResult
           className="w-full rounded-2xl gradient-primary text-primary-foreground shadow-md ring-1 ring-gold/25"
           onClick={() => nav('/map')}
         >
-          احجزي جلسة صبغ 💇‍♀️
+          احجزي جلسة صبغ
         </Button>
       </div>
     )
@@ -292,7 +292,7 @@ export function RosyVisionChatResults({ result }: { result: RozyVisionChatResult
           </ul>
         </div>
         <div className="rounded-3xl border border-amber-400/35 bg-gradient-to-br from-amber-50/95 via-gold-subtle/60 to-card p-4 shadow-inner ring-1 ring-gold/25 dark:from-amber-950/30 dark:via-card dark:to-card">
-          <p className="text-xs font-bold text-amber-900 dark:text-amber-100">لمسة إطلالة ذهبية ✨</p>
+          <p className="text-xs font-bold text-amber-900 dark:text-amber-100">لمسة إطلالة ذهبية</p>
           <p className="mt-2 text-sm font-medium leading-relaxed text-amber-950/90 dark:text-amber-50/95">{a.styling_tip_ar}</p>
         </div>
         <Button

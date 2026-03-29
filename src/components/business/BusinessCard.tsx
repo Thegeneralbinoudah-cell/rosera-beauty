@@ -156,12 +156,12 @@ export function BusinessCard({
         </Badge>
         {isFeaturedAd && (
           <span className="absolute top-10 start-2 z-[5] rounded-full gradient-primary px-2 py-0.5 text-[9px] font-normal text-primary-foreground shadow-md">
-            إعلان ⭐
+            إعلان
           </span>
         )}
         {b.is_featured && (
           <span className="absolute bottom-2 start-2 z-[2] rounded-full border border-accent/35 bg-card/95 px-2 py-0.5 text-[9px] font-normal text-primary shadow-sm">
-            ⭐ صالون مميز
+            صالون مميز
           </span>
         )}
         {isSponsored && (

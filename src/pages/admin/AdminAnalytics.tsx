@@ -271,7 +271,7 @@ export default function AdminAnalytics() {
             </Card>
             <Card className="border-primary/15 bg-gradient-to-br from-white to-gold-subtle/50 p-6 shadow-sm dark:from-card dark:to-card">
               <p className="text-3xl" aria-hidden>
-                ✨
+                -
               </p>
               <p className="mt-2 text-xs font-bold uppercase tracking-wide text-rosera-gray">AI clicks</p>
               <p className="mt-1 text-2xl font-extrabold tabular-nums text-foreground">
@@ -419,7 +419,7 @@ export default function AdminAnalytics() {
                       <td className="px-4 py-3">
                         {row.high_performance ? (
                           <Badge className="border-0 bg-gradient-to-r from-amber-500 to-orange-500 text-[10px] font-extrabold text-white shadow-sm">
-                            🔥 أداء عالي
+                            أداء عالي
                           </Badge>
                         ) : null}
                       </td>

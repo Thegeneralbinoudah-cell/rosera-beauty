@@ -160,7 +160,7 @@ export default function AiChat({ embedded = false }: { embedded?: boolean }) {
       ...(preSvc ? { service_id: preSvc } : {}),
     })
     captureProductEvent('rosy_to_booking_click', { salon_id: salonId })
-    toast.message('جاري تحويلك للحجز ✨', { duration: 2400 })
+    toast.message('جاري تحويلك للحجز', { duration: 2400 })
     trackEvent('rosy_booking_click', {
       salonId,
       source: 'chat',
@@ -1232,7 +1232,7 @@ export default function AiChat({ embedded = false }: { embedded?: boolean }) {
               <div className="min-w-0">
                 <h1 className="text-heading-3 font-semibold tracking-wide text-foreground">روزي</h1>
                 <p className="text-body-sm font-medium text-foreground">
-                  مساعدة الحجز والجمال — نبرة سعودية دافئة ✨
+                  مساعدة الحجز والجمال — نبرة سعودية دافئة
                 </p>
               </div>
             </div>
@@ -1351,7 +1351,7 @@ export default function AiChat({ embedded = false }: { embedded?: boolean }) {
       >
         <DialogContent className="max-h-[90dvh] overflow-y-auto" dir="rtl">
           <DialogHeader>
-            <DialogTitle>تحليل روزي الذكي 🌸</DialogTitle>
+            <DialogTitle>تحليل روزي الذكي</DialogTitle>
           </DialogHeader>
           <div className="grid grid-cols-2 gap-3">
             {(
@@ -1400,7 +1400,7 @@ export default function AiChat({ embedded = false }: { embedded?: boolean }) {
             })}
           </div>
           {!advisorMode ? (
-            <p className="text-center text-xs font-medium text-foreground">اختاري نوع التحليل أولاً ✨</p>
+            <p className="text-center text-xs font-medium text-foreground">اختاري نوع التحليل أولاً</p>
           ) : null}
           <p className="whitespace-pre-wrap text-sm font-medium leading-relaxed text-foreground/90">
             {FACE_SCAN_MEDICAL_DISCLAIMER}
@@ -1532,12 +1532,12 @@ export default function AiChat({ embedded = false }: { embedded?: boolean }) {
             type="button"
             variant="outline"
             className="shrink-0 touch-manipulation gap-1.5 rounded-full border border-primary/30 bg-gradient-to-l from-muted to-primary/10 px-3 py-2 min-h-[44px] text-xs font-extrabold text-primary shadow-sm shadow-primary/15"
-            aria-label="تحليل روزي ✨ — كاميرا أو رفع"
+            aria-label="تحليل روزي — كاميرا أو رفع"
             disabled={!!historyError || loading}
             onClick={openFaceScanFlow}
           >
             <Sparkles className="h-4 w-4 shrink-0 text-primary" aria-hidden />
-            <span className="whitespace-nowrap">تحليل روزي ✨</span>
+            <span className="whitespace-nowrap">تحليل روزي</span>
           </Button>
           <Input
             ref={chatInputRef}

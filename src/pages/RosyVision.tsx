@@ -204,7 +204,7 @@ export default function RosyVision() {
       if (!r.qualityOk) {
         toast.message('الصورة تحتاج وضوحاً أعلى — راجعي النصائح أدناه', { duration: 4000 })
       } else {
-        toast.success('تم التحليل ✨')
+        toast.success('تم التحليل')
       }
     } catch (err) {
       if (!mountedRef.current) return

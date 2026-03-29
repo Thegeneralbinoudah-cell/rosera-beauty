@@ -119,7 +119,7 @@ function Home() {
   const ui = {
     hello: lang === 'ar' ? 'أهلاً' : 'Hello',
     title: lang === 'ar' ? `${name}` : `${name}`,
-    heroSub: lang === 'ar' ? 'أهلاً بكِ في عالمكِ الخاص ✨' : 'Welcome to your private world ✨',
+    heroSub: lang === 'ar' ? 'أهلاً بكِ في عالمكِ الخاص' : 'Welcome to your private world',
     heroTitle: lang === 'ar' ? 'إختاري منطقتكِ ثم مدينتكِ' : 'Choose your region then city',
     searchPlaceholder: lang === 'ar' ? 'ابحثي عن صالون، مدينة، منطقة، أو تصنيف...' : 'Search salon, city, region, or category...',
     categories: lang === 'ar' ? 'التصنيفات' : 'Categories',
@@ -128,19 +128,19 @@ function Home() {
     regions: lang === 'ar' ? 'المناطق' : 'Regions',
     citiesCount: lang === 'ar' ? 'مدينة' : 'cities',
     citiesCountMany: lang === 'ar' ? 'مدن' : 'cities',
-    topSalons: lang === 'ar' ? '🔥 أفضل الصالونات' : '🔥 Top salons',
+    topSalons: lang === 'ar' ? 'أفضل الصالونات' : 'Top salons',
     topSalonsHint:
       lang === 'ar' ? 'تقييم عالٍ وتقييمات حقيقية' : 'Top rated with real reviews',
-    topClinics: lang === 'ar' ? 'أفضل عيادات التجميل 💉' : '💉 Top beauty clinics',
+    topClinics: lang === 'ar' ? 'أفضل عيادات التجميل' : 'Top beauty clinics',
     topClinicsHint:
       lang === 'ar' ? 'تقييم عالٍ وتقييمات حقيقية' : 'Top rated with real reviews',
-    recommended: lang === 'ar' ? '✨ مقترحات ذكية' : '✨ Smart picks',
+    recommended: lang === 'ar' ? 'مقترحات ذكية' : 'Smart picks',
     recommendedHint:
       lang === 'ar' ? 'ترتيب مخصص حسب ذوقك' : 'Personalized ranking for you',
     tagline:
       lang === 'ar'
-        ? 'مساعدك الذكي لإكتشاف أفضل الصالونات والعيادات بسهولة 💖'
-        : 'Your smart assistant to discover the best salons and clinics with ease 💖',
+        ? 'مساعدك الذكي لاكتشاف أفضل الصالونات والعيادات بسهولة'
+        : 'Your smart assistant to discover the best salons and clinics with ease',
   }
 
   return (
@@ -430,7 +430,7 @@ function Home() {
 
       <Reveal>
       <section className="mx-auto max-w-lg px-4 pt-8" aria-label={lang === 'ar' ? 'عن التطبيق' : 'About the app'}>
-        <div className="relative overflow-hidden rounded-[20px] border border-border bg-gradient-to-br from-card via-popover to-muted px-5 py-4 shadow-sm">
+        <div className="relative overflow-hidden rounded-[20px] border border-primary/30 bg-card px-5 py-4 shadow-md">
           <div
             className="pointer-events-none absolute -end-10 -top-12 h-32 w-32 rounded-full bg-gradient-to-br from-primary/25 to-accent/20 blur-3xl"
             aria-hidden
@@ -439,7 +439,7 @@ function Home() {
             className="pointer-events-none absolute -bottom-8 -start-8 h-24 w-24 rounded-full bg-gradient-to-tr from-accent/15 to-primary/15 blur-2xl"
             aria-hidden
           />
-          <p className="relative text-center font-serif text-base font-normal leading-relaxed tracking-wide text-foreground">
+          <p className="relative text-center font-serif text-base font-semibold leading-relaxed tracking-wide text-foreground">
             {ui.tagline}
           </p>
         </div>

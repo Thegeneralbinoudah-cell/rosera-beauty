@@ -63,7 +63,7 @@ function RosieFABShell({
           className="pointer-events-none absolute bottom-[calc(100%+10px)] end-0 max-w-[14rem] rounded-sm border border-border bg-card px-3 py-2 text-center text-xs font-medium text-foreground shadow-floating backdrop-blur-sm animate-in fade-in slide-in-from-bottom-2 duration-300"
           dir="rtl"
         >
-          تحدثي مع روزي 💬
+          تحدثي مع روزي
         </div>
       ) : null}
       <button

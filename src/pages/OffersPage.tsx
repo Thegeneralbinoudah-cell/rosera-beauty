@@ -59,7 +59,7 @@ export default function OffersPage() {
 
   return (
     <div className="min-h-dvh bg-rosera-light px-4 py-6 dark:bg-rosera-dark">
-      <h1 className="text-2xl font-bold">العروض والخصومات 🔥</h1>
+      <h1 className="text-2xl font-bold">العروض والخصومات</h1>
       <div className="mt-4 flex gap-2 overflow-x-auto scrollbar-hide">
         {[
           { k: 'all', l: 'الكل' },

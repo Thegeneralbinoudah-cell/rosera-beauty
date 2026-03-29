@@ -42,8 +42,8 @@ const SUGGESTIONS_BASE: Omit<MapSuggestion, 'labels'>[] = [
 /** تسميات ديناميكية — تُحدَّث حسب السياق في getMapSuggestions */
 const LABELS: Record<MapSuggestionId, { ar: string; en: string }> = {
   rosy_smart: {
-    ar: 'ترشيح روزي ✨',
-    en: 'Rosy pick ✨',
+    ar: 'ترشيح روزي',
+    en: 'Rosy pick',
   },
   rosy_near_top: {
     ar: 'الأقرب لك الآن',

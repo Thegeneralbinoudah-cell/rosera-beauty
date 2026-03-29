@@ -49,15 +49,15 @@ export default function TopClinics() {
   const firstRecRef = useRef<HTMLDivElement | null>(null)
 
   const ui = {
-    title: lang === 'ar' ? 'أفضل عيادات التجميل 💉' : '💉 Top beauty clinics',
+    title: lang === 'ar' ? 'أفضل عيادات التجميل' : 'Top beauty clinics',
     subtitle:
       lang === 'ar'
         ? 'تقييم عالٍ وتقييمات موثوقة — مرتبة بذكاء'
         : 'High ratings and trusted reviews — smart ranked',
     empty: lang === 'ar' ? 'لا توجد توصيات حالياً' : 'No recommendations right now.',
     reviews: lang === 'ar' ? 'تقييم' : 'reviews',
-    badgeTop: '🔥 الأفضل',
-    badgeRec: '⭐ موصى به',
+    badgeTop: 'الأفضل',
+    badgeRec: 'موصى به',
     book: lang === 'ar' ? 'احجزي الآن' : 'Book now',
   }
 

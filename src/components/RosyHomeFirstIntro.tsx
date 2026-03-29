@@ -10,7 +10,7 @@ import { captureProductEvent } from '@/lib/posthog'
 import { colors } from '@/theme/colors'
 
 const EN_INTRO =
-  "Hey love—I'm Rosy! I can help you pick the best salon, aesthetics clinic, or beauty products from global brands ✨"
+  "Hey love—I'm Rosy! I can help you pick the best salon, aesthetics clinic, or beauty products from global brands."
 
 /**
  * بطاقة ترحيب لمرة واحدة على الرئيسية — نفس مفتاح التخزين المستخدم في أول رسالة دردشة لتجنّب التكرار.
@@ -45,12 +45,10 @@ export function RosyHomeFirstIntro({ className }: { className?: string }) {
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
       className={cn(
-        'relative overflow-hidden rounded-2xl border border-pink-200/60 bg-gradient-to-br from-white via-transparent to-amber-50/90 p-4 shadow-[0_16px_44px_-18px_rgba(212,165,165,0.38)] dark:border-rose-900/45 dark:from-rose-950/55 dark:via-card dark:to-amber-950/25',
+        'relative overflow-hidden rounded-2xl border border-primary/30 bg-card p-4 shadow-[0_16px_44px_-18px_rgba(212,165,165,0.42)] dark:border-primary/35 dark:bg-card',
         className
       )}
-      style={{
-        backgroundImage: `linear-gradient(to bottom right, white, ${colors.surface}, color-mix(in srgb, ${colors.accent} 22%, transparent))`,
-      }}
+      style={{ backgroundImage: `linear-gradient(to bottom right, ${colors.surface}, ${colors.surface})` }}
     >
       <div
         className="pointer-events-none absolute -start-6 -top-10 h-28 w-28 rounded-full bg-gradient-to-br from-pink-300/25 to-amber-200/20 blur-2xl"
@@ -63,7 +61,7 @@ export function RosyHomeFirstIntro({ className }: { className?: string }) {
         >
           <Sparkles className="h-5 w-5 text-white" />
         </div>
-        <p className="min-w-0 flex-1 text-sm font-semibold leading-relaxed text-rose-950 dark:text-rose-50">{text}</p>
+        <p className="min-w-0 flex-1 text-sm font-bold leading-relaxed text-foreground">{text}</p>
         <Button
           type="button"
           variant="ghost"
@@ -75,7 +73,7 @@ export function RosyHomeFirstIntro({ className }: { className?: string }) {
           <X className="h-4 w-4" />
         </Button>
       </div>
-      <div className="relative mt-3 flex justify-end border-t border-pink-100/60 pt-3 dark:border-rose-900/30">
+      <div className="relative mt-3 flex justify-end border-t border-border/70 pt-3">
         <Button
           type="button"
           variant="ghost"
@@ -83,7 +81,7 @@ export function RosyHomeFirstIntro({ className }: { className?: string }) {
           className="rounded-xl font-bold text-primary hover:bg-pink-50 dark:hover:bg-pink-950/30"
           onClick={dismiss}
         >
-          {lang === 'ar' ? 'تم، واضح ✨' : 'Got it ✨'}
+          {lang === 'ar' ? 'تم، واضح' : 'Got it'}
         </Button>
       </div>
     </motion.div>

@@ -95,7 +95,7 @@ export function salonAcquisitionWhatsAppDigits(): string {
 
 export function salonAcquisitionWhatsAppUrl(): string {
   const d = salonAcquisitionWhatsAppDigits()
-  const text = encodeURIComponent('مرحباً روزيرا، أبغى أفعّل باقة صالوني ✨')
+  const text = encodeURIComponent('مرحباً روزيرا، أبغى أفعّل باقة صالوني')
   return `https://wa.me/${d}?text=${text}`
 }
 

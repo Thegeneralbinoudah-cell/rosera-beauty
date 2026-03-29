@@ -146,7 +146,7 @@ export default function VerifyOtp() {
 
       <div className="relative mx-auto max-w-md">
         <div className="rounded-3xl border border-white/60 bg-white/90 p-8 shadow-[0_20px_60px_-15px_rgb(212_165_165/0.28)] backdrop-blur-md dark:border-primary/20 dark:bg-card/95">
-          <div className="mb-2 text-center text-4xl">💜</div>
+          <div className="mb-2 text-center text-4xl">R</div>
           <h1 className="text-center text-2xl font-extrabold text-transparent bg-clip-text bg-gradient-to-br from-primary to-accent">
             {t('otp.title')}
           </h1>

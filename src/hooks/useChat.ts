@@ -32,7 +32,7 @@ import { fetchRosySalonBookingPreview } from '@/lib/roseySalonBookingPreview'
 import { invokeRozyAdvisor, VISION_FAIL_AR } from '@/lib/rozyVisionChatInvoke'
 import type { RozyVisionChatResult, RozyVisionChatAdvisorMode } from '@/lib/rozyVisionChatTypes'
 
-const ROSY_PREMIUM_TOP_LINE = 'هذا من أفضل الصالونات المميزة ⭐\n'
+const ROSY_PREMIUM_TOP_LINE = 'هذا من أفضل الصالونات المميزة\n'
 
 /** رد مساعد — بدون نص الرسالة؛ source يحدد المسار (نموذج/حافة/صوت). */
 function captureRosyReplyGenerated(
@@ -389,7 +389,7 @@ async function buildActionableFallbackRow(
       return {
         id: crypto.randomUUID(),
         message:
-          'اختاري من الخريطة أو البحث، أو اكتبي لي المدينة ونوع الخدمة — أنا أرشّح لكِ الأنسب ✨',
+          'اختاري من الخريطة أو البحث، أو اكتبي لي المدينة ونوع الخدمة — أنا أرشّح لكِ الأنسب.',
         is_user: false,
         created_at: new Date().toISOString(),
         actions: [
@@ -401,7 +401,7 @@ async function buildActionableFallbackRow(
     if (salons.length === 1) {
       return {
         id: crypto.randomUUID(),
-        message: `${salons[0].subscription_plan === 'premium' ? ROSY_PREMIUM_TOP_LINE : ''}هذا خيار قوي الآن ✨\nتحبي نكمّل الحجز؟`,
+        message: `${salons[0].subscription_plan === 'premium' ? ROSY_PREMIUM_TOP_LINE : ''}هذا خيار قوي الآن.\nتحبي نكمّل الحجز؟`,
         is_user: false,
         created_at: new Date().toISOString(),
         actions: [
@@ -420,7 +420,7 @@ async function buildActionableFallbackRow(
     const cards = salons.map(salonMetaToCard)
     return {
       id: crypto.randomUUID(),
-      message: `${salons[0].subscription_plan === 'premium' ? ROSY_PREMIUM_TOP_LINE : ''}هذي صالونات مقترحة حسب توفرنا الآن ✨ اختاري واحد أو صفّي طلبك أكثر.`,
+      message: `${salons[0].subscription_plan === 'premium' ? ROSY_PREMIUM_TOP_LINE : ''}هذه صالونات مقترحة حسب التوفر الحالي. اختاري ما يناسبك أو صفّي طلبك بشكل أدق.`,
       is_user: false,
       created_at: new Date().toISOString(),
       salons: cards,
@@ -432,7 +432,7 @@ async function buildActionableFallbackRow(
   } catch {
     return {
       id: crypto.randomUUID(),
-      message: 'اكتبي لي مدينتك أو «صالون شعر/أظافر» وأنا أرشّح لكِ خيارات قريبة ✨',
+      message: 'اكتبي لي مدينتك أو «صالون شعر/أظافر» وأنا أرشّح لكِ خيارات قريبة.',
       is_user: false,
       created_at: new Date().toISOString(),
       actions: [
@@ -615,7 +615,7 @@ export function useChat(userId: string | undefined, options?: UseChatOptions) {
       toast.error('تعذر مسح المحادثة.')
       return
     }
-    toast.success('تم مسح المحادثة ✨')
+    toast.success('تم مسح المحادثة')
     await reloadHistory()
   }, [userId, reloadHistory])
 
@@ -736,7 +736,7 @@ export function useChat(userId: string | undefined, options?: UseChatOptions) {
         const ttsOwner = salonOwnerSalesMode ? ('salon_owner_sales' as const) : undefined
         try {
           const pack = await invokeRozyAdvisor(opts.visionAdvisorMode, image.base64, image.mime)
-          const assistantLabel = 'نتيجة تحليل روزي الذكي ✨'
+          const assistantLabel = 'نتيجة تحليل روزي الذكي'
           const botRow: ChatRow = {
             id: crypto.randomUUID(),
             message: assistantLabel,
@@ -827,8 +827,8 @@ export function useChat(userId: string | undefined, options?: UseChatOptions) {
             })
             if (hadBefore) cart.bumpCartUiPulse()
             const n = useCartStore.getState().items.length
-            const lineSummary = n === 1 ? 'سلتك فيها منتج واحد 🛍️' : `سلتك فيها ${n} منتجات 🛍️`
-            const botText = `تمام ✨ أضفت لك ${topPick.name_ar} للسلة 🛍️\n\n${lineSummary}\n\nتبين نكمل الطلب الحين؟ ✨`
+            const lineSummary = n === 1 ? 'سلتك فيها منتج واحد' : `سلتك فيها ${n} منتجات`
+            const botText = `تم إضافة ${topPick.name_ar} إلى السلة.\n\n${lineSummary}\n\nهل تودين إكمال الطلب الآن؟`
             const checkoutAction: RozyChatAction = {
               id: 'rozy-go-checkout',
               label: 'إتمام الطلب',
@@ -918,7 +918,7 @@ export function useChat(userId: string | undefined, options?: UseChatOptions) {
                 })
                 const top = allSalons[0]
                 const botText = top
-                  ? `${top.subscription_plan === 'premium' ? ROSY_PREMIUM_TOP_LINE : ''}تمام 💖 أحوّلكِ لحجز ${top.name_ar} — أكملي التفاصيل هناك ✨`
+                  ? `${top.subscription_plan === 'premium' ? ROSY_PREMIUM_TOP_LINE : ''}تم تحويلك إلى صفحة حجز ${top.name_ar} — أكملي التفاصيل هناك.`
                   : 'ما لقيت صالون مناسب الحين — جرّبي تختارين من الخريطة 💕'
                 const botRow: ChatRow = {
                   id: crypto.randomUUID(),
@@ -958,7 +958,7 @@ export function useChat(userId: string | undefined, options?: UseChatOptions) {
 
           if (opts?.fromVoice && isVoiceBookingKickoff(normalizedText)) {
             voiceBookingAwaitingChoiceRef.current = true
-            const botText = 'أكيد 💖 بحجز لكِ الآن\nتبغين الأقرب ولا الأعلى تقييم؟'
+            const botText = 'رائع، سأبدأ الحجز الآن.\nهل تفضّلين الأقرب أم الأعلى تقييمًا؟'
             const botRow: ChatRow = {
               id: crypto.randomUUID(),
               message: botText,
@@ -1011,7 +1011,7 @@ export function useChat(userId: string | undefined, options?: UseChatOptions) {
               const topServiceId = topFirst?.firstServiceId ?? null
 
               const emptyText =
-                'ما لقيت مطابقة فورية — جرّبي الخريطة أو اختاري من الاقتراحات أدناه ✨'
+                'ما لقيت مطابقة فورية — جرّبي الخريطة أو اختاري من الاقتراحات أدناه.'
               let botText: string
               let salonsCards: RozySalonCard[] | undefined
               let uiActions: RozyChatAction[] | undefined
@@ -1025,9 +1025,9 @@ export function useChat(userId: string | undefined, options?: UseChatOptions) {
               } else if (salons.length === 1) {
                 const svcHint =
                   topFirst?.firstServiceNameAr != null
-                    ? `\n✨ خدمة مقترحة: ${topFirst.firstServiceNameAr}`
+                    ? `\nخدمة مقترحة: ${topFirst.firstServiceNameAr}`
                     : ''
-                botText = `${salons[0].subscription_plan === 'premium' ? ROSY_PREMIUM_TOP_LINE : ''}أكيد حبيبتي 💖\nهذا أنسب خيار لكِ الآن ✨${svcHint}\nتحبي نكمّل الحجز؟`
+                botText = `${salons[0].subscription_plan === 'premium' ? ROSY_PREMIUM_TOP_LINE : ''}ممتاز.\nهذا أنسب خيار لكِ الآن.${svcHint}\nهل نكمل الحجز؟`
                 salonsCards = undefined
                 uiActions = [
                   {
@@ -1047,7 +1047,7 @@ export function useChat(userId: string | undefined, options?: UseChatOptions) {
                   { id: 'rosy-see-other', label: 'شوفي خيارات ثانية', kind: 'more' },
                 ]
               } else {
-                botText = `${salons[0].subscription_plan === 'premium' ? ROSY_PREMIUM_TOP_LINE : ''}أكيد حبيبتي 💖\nلقيت لك أفضل الخيارات 👇✨`
+                botText = `${salons[0].subscription_plan === 'premium' ? ROSY_PREMIUM_TOP_LINE : ''}ممتاز.\nهذه أفضل الخيارات المناسبة لكِ.`
                 salonsCards = salons.map(salonMetaToCard)
                 uiActions = [
                   {
@@ -1177,7 +1177,7 @@ export function useChat(userId: string | undefined, options?: UseChatOptions) {
             if (/invalid\s*jwt/i.test(hint)) {
               const sessionRow: ChatRow = {
                 id: crypto.randomUUID(),
-                message: 'انتهت الجلسة يا حلوة — سجّلي دخولكِ مرة ثانية وأكملي مع روزي 💖',
+                message: 'انتهت الجلسة — سجّلي دخولكِ مرة ثانية وأكملي مع روزي.',
                 is_user: false,
                 created_at: new Date().toISOString(),
               }
@@ -1344,7 +1344,7 @@ export function useChat(userId: string | undefined, options?: UseChatOptions) {
         } catch {
           const botRow: ChatRow = {
             id: crypto.randomUUID(),
-            message: 'اكتبي لي مدينتك أو نوع الخدمة — أو افتحي الخريطة من الأسفل ✨',
+            message: 'اكتبي لي مدينتك أو نوع الخدمة — أو افتحي الخريطة من الأسفل.',
             is_user: false,
             created_at: new Date().toISOString(),
             actions: [
