@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useInRouterContext, useLocation, useNavigate } from 'react-router-dom'
+import { Camera, Mic } from 'lucide-react'
 import { useI18n } from '@/hooks/useI18n'
 /** Bundled Rosie icon image — always available offline */
 import rozyFabPortrait from '@/assets/rozy.png'
@@ -12,6 +13,17 @@ export type RosieFABProps = {
 }
 
 function shouldHideRosieFab(pathname: string): boolean {
+  // Explicitly keep Rosie visible across beauty-store experience.
+  if (
+    pathname === '/store' ||
+    pathname.startsWith('/store/') ||
+    pathname.startsWith('/product/') ||
+    pathname === '/cart' ||
+    pathname === '/checkout'
+  ) {
+    return false
+  }
+
   return (
     pathname === '/chat' ||
     pathname.startsWith('/chat/') ||
@@ -25,9 +37,17 @@ function RosieFABShell({
   onPress,
   onChatRoute,
   onDefaultNavigate,
+  showStoreActions,
+  onVoiceNavigate,
+  onCameraNavigate,
+  elevatedForChat,
 }: RosieFABProps & {
   onChatRoute: boolean
   onDefaultNavigate: () => void
+  showStoreActions: boolean
+  onVoiceNavigate: () => void
+  onCameraNavigate: () => void
+  elevatedForChat: boolean
 }) {
   const { t } = useI18n()
   const [imgOk, setImgOk] = useState(true)
@@ -63,10 +83,37 @@ function RosieFABShell({
     else onDefaultNavigate()
   }, [onPress, onDefaultNavigate])
 
+  const handleVoiceClick = useCallback(() => {
+    setShowTip(false)
+    try {
+      localStorage.setItem(ROSEY_FAB_TIP_KEY, '1')
+    } catch {
+      /* ignore */
+    }
+    onVoiceNavigate()
+  }, [onVoiceNavigate])
+
+  const handleCameraClick = useCallback(() => {
+    setShowTip(false)
+    try {
+      localStorage.setItem(ROSEY_FAB_TIP_KEY, '1')
+    } catch {
+      /* ignore */
+    }
+    onCameraNavigate()
+  }, [onCameraNavigate])
+
   if (onChatRoute) return null
 
   return (
-    <div className="pointer-events-none fixed z-[10100] bottom-[calc(5.75rem+env(safe-area-inset-bottom,0px))] end-[max(1rem,env(safe-area-inset-inline-end,0px))]">
+    <div
+      className="pointer-events-none fixed z-[10100] end-[max(1rem,env(safe-area-inset-inline-end,0px))]"
+      style={{
+        bottom: elevatedForChat
+          ? 'calc(10.75rem + env(safe-area-inset-bottom, 0px))'
+          : 'calc(5.75rem + env(safe-area-inset-bottom, 0px))',
+      }}
+    >
       {showTip ? (
         <div
           role="status"
@@ -74,6 +121,26 @@ function RosieFABShell({
           dir="rtl"
         >
           تحدثي مع روزي
+        </div>
+      ) : null}
+      {showStoreActions ? (
+        <div className="pointer-events-auto mb-2 flex items-center justify-end gap-2">
+          <button
+            type="button"
+            onClick={handleCameraClick}
+            aria-label="تصوير مع روزي"
+            className="flex h-11 w-11 items-center justify-center rounded-full border border-primary/30 bg-card text-primary shadow-md transition-transform active:scale-95"
+          >
+            <Camera className="h-5 w-5" aria-hidden />
+          </button>
+          <button
+            type="button"
+            onClick={handleVoiceClick}
+            aria-label="محادثة صوتية مع روزي"
+            className="flex h-11 w-11 items-center justify-center rounded-full border border-primary/30 bg-card text-primary shadow-md transition-transform active:scale-95"
+          >
+            <Mic className="h-5 w-5" aria-hidden />
+          </button>
         </div>
       ) : null}
       <button
@@ -106,8 +173,16 @@ function RosieFABShell({
 function RosieFABInRouter(props: RosieFABProps) {
   const navigate = useNavigate()
   const { pathname } = useLocation()
+  const isChatRoute = pathname === '/chat' || pathname.startsWith('/chat/')
+  const onStoreRoute = pathname === '/store' || pathname.startsWith('/store/')
   const onDefaultNavigate = useCallback(() => {
     navigate('/chat')
+  }, [navigate])
+  const onVoiceNavigate = useCallback(() => {
+    navigate('/chat?launch=voice')
+  }, [navigate])
+  const onCameraNavigate = useCallback(() => {
+    navigate('/chat?launch=camera')
   }, [navigate])
 
   return (
@@ -115,14 +190,26 @@ function RosieFABInRouter(props: RosieFABProps) {
       {...props}
       onChatRoute={shouldHideRosieFab(pathname)}
       onDefaultNavigate={onDefaultNavigate}
+      showStoreActions={onStoreRoute}
+      onVoiceNavigate={onVoiceNavigate}
+      onCameraNavigate={onCameraNavigate}
+      elevatedForChat={isChatRoute}
     />
   )
 }
 
 function RosieFABOutsideRouter(props: RosieFABProps) {
   const pathname = typeof window !== 'undefined' ? window.location.pathname : ''
+  const isChatRoute = pathname === '/chat' || pathname.startsWith('/chat/')
+  const onStoreRoute = pathname === '/store' || pathname.startsWith('/store/')
   const onDefaultNavigate = useCallback(() => {
     window.location.assign('/chat')
+  }, [])
+  const onVoiceNavigate = useCallback(() => {
+    window.location.assign('/chat?launch=voice')
+  }, [])
+  const onCameraNavigate = useCallback(() => {
+    window.location.assign('/chat?launch=camera')
   }, [])
 
   return (
@@ -130,6 +217,10 @@ function RosieFABOutsideRouter(props: RosieFABProps) {
       {...props}
       onChatRoute={shouldHideRosieFab(pathname)}
       onDefaultNavigate={onDefaultNavigate}
+      showStoreActions={onStoreRoute}
+      onVoiceNavigate={onVoiceNavigate}
+      onCameraNavigate={onCameraNavigate}
+      elevatedForChat={isChatRoute}
     />
   )
 }

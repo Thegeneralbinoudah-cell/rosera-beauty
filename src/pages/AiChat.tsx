@@ -7,7 +7,7 @@ import {
   type ChangeEvent,
   type ReactNode,
 } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { Send, Sparkles, Camera, ImageIcon, MapPin, Star, Loader2, Package, Mic } from 'lucide-react'
 import { pickMediaRecorderMimeType, isMediaRecorderSupported } from '@/lib/webVoiceRecording'
@@ -44,6 +44,7 @@ import { VISION_FAIL_AR } from '@/lib/rozyVisionChatInvoke'
 import { RosyVisionChatResults } from '@/components/chat/RosyVisionChatResults'
 import { VoiceWaveform } from '@/components/rosey/VoiceWaveform'
 import { stopRosyVoicePlayback, ROSY_VOICE_PHASE_EVENT, isElevenLabsConfigured } from '@/lib/voice'
+import rozyFabPortrait from '@/assets/rozy.png'
 
 function tomorrowBookingIsoDate(): string {
   const d = new Date()
@@ -122,6 +123,7 @@ export default function AiChat({ embedded = false }: { embedded?: boolean }) {
   const { t, lang } = useI18n()
   const { user, profile, isSalonPortal } = useAuth()
   const nav = useNavigate()
+  const [searchParams, setSearchParams] = useSearchParams()
   const salonOwnerSalesMode = useMemo(
     () => isSalonOwnerRosySalesRole(profile?.role, isSalonPortal),
     [profile?.role, isSalonPortal]
@@ -805,6 +807,24 @@ export default function AiChat({ embedded = false }: { embedded?: boolean }) {
     setAdvisorMode(null)
     setFaceScanOpen(true)
   }
+
+  const launchHandledRef = useRef<string | null>(null)
+  useEffect(() => {
+    const launch = searchParams.get('launch')
+    if (!launch) return
+    if (launchHandledRef.current === launch) return
+    launchHandledRef.current = launch
+
+    if (launch === 'camera') {
+      openFaceScanFlow()
+    } else if (launch === 'voice') {
+      void toggleVoiceInput()
+    }
+
+    const next = new URLSearchParams(searchParams)
+    next.delete('launch')
+    setSearchParams(next, { replace: true })
+  }, [searchParams, setSearchParams, openFaceScanFlow, toggleVoiceInput])
 
   const startLiveAfterConsent = () => {
     if (!faceScanConsent || !advisorMode) return
@@ -1528,16 +1548,45 @@ export default function AiChat({ embedded = false }: { embedded?: boolean }) {
             embedded && 'touch-manipulation'
           )}
         >
+          <button
+            type="button"
+            onClick={() => chatInputRef.current?.focus()}
+            aria-label="روزي"
+            className="flex h-11 w-11 min-h-[44px] min-w-[44px] shrink-0 items-center justify-center overflow-hidden rounded-full border border-primary/35 bg-card p-0 shadow-sm transition-transform active:scale-95"
+          >
+            <img
+              src={rozyFabPortrait}
+              alt=""
+              width={44}
+              height={44}
+              decoding="async"
+              className="h-full w-full object-cover object-center"
+            />
+          </button>
           <Button
             type="button"
+            size="icon"
             variant="outline"
-            className="shrink-0 touch-manipulation gap-1.5 rounded-full border border-primary/30 bg-gradient-to-l from-muted to-primary/10 px-3 py-2 min-h-[44px] text-xs font-extrabold text-primary shadow-sm shadow-primary/15"
-            aria-label="تحليل روزي — كاميرا أو رفع"
+            className="min-h-[44px] min-w-[44px] shrink-0 touch-manipulation rounded-2xl border border-primary/30 bg-card text-primary"
+            aria-label="فتح الكاميرا"
             disabled={!!historyError || loading}
             onClick={openFaceScanFlow}
           >
-            <Sparkles className="h-4 w-4 shrink-0 text-primary" aria-hidden />
-            <span className="whitespace-nowrap">تحليل روزي</span>
+            <Camera className="h-4 w-4" aria-hidden />
+          </Button>
+          <Button
+            type="button"
+            size="icon"
+            variant="outline"
+            className={cn(
+              'min-h-[44px] min-w-[44px] shrink-0 touch-manipulation rounded-2xl border border-primary/30 bg-card text-primary',
+              (voiceUi === 'listening' || voiceUi === 'speaking') && 'ring-2 ring-primary/45'
+            )}
+            aria-label="بدء/إيقاف المحادثة الصوتية"
+            disabled={!!historyError || loading}
+            onClick={() => void toggleVoiceInput()}
+          >
+            <Mic className="h-4 w-4" aria-hidden />
           </Button>
           <Input
             ref={chatInputRef}
@@ -1579,6 +1628,7 @@ export default function AiChat({ embedded = false }: { embedded?: boolean }) {
           </div>
         </div>
       ) : null}
+
     </div>
   )
 }
