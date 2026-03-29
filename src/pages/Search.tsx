@@ -49,7 +49,7 @@ type BizRow = Business & {
   sa_cities?: { name_ar: string; sa_regions?: { name_ar: string } | null } | null
 }
 
-const SEARCH_SORT_PREFS_KEY = 'rosera:search:sort'
+type SearchSort = 'none' | 'rating' | 'booked' | 'nearest'
 
 export default function SearchPage() {
   const { t } = useI18n()
@@ -70,11 +70,10 @@ export default function SearchPage() {
       ''
   )
   const [minRating, setMinRating] = useState('0')
-  const [sortBy, setSortBy] = useState<'rating' | 'booked' | 'nearest'>(() => {
+  const [sortBy, setSortBy] = useState<SearchSort>(() => {
     const fromUrl = params.get('sort')
     if (fromUrl === 'rating' || fromUrl === 'booked' || fromUrl === 'nearest') return fromUrl
-    const fromLs = localStorage.getItem(SEARCH_SORT_PREFS_KEY)
-    return fromLs === 'booked' || fromLs === 'nearest' ? fromLs : 'rating'
+    return 'none'
   })
   const [userPos, setUserPos] = useState<{ lat: number; lng: number } | null>(null)
   const [featuredAdIds, setFeaturedAdIds] = useState<Set<string>>(new Set())
@@ -84,14 +83,13 @@ export default function SearchPage() {
     setCityF('')
     setCatValueLocal('')
     setMinRating('0')
-    setSortBy('rating')
+    setSortBy('none')
     try {
       sessionStorage.removeItem('rosera:lastCategoryValue')
     } catch {
       /* ignore */
     }
     setParams(new URLSearchParams(), { replace: true })
-    localStorage.removeItem(SEARCH_SORT_PREFS_KEY)
     toast.success(t('search.resetToast'))
   }
 
@@ -189,14 +187,11 @@ export default function SearchPage() {
   }, [sortBy, userPos])
 
   useEffect(() => {
-    localStorage.setItem(SEARCH_SORT_PREFS_KEY, sortBy)
-  }, [sortBy])
-
-  useEffect(() => {
     setParams(
       (prev) => {
         const p = new URLSearchParams(prev)
-        p.set('sort', sortBy)
+        if (sortBy === 'none') p.delete('sort')
+        else p.set('sort', sortBy)
         return p
       },
       { replace: true }
@@ -343,7 +338,7 @@ export default function SearchPage() {
     if (cityF.trim()) n += 1
     if (effectiveCategoryValue || legacyGranularCategory) n += 1
     if (parseFloat(minRating) > 0) n += 1
-    if (sortBy !== 'rating') n += 1
+    if (sortBy !== 'none') n += 1
     return n
   }, [q, cityF, effectiveCategoryValue, legacyGranularCategory, minRating, sortBy])
 
@@ -403,6 +398,7 @@ export default function SearchPage() {
               )
             })}
           </div>
+          <p className="text-xs font-medium text-muted-foreground">{lang === 'ar' ? 'الترتيب اختياري' : 'Sorting is optional'}</p>
           <div className="grid grid-cols-3 gap-2" role="tablist" aria-label={t('a11y.sortResults')}>
             {(
               [

@@ -276,7 +276,7 @@ function Home() {
                   }
                   setActiveCategoryValue(categoryValue)
                   trackCategoryFilterSelected('home_chip', categoryValue)
-                  nav(`/search?categoryValue=${encodeURIComponent(categoryValue)}`)
+                  nav(`/search?categoryValue=${encodeURIComponent(categoryValue)}&sort=none`)
                 }}
                 className={cn(
                   'category-chip category-chip--uniform flex items-center justify-center gap-2',
