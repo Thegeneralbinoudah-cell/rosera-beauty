@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { isSupabaseConfigured, supabase, type SaRegionRow } from '@/lib/supabase'
 import { toast } from 'sonner'
 import { tr, type Lang } from '@/lib/i18n'
+import { resolveSaudiRegionImage } from '@/lib/saRegionImages'
 
 export type RegionStats = {
   id: string
@@ -35,7 +36,7 @@ function mapRowsToStats(rows: SaRegionRow[], includeSalonStats: boolean): Region
       return {
         id: r.id,
         name_ar: r.name_ar,
-        image_url: r.image_url,
+        image_url: resolveSaudiRegionImage(r.name_ar, r.image_url),
         totalCities: cities.length,
         citiesWithSalons: 0,
         salonCount: 0,
@@ -50,7 +51,7 @@ function mapRowsToStats(rows: SaRegionRow[], includeSalonStats: boolean): Region
     return {
       id: r.id,
       name_ar: r.name_ar,
-      image_url: r.image_url,
+      image_url: resolveSaudiRegionImage(r.name_ar, r.image_url),
       totalCities: cities.length,
       citiesWithSalons: withSalon.length,
       salonCount,

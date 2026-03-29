@@ -402,21 +402,21 @@ function Home() {
                 <div key={reg.id} className="flex flex-col items-center">
                   <Link
                     to={`/region/${reg.id}`}
-                    className="group relative flex h-[9.25rem] w-[9.25rem] sm:h-40 sm:w-40 flex-col items-center justify-center overflow-hidden rounded-full border-2 border-primary shadow-md transition duration-300 hover:scale-[1.06] hover:shadow-lg"
+                    className="group relative flex h-[9.25rem] w-[9.25rem] sm:h-40 sm:w-40 flex-col items-center justify-center overflow-hidden rounded-full border border-border/70 shadow-md ring-1 ring-black/5 transition duration-300 hover:scale-[1.04] hover:shadow-lg dark:ring-white/10"
                   >
                     <div
-                      className="absolute inset-0 bg-cover bg-center"
+                      className="absolute inset-0 bg-cover bg-center transition-transform duration-500 ease-out group-hover:scale-105"
                       style={{ backgroundImage: `url(${reg.image_url})` }}
                     />
                     <div
-                      className="pointer-events-none absolute inset-0 z-[1] bg-gradient-to-t from-primary/70 via-primary/35 to-transparent"
+                      className="pointer-events-none absolute inset-0 z-[1] bg-gradient-to-t from-black/65 via-black/28 to-black/12 dark:from-black/78 dark:via-black/48 dark:to-black/24"
                       aria-hidden
                     />
-                    <div className="relative z-[2] px-3 text-center">
-                      <h3 className="line-clamp-4 font-serif text-base font-semibold leading-snug text-primary-foreground drop-shadow-sm">
+                    <div className="relative z-[2] flex h-[5.4rem] w-[88%] flex-col items-center justify-between rounded-2xl border border-white/25 bg-black/28 px-2.5 py-2 text-center shadow-sm backdrop-blur-[1.5px] dark:border-white/20 dark:bg-black/38">
+                      <h3 className="line-clamp-2 min-h-[2.6rem] font-serif text-[0.95rem] font-semibold leading-snug text-white">
                         {reg.name_ar}
                       </h3>
-                      <p className="mt-2 text-xs font-semibold tabular-nums text-primary-foreground drop-shadow-sm">
+                      <p className="min-h-[1rem] text-[11px] font-semibold tabular-nums text-white/95">
                         <CountUp value={reg.totalCities} className="tabular-nums" decimals={0} /> {cityLabel}
                       </p>
                     </div>

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { isSupabaseConfigured, supabase, type SaRegionRow } from '@/lib/supabase'
 import { toast } from 'sonner'
 import { tr, type Lang } from '@/lib/i18n'
+import { resolveSaudiRegionImage } from '@/lib/saRegionImages'
 
 export type RegionCityRow = { id: string; name_ar: string; salonCount: number }
 
@@ -93,7 +94,7 @@ export function useCities(regionId: string | undefined, lang: Lang) {
           r = simple.data as SaRegionRow
           if (!cancelled) {
             setRegionName(r.name_ar)
-            setRegionImage(r.image_url)
+            setRegionImage(resolveSaudiRegionImage(r.name_ar, r.image_url))
             const list = (r.sa_cities ?? [])
               .map((city) => ({
                 id: city.id,
@@ -109,7 +110,7 @@ export function useCities(regionId: string | undefined, lang: Lang) {
         r = full.data as SaRegionRow
         if (!cancelled) {
           setRegionName(r.name_ar)
-          setRegionImage(r.image_url)
+          setRegionImage(resolveSaudiRegionImage(r.name_ar, r.image_url))
           const list = (r.sa_cities ?? [])
             .map((city) => ({
               id: city.id,
