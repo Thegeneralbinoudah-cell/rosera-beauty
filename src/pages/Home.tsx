@@ -416,7 +416,7 @@ function Home() {
                       <h3 className="line-clamp-2 min-h-[2.6rem] font-serif text-[0.95rem] font-semibold leading-snug text-white">
                         {reg.name_ar}
                       </h3>
-                      <p className="min-h-[1rem] text-[11px] font-semibold tabular-nums text-white/95">
+                      <p className="min-h-[1.25rem] text-[13px] font-bold leading-none tabular-nums text-white sm:text-sm">
                         <CountUp value={reg.totalCities} className="tabular-nums" decimals={0} /> {cityLabel}
                       </p>
                     </div>
