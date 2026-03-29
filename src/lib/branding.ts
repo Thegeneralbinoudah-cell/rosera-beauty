@@ -1,2 +1,2 @@
-/** ROSERA brand logo — `public/rosera-logo.svg` (أخف من PNG). */
-export const ROSERA_LOGO_SRC = '/rosera-logo.svg'
+/** ROSERA flower logo (transparent PNG processed from user image). */
+export const ROSERA_LOGO_SRC = '/rosera-logo-flower.png'

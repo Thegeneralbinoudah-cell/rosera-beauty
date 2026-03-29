@@ -211,7 +211,7 @@ export default function Auth() {
               src={ROSERA_LOGO_SRC}
               alt={lang === 'ar' ? 'روزيرا' : 'Rosera'}
               width={120}
-              className="auth-logo-breathe mx-auto block h-auto w-[120px] max-w-full object-contain"
+              className="rosera-flower-logo logo-lg auth-logo-breathe mx-auto block max-w-full"
             />
             <h1 className="mt-6 font-serif text-2xl font-normal tracking-wide text-foreground">{ui.title}</h1>
           </div>

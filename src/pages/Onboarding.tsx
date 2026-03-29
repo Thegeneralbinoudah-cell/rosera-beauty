@@ -70,7 +70,7 @@ export default function Onboarding() {
               <img src={slides[i].img} alt="" className="h-full w-full object-cover" />
               <div className="absolute inset-0 bg-gradient-to-t from-rosera-dark/80 to-transparent" />
               <div className="absolute bottom-8 start-1/2 flex -translate-x-1/2 justify-center">
-                <img src={ROSERA_LOGO_SRC} alt="" className="w-18 h-18 rounded-2xl object-contain drop-shadow-lg" />
+                <img src={ROSERA_LOGO_SRC} alt="" className="rosera-flower-logo logo-lg" />
               </div>
             </div>
             <div className="flex flex-1 flex-col items-center justify-center px-8 pb-8">

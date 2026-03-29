@@ -10,7 +10,7 @@ export function RoseraLogoMark({ className, ...props }: RoseraLogoMarkProps) {
     <img
       src={ROSERA_LOGO_SRC}
       alt="Rosera"
-      className={className}
+      className={`rosera-flower-logo ${className ?? ''}`.trim()}
       draggable={false}
       {...props}
     />

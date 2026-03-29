@@ -384,6 +384,12 @@
     animation: auth-logo-breathe 3.2s ease-in-out infinite;
     filter: drop-shadow(0 0 22px rgb(244 114 182 / 0.35));
   }
+  .rosera-flower-logo {
+    object-fit: contain;
+    object-position: center;
+    filter: drop-shadow(0 8px 20px rgb(212 68 109 / 0.22));
+    transform: translateZ(0);
+  }
   @media (prefers-reduced-motion: reduce) {
     .auth-logo-breathe {
       animation: none;
@@ -549,6 +555,22 @@
 
   .pb-safe {
     padding-bottom: max(5rem, env(safe-area-inset-bottom));
+  }
+
+  /* Unified logo sizing system */
+  .logo-sm {
+    width: 1.5rem;
+    height: 1.5rem;
+  }
+  .logo-lg {
+    width: 6rem;
+    height: 6rem;
+  }
+  @media (min-width: 640px) {
+    .logo-sm {
+      width: 1.75rem;
+      height: 1.75rem;
+    }
   }
 
   /** Primary CTA — dusty rose → deep rose → champagne */

@@ -146,7 +146,7 @@ export default function AuthEmail() {
             <PreferencesToggle />
           </div>
           <div className="text-center">
-            <img src={ROSERA_LOGO_SRC} alt="" className="mx-auto w-18 h-18 rounded-2xl object-contain" />
+            <img src={ROSERA_LOGO_SRC} alt="" className="rosera-flower-logo logo-lg mx-auto" />
             <h1 className="mt-4 text-2xl font-extrabold text-foreground">
               {mode === 'login' ? t('authEmail.loginTitle') : t('authEmail.signupTitle')}
             </h1>

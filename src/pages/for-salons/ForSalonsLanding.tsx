@@ -40,7 +40,7 @@ export default function ForSalonsLanding() {
       <header className="border-b border-primary/15 bg-card/80 backdrop-blur-md border-border">
         <div className="mx-auto flex max-w-3xl items-center justify-between gap-4 px-4 py-4">
           <Link to="/home" className="flex items-center gap-2">
-            <img src={ROSERA_LOGO_SRC} alt="" className="h-9 w-9 rounded-xl object-contain" />
+            <img src={ROSERA_LOGO_SRC} alt="" className="rosera-flower-logo logo-sm" />
             <span className="text-sm font-bold text-primary dark:text-primary">روزيرا للصالونات</span>
           </Link>
           <Button variant="ghost" size="sm" className="text-primary" asChild>

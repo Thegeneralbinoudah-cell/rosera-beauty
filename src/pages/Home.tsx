@@ -151,8 +151,8 @@ function Home() {
             {lang === 'ar' ? 'EN' : 'AR'}
           </button>
 
-          <div className="flex min-w-0 flex-1 items-center justify-center gap-2 sm:gap-3">
-            <RoseraLogoMark className="h-11 w-11 shrink-0 sm:h-14 sm:w-14" aria-hidden />
+          <div className="flex min-w-0 flex-1 items-center justify-center gap-2.5">
+            <RoseraLogoMark className="logo-sm shrink-0" aria-hidden />
             <div className="min-w-0">
               <p className="text-body-sm font-medium text-foreground">{ui.hello}</p>
               <h1 className="truncate font-serif text-title font-semibold tracking-wide text-foreground">{ui.title}</h1>

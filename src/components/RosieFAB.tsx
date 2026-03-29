@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useInRouterContext, useLocation, useNavigate } from 'react-router-dom'
 import { useI18n } from '@/hooks/useI18n'
-import { ROSERA_LOGO_SRC } from '@/lib/branding'
 /** Bundled portrait (woman, beauty/spa — Unsplash license at source) — always available offline */
 import rozyFabPortrait from '@/assets/rozy-fab-portrait.jpg'
 
@@ -85,14 +84,9 @@ function RosieFABShell({
             className="h-full w-full object-cover object-[center_20%]"
           />
         ) : (
-          <img
-            src={ROSERA_LOGO_SRC}
-            alt=""
-            width={44}
-            height={44}
-            decoding="async"
-            className="object-contain p-1"
-          />
+          <span className="inline-flex h-full w-full items-center justify-center bg-gradient-to-br from-primary/15 to-accent/20 text-xl font-bold text-primary">
+            R
+          </span>
         )}
       </button>
     </div>
