@@ -22,6 +22,7 @@ import { fetchAiUserProfile, fetchActiveSubscriptionPlansForSalonIds, type AiUse
 import { fetchBestActiveOffersByBusinessIds, type SalonActiveOffer } from '@/lib/offers'
 import type { SalonSubscriptionPlan } from '@/lib/salonSubscriptionPlans'
 import { readMapChatHintsFromSession } from '@/lib/mapSuggestions'
+import { ROZY_CHAT_LAST_CITY_KEY } from '@/lib/rozyChatLocation'
 import { resolveSearchCategoryFilter } from '@/lib/searchCategoryFilter'
 import {
   mergeSubscriptionPlan,
@@ -73,6 +74,16 @@ export default function CitySalons() {
       () => {}
     )
   }, [])
+
+  useEffect(() => {
+    const n = cityName?.trim()
+    if (!n) return
+    try {
+      localStorage.setItem(ROZY_CHAT_LAST_CITY_KEY, n)
+    } catch {
+      /* ignore */
+    }
+  }, [cityName])
 
   useEffect(() => {
     if (sortBy !== 'nearest' && sortBy !== 'smart') return

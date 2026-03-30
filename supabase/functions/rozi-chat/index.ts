@@ -652,6 +652,104 @@ function shouldIncludeSalonCards(intent: IntentName, utterance: string): boolean
   )
 }
 
+/** Matches `public.businesses.city` Arabic labels used in seed data */
+const KHOBAR_CITY_AR = 'الخبر'
+const PREFERRED_CITY_RANK_BOOST = 16
+const KHOBAR_EXTRA_RANK_BOOST = 6
+
+function normalizeCityHintToAr(raw: string | null | undefined): string | null {
+  if (raw == null) return null
+  const t = String(raw).trim()
+  if (!t) return null
+  const low = t.toLowerCase()
+  if (/^الخبر$/u.test(t) || /\bkhobar\b/i.test(low) || /al[\s-]*khobar/i.test(low) || /^خبر$/u.test(t)) return KHOBAR_CITY_AR
+  if (/^الدمام$/u.test(t) || /\bdammam\b/i.test(low)) return 'الدمام'
+  if (/^الرياض$/u.test(t) || /\briyadh\b/i.test(low)) return 'الرياض'
+  if (/^جدة$/u.test(t) || /^جده$/u.test(t) || /\bjeddah\b/i.test(low)) return 'جدة'
+  if (/^مكة/u.test(t) || /\bmakkah\b/i.test(low)) return 'مكة المكرمة'
+  if (/المدينة المنورة/u.test(t) || /\bmedina\b/i.test(low)) return 'المدينة المنورة'
+  return t
+}
+
+function inferCityFromUserMessages(msgs: Msg[]): string | null {
+  const users = msgs.filter((m) => m.role === 'user').slice(-5)
+  const blob = users.map((m) => m.content).join('\n')
+  return normalizeCityHintToAr(blob)
+}
+
+function englishCityLabelForPrompt(ar: string): string {
+  if (ar === KHOBAR_CITY_AR) return 'Al Khobar'
+  if (ar === 'الدمام') return 'Dammam'
+  if (ar === 'الرياض') return 'Riyadh'
+  if (ar === 'جدة') return 'Jeddah'
+  if (ar === 'مكة المكرمة') return 'Makkah'
+  if (ar === 'المدينة المنورة') return 'Madinah'
+  return ar
+}
+
+type RozyResolvedUserLocation = {
+  /** `businesses.city` filter when not doing name-search */
+  cityForQueryFilter: string
+  /** When set, salons in this city get a score boost + list pre-sort */
+  preferredCityAr: string | null
+  locationBrainBlock: string
+  cityToneAr: string | null
+}
+
+function resolveRozyUserLocation(params: {
+  body: Record<string, unknown>
+  entities: Record<string, unknown>
+  profileCityRaw: string | null | undefined
+  historyMsgs: Msg[]
+}): RozyResolvedUserLocation {
+  const clientRaw = typeof params.body.clientPreferredCity === 'string' ? params.body.clientPreferredCity : ''
+  const fromClient = normalizeCityHintToAr(clientRaw)
+  const fromEntity = normalizeCityHintToAr(
+    typeof params.entities.city === 'string' ? params.entities.city : ''
+  )
+  const fromHistory = inferCityFromUserMessages(params.historyMsgs)
+  const fromProfile = normalizeCityHintToAr(params.profileCityRaw)
+
+  const preferredCityAr = fromClient ?? fromEntity ?? fromHistory ?? fromProfile ?? null
+  const cityForQueryFilter =
+    (preferredCityAr ?? (params.profileCityRaw?.trim() || KHOBAR_CITY_AR)).trim() || KHOBAR_CITY_AR
+
+  let locationBrainBlock: string
+  let cityToneAr: string | null = null
+  if (preferredCityAr) {
+    const en = englishCityLabelForPrompt(preferredCityAr)
+    cityToneAr = preferredCityAr
+    const khobarNote =
+      preferredCityAr === KHOBAR_CITY_AR
+        ? `\n- **الخبر**: رجّحي صالونات **${KHOBAR_CITY_AR}** الظاهرة في الجدول؛ يمكنكِ أحياناً افتتاح الجملة بلطف مثل «في الخبر عندكِ…» عند التوصية بخيار من نفس المدينة (مرة واحدة عند الحاجة، لا تكرار مزعج).`
+        : ''
+    locationBrainBlock = `## موقع المستخدمة (سياق للنموذج)
+- user_city: ${en}
+- user_city_ar: ${preferredCityAr}
+- جرّبي ربط التوصيات بلطف بمدينة المستخدمة عندما تذكرين صالوناً من **نفس المدينة** في الجدول.${khobarNote}
+`
+  } else {
+    locationBrainBlock = `## موقع المستخدمة
+- user_city: غير محدد صراحة من المحادثة/التطبيق — اقتراحات الصالونات مُفلترة مبدئياً حسب **${cityForQueryFilter}** في قاعدة البيانات. لا تختلقي أن المستخدمة في مدينة أخرى إلا إن ذكرت هي ذلك.
+`
+  }
+
+  return { cityForQueryFilter, preferredCityAr, locationBrainBlock, cityToneAr }
+}
+
+/** Stable: preferred city rows first, then by rating (desc). */
+function sortSalonsPreferredCityFirst(salons: SalonRow[], preferredCityAr: string | null): SalonRow[] {
+  if (!preferredCityAr) return salons
+  const p = preferredCityAr.trim()
+  if (!p) return salons
+  return [...salons].sort((a, b) => {
+    const ap = (a.city || '').trim() === p ? 1 : 0
+    const bp = (b.city || '').trim() === p ? 1 : 0
+    if (ap !== bp) return bp - ap
+    return Number(b.average_rating ?? 0) - Number(a.average_rating ?? 0)
+  })
+}
+
 /** نية حجز قوية — أزرار ونص أقوى نحو التحويل */
 function utteranceShowsStrongBookingIntent(utterance: string): boolean {
   const t = utterance.trim()
@@ -671,8 +769,11 @@ function rankSalonsForRosy(
     similarToBooked?: boolean
     urgentToday?: boolean
     preferredPriceRange?: string | null
+    /** Canonical Arabic city — boosts matching `salon.city` without removing other signals */
+    preferredCityForScoreBoost?: string | null
   }
 ): SalonRow[] {
+  const pref = flags.preferredCityForScoreBoost?.trim() || null
   const scored = salons.map((s) => {
     const lat = Number(s.latitude)
     const lng = Number(s.longitude)
@@ -688,6 +789,10 @@ function rankSalonsForRosy(
     else if (sub === 'pro') score += 25
     if (s.is_featured) score += 40
     if (s.has_active_featured_ad) score += FEATURED_AD_RANK_BOOST
+    if (pref && (s.city || '').trim() === pref) {
+      score += PREFERRED_CITY_RANK_BOOST
+      if (pref === KHOBAR_CITY_AR) score += KHOBAR_EXTRA_RANK_BOOST
+    }
     if (reco.favoriteBusinessIds.has(s.id)) score += 6
     if (reco.bookedBusinessIds.has(s.id)) score += 9
     if (userLatLng && dist > 0 && Number.isFinite(dist)) {
@@ -1495,12 +1600,16 @@ async function fetchSalonsForUser(
   sb: SupabaseClient,
   profileCity: string,
   intent: IntentName,
-  entities: Record<string, unknown>
+  entities: Record<string, unknown>,
+  preferredCityAr: string | null
 ): Promise<SalonRow[]> {
   let q = sb.from('businesses').select(SALON_SELECT).eq('is_active', true).eq('is_demo', false)
 
   const searchQ = typeof entities.query === 'string' ? entities.query.trim() : ''
   const salonHint = typeof entities.salon_hint === 'string' ? entities.salon_hint.trim() : ''
+
+  const isNameSearch =
+    (intent === 'search_salon' || intent === 'recommend_service') && Boolean(searchQ || salonHint)
 
   if ((intent === 'search_salon' || intent === 'recommend_service') && searchQ) {
     q = q.ilike('name_ar', `%${searchQ}%`)
@@ -1519,9 +1628,23 @@ async function fetchSalonsForUser(
       .select(SALON_SELECT)
       .eq('is_active', true)
       .eq('is_demo', false)
+      .eq('city', profileCity)
+      .order('average_rating', { ascending: false })
+      .limit(40)
+    if (!fb.error) list = (fb.data ?? []) as SalonRow[]
+  }
+  if (list.length === 0) {
+    const fb2 = await sb
+      .from('businesses')
+      .select(SALON_SELECT)
+      .eq('is_active', true)
+      .eq('is_demo', false)
       .order('average_rating', { ascending: false })
       .limit(28)
-    if (!fb.error) list = (fb.data ?? []) as SalonRow[]
+    if (!fb2.error) list = (fb2.data ?? []) as SalonRow[]
+  }
+  if (isNameSearch && preferredCityAr) {
+    list = sortSalonsPreferredCityFirst(list, preferredCityAr)
   }
   await Promise.all([attachActiveSubscriptionPlans(sb, list), attachSalonFeaturedAds(sb, list)])
   return list
@@ -1593,6 +1716,7 @@ function buildBrainContext(params: {
   rankedProductsLines: string
   storeProductBlock?: string
   cartContextBlock?: string
+  locationBrainBlock?: string
 }): string {
   const {
     memoryNarrative,
@@ -1606,6 +1730,7 @@ function buildBrainContext(params: {
     rankedProductsLines,
     storeProductBlock,
     cartContextBlock,
+    locationBrainBlock,
   } = params
   const mem = memoryNarrative.trim() ? `${memoryNarrative.trim()}\n\n` : ''
   const salonLines =
@@ -1645,11 +1770,13 @@ ${rankedProductsLines.trim() || '(لا توجد)'}
 `
       : ''
 
+  const locSection = locationBrainBlock?.trim() ? `${locationBrainBlock.trim()}\n\n` : ''
+
   return `${mem}## الملف الشخصي
 - الاسم: ${profile.full_name || '—'}
 - المدينة المفضلة في الملف: ${profile.city || '—'}
 
-${skinSection}${storePickSection}${cartSection}${rankSection}## آخر المحادثات (ملخص)
+${locSection}${skinSection}${storePickSection}${cartSection}${rankSection}## آخر المحادثات (ملخص)
 ${historyText || '(بداية المحادثة)'}
 
 ## صالونات وعيادات (بيانات حقيقية من قاعدة روزيرا — استخدمي المعرفات [uuid] عند التوصية)
@@ -1668,8 +1795,10 @@ function buildRosyPersonalityBlock(params: {
   isFrequentChatter: boolean
   luxuryHint: boolean
   priceSensitive: boolean
+  /** Arabic city — light tone hint when location context is known */
+  cityToneAr?: string | null
 }): string {
-  const { intent, hasBookedBefore, isFrequentChatter, luxuryHint, priceSensitive } = params
+  const { intent, hasBookedBefore, isFrequentChatter, luxuryHint, priceSensitive, cityToneAr } = params
   let s = `## شخصية روزي (إلزامي — مستوى مساعد ذكي)
 - سعودية (لهجة بيضاء مفهومة)، دافئة، أنثوية، **قصيرة** — تفهمين السوق والسلانج (يالله، وش، ابغى، زين، يلا، حيل، ضبطي…).
 - **افهمي كلام المستخدمة وتكلّمي بنفس الطابع**: ابغى، وش الأفضل، مره، حلو، تمام، زين، يا بعدي.
@@ -1699,6 +1828,9 @@ function buildRosyPersonalityBlock(params: {
 ## أسئلة ذكية (فقط عند الحاجة)
 - إن لم تُعرف المدينة وطلبتِ توصية مكانية وليست في الملف: سؤال **واحد** مثل "تبغي الأقرب لك ولا الأعلى تقييم؟" — لا سلسلة أسئلة.
 `
+  if (cityToneAr?.trim()) {
+    s += `- سياق المدينة المعروف: **${cityToneAr.trim()}** — اربطي التوصية بالمدينة بلطف عند ذكر صالون من نفسها (دون تكرار في كل جملة).\n`
+  }
   return s
 }
 
@@ -1859,7 +1991,6 @@ Deno.serve(async (req) => {
     const toneStatsParsed = parseToneStatsRows(toneStatsRows)
 
     const profile = (prof ?? { id: userId, full_name: null, city: null, preferred_language: 'ar' }) as ProfileRow
-    const profileCity = (profile.city || 'الخبر').trim()
     const historyText = formatHistoryLines((histRows ?? []) as Parameters<typeof formatHistoryLines>[0])
     const skinBlock = formatSkinContextBlock((skinRow ?? null) as SkinContextRow | null)
 
@@ -1879,6 +2010,13 @@ Deno.serve(async (req) => {
 
     let intent: IntentName = classifyOutcome?.intent ?? 'general_question'
     let entities: Record<string, unknown> = classifyOutcome?.entities ?? {}
+
+    const rozyLoc = resolveRozyUserLocation({
+      body,
+      entities,
+      profileCityRaw: profile.city,
+      historyMsgs,
+    })
 
     const serviceKeyword =
       typeof entities.service_keyword === 'string'
@@ -1901,7 +2039,7 @@ Deno.serve(async (req) => {
 
     const [recoHistory, salonsRaw] = await Promise.all([
       fetchRecoHistory(userSb, userId),
-      fetchSalonsForUser(userSb, profileCity, intent, entities),
+      fetchSalonsForUser(userSb, rozyLoc.cityForQueryFilter, intent, entities, rozyLoc.preferredCityAr),
     ])
     const hasBookedBefore = recoHistory.bookedBusinessIds.size > 0
     const isFrequentChatter = (histRows ?? []).length >= 8
@@ -1913,6 +2051,7 @@ Deno.serve(async (req) => {
         similarToBooked: hasBookedBefore,
         urgentToday,
         preferredPriceRange: memoryPack.preferredPriceRange,
+        preferredCityForScoreBoost: rozyLoc.preferredCityAr,
       })
     )
 
@@ -2059,6 +2198,7 @@ Deno.serve(async (req) => {
       rankedProductsLines,
       storeProductBlock,
       cartContextBlock: cartContextBlock || undefined,
+      locationBrainBlock: rozyLoc.locationBrainBlock,
     })
 
     let negotiationExtraSystem = ''
@@ -2111,6 +2251,7 @@ Deno.serve(async (req) => {
       isFrequentChatter,
       luxuryHint,
       priceSensitive,
+      cityToneAr: rozyLoc.cityToneAr,
     })
 
     const premiumTop = rankedSalons[0]?.subscription_plan === 'premium'

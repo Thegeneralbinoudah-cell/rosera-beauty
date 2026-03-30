@@ -35,6 +35,7 @@ import { ensureUserProfile } from '@/lib/ensureUserProfile'
 import { STORAGE_KEYS } from '@/lib/utils'
 import { fetchRosySalonBookingPreview } from '@/lib/roseySalonBookingPreview'
 import { invokeRozyAdvisor, VISION_FAIL_AR } from '@/lib/rozyVisionChatInvoke'
+import { resolveClientPreferredCityForRozy } from '@/lib/rozyChatLocation'
 import type { RozyVisionChatResult, RozyVisionChatAdvisorMode } from '@/lib/rozyVisionChatTypes'
 
 const ROSY_PREMIUM_TOP_LINE = 'هذا من أفضل الصالونات المميزة\n'
@@ -318,6 +319,8 @@ export type UseChatOptions = {
   salonOwnerSalesMode?: boolean
   /** بعد تأكيد صوتي للاشتراك — يُستدعى من AiChat للتوجيه */
   onSalonOwnerSubscriptionIntent?: () => void
+  /** `profiles.city` — يُمرَّر لـ rozi-chat مع آخر مدينة من المحادثة / التخزين المحلي */
+  profileCityForRozy?: string | null
 }
 
 type ApiMsg = { role: 'user' | 'assistant'; content: string }
@@ -632,7 +635,12 @@ type ChatMessageInsert = {
  * Rosy Brain: history from `chat_messages`; replies + intent + DB context from Edge `rozi-chat`.
  */
 export function useChat(userId: string | undefined, options?: UseChatOptions) {
-  const { onBookingAction, salonOwnerSalesMode = false, onSalonOwnerSubscriptionIntent } = options ?? {}
+  const {
+    onBookingAction,
+    salonOwnerSalesMode = false,
+    onSalonOwnerSubscriptionIntent,
+    profileCityForRozy = null,
+  } = options ?? {}
   const [messages, setMessages] = useState<ChatRow[]>([])
   const [loading, setLoading] = useState(true)
   const [historyError, setHistoryError] = useState<string | null>(null)
@@ -1277,6 +1285,8 @@ export function useChat(userId: string | undefined, options?: UseChatOptions) {
           }
         }
 
+        const rozyClientCity = resolveClientPreferredCityForRozy(profileCityForRozy, normalizedText)
+
         const { data, error, response: fnResponse } = await supabase.functions.invoke('rozi-chat', {
           body: {
             messages: apiHistory,
@@ -1284,6 +1294,7 @@ export function useChat(userId: string | undefined, options?: UseChatOptions) {
             imageMimeType: image?.mime,
             userLat: clientGeo?.lat,
             userLng: clientGeo?.lng,
+            clientPreferredCity: rozyClientCity ?? undefined,
             cartLineCount,
             cartTotalQty,
             checkoutRecentCartAdd,
@@ -1508,7 +1519,7 @@ export function useChat(userId: string | undefined, options?: UseChatOptions) {
         sendBusyRef.current = false
       }
     },
-    [onBookingAction, salonOwnerSalesMode, onSalonOwnerSubscriptionIntent]
+    [onBookingAction, salonOwnerSalesMode, onSalonOwnerSubscriptionIntent, profileCityForRozy]
   )
 
   return {

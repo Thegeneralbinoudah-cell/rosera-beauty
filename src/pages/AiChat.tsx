@@ -227,6 +227,7 @@ export default function AiChat({ embedded = false }: { embedded?: boolean }) {
   } = useChat(user?.id, {
       onBookingAction,
       salonOwnerSalesMode,
+      profileCityForRozy: profile?.city ?? null,
       onSalonOwnerSubscriptionIntent: () => {
         if (user?.id) {
           trackEvent({
