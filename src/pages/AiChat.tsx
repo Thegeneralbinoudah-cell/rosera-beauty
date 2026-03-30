@@ -1298,7 +1298,7 @@ export default function AiChat({ embedded = false }: { embedded?: boolean }) {
         dustyRoseRecording={voiceUi === 'listening'}
         className="drop-shadow-[0_0_14px_rgb(244_114_182/0.35)]"
       />
-      <div className="relative z-[10050] flex h-11 w-11 min-h-[44px] min-w-[44px] items-center justify-center">
+      <div className="relative z-floating flex h-11 w-11 min-h-[44px] min-w-[44px] items-center justify-center">
         {voiceUi === 'listening' && (
           <>
             <motion.span
@@ -1332,7 +1332,7 @@ export default function AiChat({ embedded = false }: { embedded?: boolean }) {
                   : 'تحدثي مع روزي — وضع محادثة متواصل'
           }
           className={cn(
-            'relative z-[1] flex h-11 w-11 min-h-[44px] min-w-[44px] shrink-0 touch-manipulation items-center justify-center rounded-full border-2 border-primary bg-card text-primary shadow-[0_6px_22px_rgba(0,0,0,0.45)] transition-transform active:scale-95 disabled:pointer-events-none disabled:opacity-45',
+            'relative z-raised flex h-11 w-11 min-h-[44px] min-w-[44px] shrink-0 touch-manipulation items-center justify-center rounded-full border-2 border-primary bg-card text-primary shadow-[0_6px_22px_rgba(0,0,0,0.45)] transition-transform active:scale-95 disabled:pointer-events-none disabled:opacity-45',
             voiceUi === 'processing' && 'ring-2 ring-primary/45',
             voiceUi === 'speaking' && 'ring-2 ring-primary/60 shadow-[0_0_28px_rgb(244_114_182/0.35)]'
           )}
@@ -1368,7 +1368,7 @@ export default function AiChat({ embedded = false }: { embedded?: boolean }) {
       )}
     >
       {!embedded && (
-        <header className="luxury-screen-header z-10">
+        <header className="luxury-screen-header">
           <div className="flex items-center justify-between gap-3">
             <div className="flex min-w-0 flex-1 items-center gap-3">
               <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-primary/35 bg-gradient-to-br from-primary to-primary-hover text-primary-foreground shadow-elevated">
@@ -1668,19 +1668,20 @@ export default function AiChat({ embedded = false }: { embedded?: boolean }) {
       <input ref={camFallbackRef} type="file" accept="image/*" capture="user" className="hidden" onChange={onPickImage} />
 
       {embedded ? (
-        <div className="relative z-20 shrink-0 border-t border-primary/12 bg-gradient-to-b from-card to-muted/50 dark:from-card dark:to-card">
+        <div className="relative z-sticky-header shrink-0 border-t border-primary/12 bg-gradient-to-b from-card to-muted/50 dark:from-card dark:to-card">
           <div className="mx-auto flex w-full max-w-[18rem] flex-col items-center gap-2 px-4 pb-2 pt-2">
             {renderVoiceUi()}
           </div>
         </div>
       ) : null}
 
+      {/* z-composer above z-app-nav; bottom offset clears fixed nav hit area */}
       <div
         className={cn(
-          'sticky bottom-0 z-30 border-t border-primary/12 bg-gradient-to-b from-card to-muted/40 shadow-[0_-8px_32px_-12px_rgb(212_165_165/0.12)] dark:from-card dark:to-card dark:shadow-none',
+          'sticky border-t border-primary/12 bg-gradient-to-b from-card to-muted/40 shadow-[0_-8px_32px_-12px_rgb(212_165_165/0.12)] dark:from-card dark:to-card dark:shadow-none',
           embedded
-            ? 'pb-[calc(env(safe-area-inset-bottom,0px)+12px)]'
-            : 'pb-[calc(5.5rem+env(safe-area-inset-bottom,0px)+12px)]'
+            ? 'bottom-0 z-sticky-section pb-[calc(env(safe-area-inset-bottom,0px)+12px)]'
+            : 'z-composer bottom-[calc(4.5rem+env(safe-area-inset-bottom,0px))] pb-[calc(5.5rem+env(safe-area-inset-bottom,0px)+12px)]'
         )}
       >
         <div

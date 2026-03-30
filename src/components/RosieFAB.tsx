@@ -110,7 +110,7 @@ function RosieFABShell({
 
   return (
     <div
-      className="fixed z-[10100] end-[max(1rem,env(safe-area-inset-inline-end,0px))]"
+      className="fixed z-fab end-[max(1rem,env(safe-area-inset-inline-end,0px))]"
       style={{
         bottom: elevatedForChat
           ? 'calc(10.75rem + env(safe-area-inset-bottom, 0px))'

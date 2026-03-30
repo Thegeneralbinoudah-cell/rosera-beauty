@@ -44,7 +44,7 @@ export function IssueFeedbackPrompt() {
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="fixed z-[38] max-w-[min(100vw-1.5rem,14rem)] touch-manipulation rounded-full border border-border/60 bg-card/90 px-3 py-2 text-[11px] font-semibold text-foreground shadow-sm backdrop-blur-sm transition hover:bg-muted/80 hover:text-foreground supports-[backdrop-filter]:bg-card/75"
+        className="fixed z-floating max-w-[min(100vw-1.5rem,14rem)] touch-manipulation rounded-full border border-border/60 bg-card/90 px-3 py-2 text-[11px] font-semibold text-foreground shadow-sm backdrop-blur-sm transition hover:bg-muted/80 hover:text-foreground supports-[backdrop-filter]:bg-card/75"
         style={{
           bottom: BOTTOM_OFFSET,
           insetInlineStart: 'max(0.75rem, env(safe-area-inset-inline-start, 0px))',

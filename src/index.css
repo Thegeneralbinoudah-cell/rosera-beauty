@@ -342,7 +342,7 @@
   }
 
   .luxury-screen-header {
-    @apply sticky top-0 z-10 border-b border-border/40 bg-background/90 px-4 py-4 shadow-sm backdrop-blur-md backdrop-saturate-150 dark:bg-card/90;
+    @apply sticky top-0 z-sticky-header border-b border-border/40 bg-background/90 px-4 py-4 shadow-sm backdrop-blur-md backdrop-saturate-150 dark:bg-card/90;
     box-shadow: 0 1px 0 hsl(43 70% 88% / 0.35);
   }
   .dark .luxury-screen-header {

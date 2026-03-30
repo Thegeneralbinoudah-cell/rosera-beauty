@@ -514,7 +514,7 @@ export default function SalonDetail() {
         </div>
       </div>
 
-      <div className="relative z-10 mx-auto max-w-lg px-4 -mt-6 space-y-4">
+      <div className="relative z-raised mx-auto max-w-lg px-4 -mt-6 space-y-4">
         <div
           className="luxury-card space-y-4 border-amber-400/25 bg-gradient-to-br from-card via-amber-50/30 p-5 shadow-floating ring-1 ring-gold/15 sm:p-6 dark:from-card dark:via-card dark:to-card dark:border-amber-500/20"
           style={{
@@ -676,7 +676,7 @@ export default function SalonDetail() {
         ) : null}
 
         {/* ——— Sticky tabs + scroll-to-section ——— */}
-        <div className="sticky top-0 z-20 -mx-2 px-2 py-2 supports-[backdrop-filter]:backdrop-blur-sm">
+        <div className="sticky top-0 z-sticky-header -mx-2 px-2 py-2 supports-[backdrop-filter]:backdrop-blur-sm">
           <div className="rounded-3xl border border-amber-400/25 bg-gradient-to-b from-background/95 via-card/90 to-background/95 p-1.5 shadow-floating ring-1 ring-gold/15 backdrop-blur-md dark:border-amber-500/20 dark:from-card/95 dark:via-card/90">
             <div ref={tabStripRef} className="-mx-0.5 overflow-x-auto pb-0.5 scrollbar-hide">
               <div className="flex min-w-0 gap-2 px-1">
@@ -968,7 +968,7 @@ export default function SalonDetail() {
       </div>
 
       <div
-        className="fixed start-0 end-0 z-30 border-t border-amber-400/20 bg-gradient-to-t from-white/98 via-white/95 to-white/90 p-3 pb-[max(0.75rem,env(safe-area-inset-bottom,0px))] shadow-[0_-12px_40px_-12px_rgba(0,0,0,0.08)] backdrop-blur-md supports-[backdrop-filter]:bg-white/90 dark:border-amber-500/20 dark:from-card/98 dark:via-card/95 dark:to-card/90"
+        className="fixed start-0 end-0 z-composer border-t border-amber-400/20 bg-gradient-to-t from-white/98 via-white/95 to-white/90 p-3 pb-[max(0.75rem,env(safe-area-inset-bottom,0px))] shadow-[0_-12px_40px_-12px_rgba(0,0,0,0.08)] backdrop-blur-md supports-[backdrop-filter]:bg-white/90 dark:border-amber-500/20 dark:from-card/98 dark:via-card/95 dark:to-card/90"
         style={{ bottom: 'calc(4.5rem + env(safe-area-inset-bottom, 0px))' }}
       >
         <div className="mx-auto flex max-w-lg items-center gap-3">

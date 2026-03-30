@@ -18,7 +18,7 @@ export function BottomNav() {
 
   return (
     <nav
-      className="fixed bottom-0 inset-x-0 z-50 border-t border-primary/15 bg-card/95 pb-safe pt-2 shadow-nav backdrop-blur-xl"
+      className="fixed bottom-0 inset-x-0 z-app-nav border-t border-primary/15 bg-card/95 pb-safe pt-2 shadow-nav backdrop-blur-xl"
       aria-label={t('nav.main')}
     >
       <div className="mx-auto flex max-w-lg items-center justify-around px-1">

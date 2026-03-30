@@ -1219,13 +1219,13 @@ export default function MapPage() {
   if (!mapCenterValid) {
     return (
       <div
-        className="rosera-map-page fixed inset-0 z-10 flex h-[100dvh] max-h-[100dvh] w-full flex-col overflow-hidden bg-background"
+        className="rosera-map-page fixed inset-0 z-raised flex h-[100dvh] max-h-[100dvh] w-full flex-col overflow-hidden bg-background"
         dir={lang === 'ar' ? 'rtl' : 'ltr'}
       >
         <button
           type="button"
           onClick={() => nav('/home')}
-          className="absolute start-3 top-[calc(env(safe-area-inset-top,0px)+4.25rem)] z-[600] inline-flex items-center gap-2 rounded-3xl border border-border bg-card px-4 py-2.5 text-sm font-semibold text-foreground shadow-floating backdrop-blur-md ring-1 ring-border/50"
+          className="absolute start-3 top-[calc(env(safe-area-inset-top,0px)+4.25rem)] z-map-elevated inline-flex items-center gap-2 rounded-3xl border border-border bg-card px-4 py-2.5 text-sm font-semibold text-foreground shadow-floating backdrop-blur-md ring-1 ring-border/50"
         >
           <ChevronLeft className="h-5 w-5 shrink-0" aria-hidden />
           {lang === 'ar' ? 'الرئيسية' : 'Home'}
@@ -1237,20 +1237,20 @@ export default function MapPage() {
 
   return (
     <div
-      className="rosera-map-page fixed inset-0 z-10 flex h-[100dvh] max-h-[100dvh] w-full flex-col overflow-hidden overscroll-none bg-background"
+      className="rosera-map-page fixed inset-0 z-raised flex h-[100dvh] max-h-[100dvh] w-full flex-col overflow-hidden overscroll-none bg-background"
       dir={lang === 'ar' ? 'rtl' : 'ltr'}
     >
       <button
         type="button"
         onClick={() => nav('/home')}
-        className="absolute start-3 top-[calc(env(safe-area-inset-top,0px)+4.25rem)] z-[600] inline-flex items-center gap-2 rounded-3xl border border-border bg-card px-4 py-2.5 text-sm font-semibold text-foreground shadow-floating backdrop-blur-md ring-1 ring-border/50 transition-all duration-200 hover:border-primary/25 hover:shadow-floating active:scale-[0.98]"
+        className="absolute start-3 top-[calc(env(safe-area-inset-top,0px)+4.25rem)] z-map-elevated inline-flex items-center gap-2 rounded-3xl border border-border bg-card px-4 py-2.5 text-sm font-semibold text-foreground shadow-floating backdrop-blur-md ring-1 ring-border/50 transition-all duration-200 hover:border-primary/25 hover:shadow-floating active:scale-[0.98]"
         dir={lang === 'ar' ? 'rtl' : 'ltr'}
       >
         <ChevronLeft className="h-5 w-5 shrink-0" aria-hidden />
         {lang === 'ar' ? 'الرئيسية' : 'Home'}
       </button>
       <div
-        className="absolute start-0 end-0 top-0 z-[500] space-y-1.5 px-3 pb-2 pt-[max(0.75rem,env(safe-area-inset-top,0px))]"
+        className="absolute start-0 end-0 top-0 z-map space-y-1.5 px-3 pb-2 pt-[max(0.75rem,env(safe-area-inset-top,0px))]"
         dir={lang === 'ar' ? 'rtl' : 'ltr'}
       >
         <div className="relative mx-auto max-w-lg">
@@ -1407,7 +1407,7 @@ export default function MapPage() {
         </MapErrorBoundary>
         <div
           className={cn(
-            'pointer-events-none absolute inset-0 z-[120] flex items-center justify-center bg-background/80 transition-opacity duration-500 ease-out backdrop-blur-sm',
+            'pointer-events-none absolute inset-0 z-sticky-section flex items-center justify-center bg-background/80 transition-opacity duration-500 ease-out backdrop-blur-sm',
             mapLoading ? 'opacity-100' : 'opacity-0'
           )}
           aria-busy={mapLoading}
@@ -1427,7 +1427,7 @@ export default function MapPage() {
         type="button"
         size="icon"
         variant="default"
-        className="absolute right-4 z-[500] h-12 w-12 shadow-lg"
+        className="absolute right-4 z-map h-12 w-12 shadow-lg"
         style={{ bottom: MAP_BOTTOM_SAFE }}
         onClick={() => centerOnUser()}
         aria-label={lang === 'ar' ? 'توسيط الخريطة على موقعك' : 'Center map on your location'}
@@ -1439,7 +1439,7 @@ export default function MapPage() {
         type="button"
         variant="secondary"
         size="sm"
-        className="absolute left-4 z-[500] shadow-md"
+        className="absolute left-4 z-map shadow-md"
         style={{ bottom: MAP_BOTTOM_SAFE }}
         onClick={() => {
           setMapCenter(DEFAULT_CENTER)
@@ -1452,14 +1452,14 @@ export default function MapPage() {
 
       {selected && (
         <div
-          className="absolute start-4 end-4 z-[500] max-w-lg mx-auto animate-in slide-in-from-bottom-4"
+          className="absolute start-4 end-4 z-map max-w-lg mx-auto animate-in slide-in-from-bottom-4"
           style={{
             bottom: 'calc(5rem + env(safe-area-inset-bottom, 0px) + 100px + 3.75rem)',
           }}
           dir={lang === 'ar' ? 'rtl' : 'ltr'}
         >
           <Card className="relative overflow-hidden border-border p-5 shadow-floating ring-1 ring-border/50">
-            <button type="button" className="absolute top-2 end-2 z-10 text-rosera-gray" onClick={() => setSelected(null)}>
+            <button type="button" className="absolute top-2 end-2 z-raised text-rosera-gray" onClick={() => setSelected(null)}>
               ✕
             </button>
             <div className="min-w-0 pe-8">

@@ -160,7 +160,7 @@ export function PwaFirstVisitDialog() {
       <Dialog open={open} onOpenChange={handleOpenChange}>
         <DialogContent
           dir={isRtl ? 'rtl' : 'ltr'}
-          className={cn('z-[75] max-w-[min(calc(100vw-2rem),24rem)]', shellClass, '[&>button.absolute]:hidden')}
+          className={cn('max-w-[min(calc(100vw-2rem),24rem)]', shellClass, '[&>button.absolute]:hidden')}
           style={shellStyle}
         >
           {glow}
@@ -182,7 +182,7 @@ export function PwaFirstVisitDialog() {
       <SheetContent
         side="bottom"
         dir={isRtl ? 'rtl' : 'ltr'}
-        className={cn('z-[75] rounded-t-3xl', shellClass, 'pb-[max(1.5rem,env(safe-area-inset-bottom))]')}
+        className={cn('rounded-t-3xl', shellClass, 'pb-[max(1.5rem,env(safe-area-inset-bottom))]')}
         style={shellStyle}
       >
         {glow}

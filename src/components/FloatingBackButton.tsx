@@ -23,7 +23,7 @@ export function FloatingBackButton() {
     <button
       type="button"
       onClick={() => navigate(-1)}
-      className="fixed z-40 flex h-14 w-14 min-h-[44px] min-w-[44px] touch-manipulation items-center justify-center rounded-full bg-gradient-to-br from-primary/25 via-accent to-primary/90 text-rosera-strong shadow-floating ring-2 ring-card transition hover:scale-105 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring active:scale-95 dark:from-primary/35 dark:via-primary/50 dark:to-primary dark:text-primary-foreground dark:ring-border"
+      className="fixed z-floating flex h-14 w-14 min-h-[44px] min-w-[44px] touch-manipulation items-center justify-center rounded-full bg-gradient-to-br from-primary/25 via-accent to-primary/90 text-rosera-strong shadow-floating ring-2 ring-card transition hover:scale-105 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring active:scale-95 dark:from-primary/35 dark:via-primary/50 dark:to-primary dark:text-primary-foreground dark:ring-border"
       style={{
         top: FAB_TOP,
         insetInlineStart: FAB_START,

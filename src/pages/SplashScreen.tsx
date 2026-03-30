@@ -59,7 +59,7 @@ export default function SplashScreen() {
 
   return (
     <div
-      className="fixed inset-0 z-[100] flex min-h-dvh flex-col items-center justify-center px-8"
+      className="fixed inset-0 z-splash flex min-h-dvh flex-col items-center justify-center px-8"
       style={{ background: gradients.splashScreen }}
       role="presentation"
     >

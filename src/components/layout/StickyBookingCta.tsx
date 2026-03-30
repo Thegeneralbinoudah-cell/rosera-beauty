@@ -20,7 +20,7 @@ export function StickyBookingCta() {
   return (
     <div
       className={cn(
-        'pointer-events-none fixed inset-x-0 z-40',
+        'pointer-events-none fixed inset-x-0 z-floating',
         'px-3 sm:px-4'
       )}
       style={{ bottom: CTA_BOTTOM }}

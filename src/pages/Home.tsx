@@ -146,7 +146,7 @@ function Home() {
 
   return (
     <div className="luxury-page-canvas pb-28">
-      <header className="luxury-screen-header z-30">
+      <header className="luxury-screen-header z-sticky-section">
         <div className="mx-auto flex max-w-lg items-center justify-between gap-1.5 sm:gap-2">
           <button
             type="button"
@@ -225,7 +225,7 @@ function Home() {
                 role="dialog"
                 aria-modal="true"
                 aria-label={ui.searchPlaceholder}
-                className="fixed inset-0 z-[10045]"
+                className="fixed inset-0 z-overlay"
                 data-hero-search-portal
               >
                 <div
@@ -234,7 +234,7 @@ function Home() {
                   className="fixed inset-0 bg-background/90 backdrop-blur-md motion-reduce:backdrop-blur-none"
                   onClick={closeHeroSearchPortal}
                 />
-                <div className="pointer-events-none relative z-[10050] px-4 pt-[max(0.75rem,env(safe-area-inset-top))] transition-all duration-300">
+                <div className="pointer-events-none relative z-raised px-4 pt-[max(0.75rem,env(safe-area-inset-top))] transition-all duration-300">
                   <button
                     ref={heroSearchExpandedRef}
                     type="button"

@@ -958,7 +958,7 @@ export default function BookingFlow() {
               </div>
 
               {services.length > 0 && !servicesFetchFailed && !refetchingServices && (
-                <div className="sticky bottom-0 z-[5] mt-8 border-t border-border/50 bg-background/95 py-4 backdrop-blur-md supports-[backdrop-filter]:bg-background/80">
+                <div className="sticky bottom-0 z-composer mt-8 border-t border-border/50 bg-background/95 py-4 backdrop-blur-md supports-[backdrop-filter]:bg-background/80">
                   {selectedServices.length > 0 && (
                     <div className="mb-4 space-y-1 rounded-2xl border border-primary/15 bg-card p-4 shadow-sm">
                       {subtotal > finalTotal + 0.005 ? (
@@ -1099,7 +1099,7 @@ export default function BookingFlow() {
                 </div>
               )}
 
-              <div className="sticky bottom-0 z-[5] border-t border-border/50 bg-background/95 py-4 backdrop-blur-md supports-[backdrop-filter]:bg-background/80">
+              <div className="sticky bottom-0 z-composer border-t border-border/50 bg-background/95 py-4 backdrop-blur-md supports-[backdrop-filter]:bg-background/80">
                 <Button
                   className="w-full rounded-2xl shadow-md"
                   disabled={selectedServices.length === 0 || servicesFetchFailed || refetchingStaff}
@@ -1186,7 +1186,7 @@ export default function BookingFlow() {
                   </Button>
                 </div>
               ) : null}
-              <div className="sticky bottom-0 z-[5] border-t border-border/50 bg-background/95 py-4 backdrop-blur-md supports-[backdrop-filter]:bg-background/80">
+              <div className="sticky bottom-0 z-composer border-t border-border/50 bg-background/95 py-4 backdrop-blur-md supports-[backdrop-filter]:bg-background/80">
                 <Button
                   className="w-full rounded-2xl shadow-md"
                   disabled={selectedServices.length === 0 || servicesFetchFailed || loading}

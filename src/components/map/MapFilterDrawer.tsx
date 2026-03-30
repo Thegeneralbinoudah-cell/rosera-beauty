@@ -49,7 +49,7 @@ export function MapFilterDrawer({
         role="presentation"
         aria-hidden={!isOpen}
         onClick={onClose}
-        className={`fixed inset-0 z-[900] bg-black transition-opacity duration-300 ${
+        className={`fixed inset-0 z-map-drawer-scrim bg-black transition-opacity duration-300 ${
           isOpen ? 'pointer-events-auto ' : 'pointer-events-none opacity-0'
         }`}
       />
@@ -59,7 +59,7 @@ export function MapFilterDrawer({
         aria-labelledby="map-filter-drawer-title"
         dir="rtl"
         style={{ transitionDuration: '280ms', transitionTimingFunction: 'cubic-bezier(0.4, 0, 0.2, 1)' }}
-        className={`fixed right-0 top-0 z-[1000] flex h-full w-[min(300px,92vw)] flex-col rounded-l-2xl bg-white shadow-2xl transition-transform ease-in-out ${
+        className={`fixed right-0 top-0 z-map-drawer flex h-full w-[min(300px,92vw)] flex-col rounded-l-2xl bg-white shadow-2xl transition-transform ease-in-out ${
           isOpen ? 'translate-x-0' : 'translate-x-full'
         }`}
       >

@@ -246,6 +246,30 @@ export default {
         'rosy-fab-speak-breathe': 'rosy-fab-speak-breathe 2.4s ease-in-out infinite',
         'rosy-fab-gold-ripple': 'rosy-fab-gold-ripple 0.55s ease-out',
       },
+      /**
+       * Global stacking — use semantic tokens (avoid raw z-50 / z-[10045]).
+       * popover: Radix Select/Dropdown portaled — above composer (60) & nav (50); above sheet (100) so lists paint over sheet edges.
+       * map / map-elevated / map-drawer-*: reserved for MapPage + MapFilterDrawer.
+       */
+      zIndex: {
+        base: '0',
+        raised: '10',
+        'sticky-header': '20',
+        'sticky-section': '30',
+        floating: '40',
+        'app-nav': '50',
+        composer: '60',
+        sheet: '100',
+        popover: '150',
+        dialog: '200',
+        overlay: '300',
+        splash: '400',
+        map: '510',
+        'map-elevated': '520',
+        'map-drawer-scrim': '900',
+        'map-drawer': '1000',
+        fab: '1100',
+      },
       boxShadow: {
         xs: 'var(--shadow-xs)',
         sm: 'var(--shadow-sm)',

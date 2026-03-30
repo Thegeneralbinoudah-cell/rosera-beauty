@@ -7,7 +7,7 @@ import { DarkModeToggle } from '@/components/DarkModeToggle'
 export function GlobalThemeToggle() {
   return (
     <div
-      className="pointer-events-none fixed z-[95]"
+      className="pointer-events-none fixed z-floating"
       style={{
         top: 'max(0.5rem, env(safe-area-inset-top, 0px))',
         insetInlineEnd: 'max(0.75rem, env(safe-area-inset-end, 0px))',
