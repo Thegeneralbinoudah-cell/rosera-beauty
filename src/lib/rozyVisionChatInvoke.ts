@@ -1,4 +1,5 @@
 import { supabase } from '@/lib/supabase'
+import { getEdgeFunctionErrorMessage, getEdgeFunctionHttpErrorDetail } from '@/lib/edgeInvoke'
 import { normalizeRozyVisionResult, MAX_ROZY_VISION_BASE64_CHARS } from '@/lib/rozyVision'
 import type { RozyVisionMode } from '@/lib/rozyVisionTypes'
 import type {
@@ -16,7 +17,7 @@ const ROZY_VISION_INVOKE_TIMEOUT_MS = 120_000
 
 /**
  * يستدعي `rozi-vision` مع أي وضع مدعوم ويُرجع اتحاداً مميزاً حسب `mode`.
- * على أي فشل يُرمى خطأ برسالة `VISION_FAIL_AR` فقط.
+ * عند الفشل: `console.error` كامل + رمي `Error` برسالة تفصيلية للتشخيص (مؤقتاً).
  */
 export async function invokeRozyAdvisor(
   mode: RozyAdvisorMode,
@@ -25,16 +26,20 @@ export async function invokeRozyAdvisor(
 ): Promise<RozyVisionChatResult> {
   try {
     if (base64.length > MAX_ROZY_VISION_BASE64_CHARS) {
-      throw new Error(VISION_FAIL_AR)
+      const msg = `[rozyVisionChatInvoke] image base64 too large: ${base64.length} chars (max ${MAX_ROZY_VISION_BASE64_CHARS})`
+      console.error(msg)
+      throw new Error(msg)
     }
 
     const { data: sess } = await supabase.auth.refreshSession()
     const token = sess.session?.access_token
     if (!token) {
-      throw new Error(VISION_FAIL_AR)
+      const msg = '[rozyVisionChatInvoke] no access_token after refreshSession'
+      console.error(msg)
+      throw new Error(msg)
     }
 
-    const { data, error } = await supabase.functions.invoke('rozi-vision', {
+    const { data, error, response: fnResponse } = await supabase.functions.invoke('rozi-vision', {
       body: {
         mode,
         imageBase64: base64,
@@ -45,31 +50,53 @@ export async function invokeRozyAdvisor(
     })
 
     if (error) {
-      throw new Error(VISION_FAIL_AR)
+      const fromBody = await getEdgeFunctionHttpErrorDetail(error, fnResponse ?? null)
+      const hint = fromBody ?? getEdgeFunctionErrorMessage(error as Error, data)
+      console.error('[rozyVisionChatInvoke] functions.invoke failed', {
+        error,
+        data,
+        responseStatus: fnResponse?.status,
+        message: hint,
+      })
+      throw new Error(hint || (error instanceof Error ? error.message : String(error)))
     }
 
-    const pack = data as { result?: unknown; advisor_result?: unknown; error?: string } | null
+    const pack = data as {
+      result?: unknown
+      advisor_result?: unknown
+      error?: string
+      debug?: unknown
+    } | null
     if (pack?.error) {
-      throw new Error(VISION_FAIL_AR)
+      const detail =
+        typeof pack.error === 'string' ? pack.error : JSON.stringify(pack.error)
+      console.error('[roziVisionChatInvoke] rozi-vision body error', { error: pack.error, debug: pack.debug })
+      throw new Error(detail)
     }
 
     if (mode === 'hand' || mode === 'face') {
       if (!pack?.result || typeof pack.result !== 'object') {
-        throw new Error(VISION_FAIL_AR)
+        const msg = `[rozyVisionChatInvoke] missing or invalid result for mode=${mode}`
+        console.error(msg, { pack })
+        throw new Error(msg)
       }
       const result = normalizeRozyVisionResult(pack.result, mode as RozyVisionMode)
       return mode === 'hand' ? { mode: 'hand', result } : { mode: 'face', result }
     }
 
     if (!pack?.advisor_result || typeof pack.advisor_result !== 'object') {
-      throw new Error(VISION_FAIL_AR)
+      const msg = `[rozyVisionChatInvoke] missing advisor_result for mode=${mode}`
+      console.error(msg, { pack })
+      throw new Error(msg)
     }
 
     const ar = pack.advisor_result as { advisor_mode?: string }
 
     if (mode === 'hair_color') {
       if (ar.advisor_mode !== 'hair_color') {
-        throw new Error(VISION_FAIL_AR)
+        const msg = `[rozyVisionChatInvoke] advisor_mode mismatch: expected hair_color, got ${String(ar.advisor_mode)}`
+        console.error(msg)
+        throw new Error(msg)
       }
       return {
         mode: 'hair_color',
@@ -79,7 +106,9 @@ export async function invokeRozyAdvisor(
 
     if (mode === 'haircut') {
       if (ar.advisor_mode !== 'haircut') {
-        throw new Error(VISION_FAIL_AR)
+        const msg = `[rozyVisionChatInvoke] advisor_mode mismatch: expected haircut, got ${String(ar.advisor_mode)}`
+        console.error(msg)
+        throw new Error(msg)
       }
       return {
         mode: 'haircut',
@@ -89,7 +118,9 @@ export async function invokeRozyAdvisor(
 
     if (mode === 'hand_nail') {
       if (ar.advisor_mode !== 'hand_nail') {
-        throw new Error(VISION_FAIL_AR)
+        const msg = `[rozyVisionChatInvoke] advisor_mode mismatch: expected hand_nail, got ${String(ar.advisor_mode)}`
+        console.error(msg)
+        throw new Error(msg)
       }
       return {
         mode: 'hand_nail',
@@ -99,7 +130,9 @@ export async function invokeRozyAdvisor(
 
     if (mode === 'skin_analysis') {
       if (ar.advisor_mode !== 'skin_analysis') {
-        throw new Error(VISION_FAIL_AR)
+        const msg = `[rozyVisionChatInvoke] advisor_mode mismatch: expected skin_analysis, got ${String(ar.advisor_mode)}`
+        console.error(msg)
+        throw new Error(msg)
       }
       return {
         mode: 'skin_analysis',
@@ -107,8 +140,12 @@ export async function invokeRozyAdvisor(
       }
     }
 
-    throw new Error(VISION_FAIL_AR)
-  } catch {
-    throw new Error(VISION_FAIL_AR)
+    const msg = `[rozyVisionChatInvoke] unsupported mode branch: ${mode}`
+    console.error(msg)
+    throw new Error(msg)
+  } catch (e) {
+    console.error('[rozyVisionChatInvoke] failed', e)
+    if (e instanceof Error) throw e
+    throw new Error(String(e))
   }
 }

@@ -26,6 +26,17 @@ const cors = {
 
 const MAX_BASE64_CHARS = 5_200_000
 
+function jsonDebugResponse(
+  status: number,
+  error: string,
+  debug: { phase: string; detail?: string },
+): Response {
+  return new Response(JSON.stringify({ error, debug }), {
+    status,
+    headers: { ...cors, 'Content-Type': 'application/json' },
+  })
+}
+
 const LEGACY_MODES = new Set(['hand', 'face'])
 const ADVISOR_MODES = new Set(['hair_color', 'haircut', 'hand_nail', 'skin_analysis'])
 
@@ -73,45 +84,51 @@ Deno.serve(async (req) => {
       imageMimeType?: string
       personalizationHint?: string
     }
-  } catch {
-    return new Response(JSON.stringify({ error: 'جسم الطلب غير صالح' }), {
-      status: 400,
-      headers: { ...cors, 'Content-Type': 'application/json' },
+  } catch (parseErr) {
+    console.error('[rozi-vision] invalid JSON body', parseErr)
+    return jsonDebugResponse(400, 'جسم الطلب غير صالح', {
+      phase: 'invalid_json',
+      detail: parseErr instanceof Error ? parseErr.message : String(parseErr),
     })
   }
 
   const modeRaw = typeof body.mode === 'string' ? body.mode.trim().toLowerCase() : ''
   if (!LEGACY_MODES.has(modeRaw) && !ADVISOR_MODES.has(modeRaw)) {
-    return new Response(
-      JSON.stringify({
-        error: 'mode يجب أن يكون hand أو face أو hair_color أو haircut أو hand_nail أو skin_analysis',
-      }),
-      {
-        status: 400,
-        headers: { ...cors, 'Content-Type': 'application/json' },
-      },
+    console.error('[rozi-vision] invalid mode', { mode: body.mode })
+    return jsonDebugResponse(
+      400,
+      'mode يجب أن يكون hand أو face أو hair_color أو haircut أو hand_nail أو skin_analysis',
+      { phase: 'invalid_mode', detail: String(body.mode ?? '') },
     )
   }
 
   const b64 = typeof body.imageBase64 === 'string' ? body.imageBase64.trim() : ''
   if (!b64 || b64.length > MAX_BASE64_CHARS) {
-    return new Response(JSON.stringify({ error: 'صورة غير صالحة أو كبيرة جداً' }), {
-      status: 400,
-      headers: { ...cors, 'Content-Type': 'application/json' },
+    console.error('[rozi-vision] invalid image payload', {
+      empty: !b64,
+      length: b64.length,
+      max: MAX_BASE64_CHARS,
+    })
+    return jsonDebugResponse(400, 'صورة غير صالحة أو كبيرة جداً', {
+      phase: 'invalid_image',
+      detail: !b64 ? 'empty_base64' : `length_${b64.length}_exceeds_max`,
     })
   }
 
-  const mime = typeof body.imageMimeType === 'string' && /^image\/(jpeg|jpg|png|webp)$/i.test(body.imageMimeType.trim())
-    ? body.imageMimeType.trim().toLowerCase().replace('jpg', 'jpeg')
-    : 'image/jpeg'
+  const mimeRaw = typeof body.imageMimeType === 'string' ? body.imageMimeType.trim() : ''
+  const mimeAccepted = /^image\/(jpeg|jpg|png|webp)$/i.test(mimeRaw)
+  if (mimeRaw && !mimeAccepted) {
+    console.error('[rozi-vision] unsupported image mime (will default to image/jpeg)', { mime: mimeRaw })
+  }
+  const mime = mimeAccepted ? mimeRaw.toLowerCase().replace('jpg', 'jpeg') : 'image/jpeg'
 
   const dataUrl = `data:${mime};base64,${b64}`
 
   const apiKey = readOpenAiApiKey()
   if (!apiKey) {
-    return new Response(JSON.stringify({ error: 'OPENAI_API_KEY غير مُعرّف في أسرار الدالة' }), {
-      status: 503,
-      headers: { ...cors, 'Content-Type': 'application/json' },
+    console.error('[rozi-vision] missing OPENAI_API_KEY in Edge Function secrets')
+    return jsonDebugResponse(503, 'OPENAI_API_KEY غير مُعرّف في أسرار الدالة', {
+      phase: 'missing_openai_key',
     })
   }
 
@@ -153,10 +170,11 @@ Deno.serve(async (req) => {
     })
   } catch (e) {
     const msg = e instanceof Error ? e.message : 'خطأ غير متوقع'
-    console.error('[rozi-vision]', msg)
-    return new Response(JSON.stringify({ error: msg }), {
-      status: 500,
-      headers: { ...cors, 'Content-Type': 'application/json' },
+    const stack = e instanceof Error ? e.stack : undefined
+    console.error('[rozi-vision] OpenAI / advisor pipeline failed', { message: msg, stack, err: e })
+    return jsonDebugResponse(500, msg, {
+      phase: 'openai_or_advisor',
+      detail: stack?.split('\n').slice(0, 5).join(' | '),
     })
   }
 })

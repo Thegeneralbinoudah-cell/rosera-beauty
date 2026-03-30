@@ -983,8 +983,12 @@ export function useChat(userId: string | undefined, options?: UseChatOptions) {
           } catch (insEx) {
             console.error('Chat insert exception (rozy vision advisor):', insEx)
           }
-        } catch {
-          const failMsg = VISION_FAIL_AR
+        } catch (e) {
+          console.error('[useChat] rozy vision advisor invoke failed', e)
+          const failMsg =
+            e instanceof Error && e.message.trim()
+              ? `${VISION_FAIL_AR}\n\n[debug] ${e.message}`
+              : VISION_FAIL_AR
           const botRow: ChatRow = {
             id: crypto.randomUUID(),
             message: failMsg,
