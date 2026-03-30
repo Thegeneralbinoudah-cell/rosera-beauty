@@ -33,6 +33,7 @@ import { CartHeaderButton } from '@/components/store/CartHeaderButton'
 import { useI18n } from '@/hooks/useI18n'
 import { buildMapExploreUrl } from '@/lib/mapExploreUrl'
 import { trackEvent } from '@/lib/analytics'
+import { queueRoziEvent } from '@/lib/insertRoziEvent'
 import { captureProductEvent } from '@/lib/posthog'
 import { useCartStore } from '@/stores/cartStore'
 import { fetchRosySalonBookingPreview, type RosySalonBookingPreview } from '@/lib/roseySalonBookingPreview'
@@ -50,6 +51,11 @@ function tomorrowBookingIsoDate(): string {
   const d = new Date()
   d.setDate(d.getDate() + 1)
   return d.toISOString().slice(0, 10)
+}
+
+type RoziChatInteractionCtx = {
+  recommendationMode?: ChatRow['recommendationMode']
+  chatMessageId?: string | null
 }
 
 type RosyBookingNavExtra = Partial<
@@ -191,13 +197,22 @@ export default function AiChat({ embedded = false }: { embedded?: boolean }) {
   }, [nav])
   const onBookingAction = useCallback(
     (a: RoziBookingAction) => {
+      if (user?.id) {
+        queueRoziEvent({
+          user_id: user.id,
+          action_type: 'book',
+          entity_id: a.salon_id,
+          recommendation_mode: null,
+          metadata: { surface: 'booking_action' },
+        })
+      }
       goBooking(a.salon_id, {
         service_id: a.service_id ?? undefined,
         booking_date: a.booking_date ?? undefined,
         suggested_slots: a.suggested_slots,
       })
     },
-    [goBooking]
+    [goBooking, user]
   )
   const {
     messages,
@@ -864,12 +879,33 @@ export default function AiChat({ embedded = false }: { embedded?: boolean }) {
   const onlyWelcome = !loading && !historyError && messages.length === 1 && messages[0]?.id === 'welcome'
 
   const handleRozyAction = useCallback(
-    (a: RozyChatAction) => {
+    (a: RozyChatAction, ctx?: RoziChatInteractionCtx) => {
+      const mode = ctx?.recommendationMode ?? null
+      const metaBase: Record<string, unknown> = {
+        ...(ctx?.chatMessageId ? { chat_message_id: ctx.chatMessageId } : {}),
+        surface: 'structured_cta',
+      }
+      const trackRozi = (
+        action_type: 'book' | 'salon_detail' | 'view_product' | 'add_to_cart' | 'checkout',
+        entity_id?: string | null,
+        extra?: Record<string, unknown>
+      ) => {
+        if (!user?.id) return
+        queueRoziEvent({
+          user_id: user.id,
+          action_type,
+          entity_id: entity_id ?? null,
+          recommendation_mode: mode,
+          metadata: { ...metaBase, ...extra },
+        })
+      }
+
       if (a.kind === 'negotiated_book' && a.salon_id) {
         const pct =
           typeof a.discount_percent === 'number' && Number.isFinite(a.discount_percent)
             ? a.discount_percent
             : undefined
+        trackRozi('book', a.salon_id, { rozy_action_kind: 'negotiated_book' })
         goBooking(a.salon_id, {
           service_id: a.service_id ?? undefined,
           rosyNegotiation: pct != null && pct > 0 ? { discountPercent: pct } : undefined,
@@ -877,10 +913,12 @@ export default function AiChat({ embedded = false }: { embedded?: boolean }) {
         return
       }
       if (a.kind === 'salon_detail' && a.salon_id) {
+        trackRozi('salon_detail', a.salon_id)
         goSalonDetail(a.salon_id, a.service_id)
         return
       }
       if (a.kind === 'book' && a.salon_id) {
+        trackRozi('book', a.salon_id, { rozy_action_kind: 'book' })
         goBooking(a.salon_id, { service_id: a.service_id ?? undefined })
         return
       }
@@ -893,15 +931,18 @@ export default function AiChat({ embedded = false }: { embedded?: boolean }) {
         return
       }
       if (a.kind === 'view_product' && a.product_id) {
+        trackRozi('view_product', a.product_id)
         nav(`/product/${encodeURIComponent(a.product_id)}`)
         return
       }
       if (a.kind === 'go_to_checkout') {
+        trackRozi('checkout', null)
         useCartStore.getState().markRosyCheckoutCtaClicked()
         nav('/checkout')
         return
       }
       if (a.kind === 'add_to_cart' && a.product_id) {
+        trackRozi('add_to_cart', a.product_id)
         const cart = useCartStore.getState()
         const hadBefore = cart.items.some((i) => i.productId === a.product_id)
         cart.add({
@@ -945,6 +986,7 @@ export default function AiChat({ embedded = false }: { embedded?: boolean }) {
         return
       }
       if (a.salon_id) {
+        trackRozi('book', a.salon_id, { rozy_action_kind: a.kind })
         goBooking(a.salon_id)
       }
     },
@@ -966,7 +1008,7 @@ export default function AiChat({ embedded = false }: { embedded?: boolean }) {
     </div>
   )
 
-  const renderRosyProductCards = (products: RozyProductCard[]) => {
+  const renderRosyProductCards = (products: RozyProductCard[], ctx?: RoziChatInteractionCtx) => {
     const list = products.slice(0, 3)
     return (
       <div className="w-full space-y-3">
@@ -1003,7 +1045,21 @@ export default function AiChat({ embedded = false }: { embedded?: boolean }) {
                   size="sm"
                   variant="outline"
                   className="h-11 w-full rounded-[4px] border-border text-foreground transition-transform hover:bg-muted/80 active:scale-95"
-                  onClick={() => nav(`/product/${encodeURIComponent(p.id)}`)}
+                  onClick={() => {
+                    if (user?.id) {
+                      queueRoziEvent({
+                        user_id: user.id,
+                        action_type: 'view_product',
+                        entity_id: p.id,
+                        recommendation_mode: ctx?.recommendationMode ?? null,
+                        metadata: {
+                          ...(ctx?.chatMessageId ? { chat_message_id: ctx.chatMessageId } : {}),
+                          surface: 'product_card',
+                        },
+                      })
+                    }
+                    nav(`/product/${encodeURIComponent(p.id)}`)
+                  }}
                 >
                   {lang === 'ar' ? 'تفاصيل المنتج' : 'View product'}
                 </Button>
@@ -1015,7 +1071,7 @@ export default function AiChat({ embedded = false }: { embedded?: boolean }) {
     )
   }
 
-  const renderRosySalonCards = (salons: RozySalonCard[]) => {
+  const renderRosySalonCards = (salons: RozySalonCard[], ctx?: RoziChatInteractionCtx) => {
     const list = salons.slice(0, 3)
     return (
       <div className="w-full space-y-3">
@@ -1031,6 +1087,24 @@ export default function AiChat({ embedded = false }: { embedded?: boolean }) {
           const canQuickBook =
             Boolean(preview && preview.serviceCount > 0 && preview.firstServiceId)
           const suggestedSvc = preview?.firstServiceNameAr?.trim()
+          const trackSalon = (
+            action_type: 'book' | 'salon_detail',
+            entityId: string,
+            extra?: Record<string, unknown>
+          ) => {
+            if (!user?.id) return
+            queueRoziEvent({
+              user_id: user.id,
+              action_type,
+              entity_id: entityId,
+              recommendation_mode: ctx?.recommendationMode ?? null,
+              metadata: {
+                ...(ctx?.chatMessageId ? { chat_message_id: ctx.chatMessageId } : {}),
+                surface: 'salon_card',
+                ...extra,
+              },
+            })
+          }
 
           return (
             <div
@@ -1066,9 +1140,10 @@ export default function AiChat({ embedded = false }: { embedded?: boolean }) {
                     type="button"
                     size="sm"
                     className="h-11 w-full rounded-xl gradient-primary text-white shadow-sm transition-transform active:scale-95"
-                    onClick={() =>
+                    onClick={() => {
+                      trackSalon('book', salon.id)
                       goBooking(salon.id, { service_id: preview?.firstServiceId ?? undefined })
-                    }
+                    }}
                   >
                     احجز الآن
                   </Button>
@@ -1077,7 +1152,10 @@ export default function AiChat({ embedded = false }: { embedded?: boolean }) {
                     size="sm"
                     variant="outline"
                     className="h-11 w-full rounded-[4px] border-border text-foreground transition-transform hover:bg-muted/80 active:scale-95"
-                    onClick={() => goSalonDetail(salon.id, preview?.firstServiceId)}
+                    onClick={() => {
+                      trackSalon('salon_detail', salon.id)
+                      goSalonDetail(salon.id, preview?.firstServiceId)
+                    }}
                   >
                     عرض التفاصيل
                   </Button>
@@ -1087,7 +1165,8 @@ export default function AiChat({ embedded = false }: { embedded?: boolean }) {
                       size="sm"
                       variant="secondary"
                       className="h-11 w-full rounded-[4px] border border-accent/30 bg-accent/10 font-semibold text-foreground transition-transform hover:bg-accent/15 active:scale-95"
-                      onClick={() =>
+                      onClick={() => {
+                        trackSalon('book', salon.id, { quick_slot: true })
                         goBooking(salon.id, {
                           service_id: preview.firstServiceId!,
                           booking_date: tomorrowBookingIsoDate(),
@@ -1095,7 +1174,7 @@ export default function AiChat({ embedded = false }: { embedded?: boolean }) {
                           quick: true,
                           initialStep: 3,
                         })
-                      }
+                      }}
                     >
                       {t('aiChat.nearestSlotCta')}
                     </Button>
@@ -1138,6 +1217,10 @@ export default function AiChat({ embedded = false }: { embedded?: boolean }) {
     const hasProducts = Boolean(row.products?.length)
     const hasSalons = Boolean(row.salons?.length)
     const mode = row.recommendationMode
+    const traceCtx: RoziChatInteractionCtx = {
+      recommendationMode: mode,
+      chatMessageId: row.id,
+    }
 
     const salonsFirst =
       mode === 'salon' ||
@@ -1145,8 +1228,8 @@ export default function AiChat({ embedded = false }: { embedded?: boolean }) {
       mode === 'mixed' ||
       (mode === undefined && hasSalons && !hasProducts)
 
-    const salonCards = hasSalons && row.salons ? renderRosySalonCards(row.salons) : null
-    const productCards = hasProducts && row.products ? renderRosyProductCards(row.products) : null
+    const salonCards = hasSalons && row.salons ? renderRosySalonCards(row.salons, traceCtx) : null
+    const productCards = hasProducts && row.products ? renderRosyProductCards(row.products, traceCtx) : null
 
     return (
       <>
@@ -1165,8 +1248,22 @@ export default function AiChat({ embedded = false }: { embedded?: boolean }) {
           <RosyStructuredAssistant
             salons={hasSalons ? undefined : row.salons}
             actions={row.actions}
-            onBookSalon={(id) => goBooking(id)}
-            onAction={handleRozyAction}
+            onBookSalon={(id) => {
+              if (user?.id) {
+                queueRoziEvent({
+                  user_id: user.id,
+                  action_type: 'book',
+                  entity_id: id,
+                  recommendation_mode: mode ?? null,
+                  metadata: {
+                    chat_message_id: row.id,
+                    surface: 'structured_salon_card',
+                  },
+                })
+              }
+              goBooking(id)
+            }}
+            onAction={(a) => handleRozyAction(a, traceCtx)}
             recommendationMode={mode}
           />
         ) : null}
@@ -1309,7 +1406,21 @@ export default function AiChat({ embedded = false }: { embedded?: boolean }) {
                     </p>
                   </div>
                 </div>
-                <RosyBookingGuide show onBookSalon={(id) => goBooking(id)} />
+                <RosyBookingGuide
+                  show
+                  onBookSalon={(id) => {
+                    if (user?.id) {
+                      queueRoziEvent({
+                        user_id: user.id,
+                        action_type: 'book',
+                        entity_id: id,
+                        recommendation_mode: null,
+                        metadata: { surface: 'booking_guide_welcome' },
+                      })
+                    }
+                    goBooking(id)
+                  }}
+                />
                 <p className="text-center">
                   <Button
                     type="button"
