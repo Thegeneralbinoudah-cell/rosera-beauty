@@ -53,6 +53,8 @@ export function emptyUserRecommendationHistory(): UserRecommendationHistory {
     serviceEventScore: new Map(),
     productEventScore: new Map(),
     businessEventScore: new Map(),
+    recentRosySalonIdsForCards: new Set(),
+    preferredSalonCategoryLabels: new Set(),
   }
 }
 

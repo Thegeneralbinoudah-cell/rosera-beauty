@@ -38,6 +38,10 @@ export type UserRecommendationHistory = {
   serviceEventScore: Map<string, number>
   productEventScore: Map<string, number>
   businessEventScore: Map<string, number>
+  /** صالونات فتحتِها/حجزتِها مؤخراً من شات روزي — تُستبعد تفضيلياً من بطاقات الدوران */
+  recentRosySalonIdsForCards: Set<string>
+  /** تصنيفات من صالونات اهتمامِكِ — رفع صالونات بنفس التصنيف */
+  preferredSalonCategoryLabels: Set<string>
 }
 
 export type ServiceForRank = Service & {
@@ -188,6 +192,11 @@ function behaviorService(s: ServiceForRank, h: UserRecommendationHistory): { v: 
   if (h.favoriteBusinessIds.has(s.business_id)) {
     v += 0.4
     notes.push('الصالون في مفضلتكِ')
+  }
+  const svcCat = (s.category || '').trim().toLowerCase()
+  if (svcCat && h.preferredSalonCategoryLabels.has(svcCat)) {
+    v += 0.28
+    notes.push('ضمن نوع الخدمات اللي تفضّلينه مؤخراً')
   }
   v += clamp01((h.serviceEventScore.get(s.id) ?? 0) / 4)
   v += clamp01((h.businessEventScore.get(s.business_id) ?? 0) / 5) * 0.6

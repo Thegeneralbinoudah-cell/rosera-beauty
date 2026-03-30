@@ -902,6 +902,12 @@ function rankSalonsForRosy(
     }
     if (reco.favoriteBusinessIds.has(s.id)) score += 6
     if (reco.bookedBusinessIds.has(s.id)) score += 9
+    const bizTouch = reco.businessEventScore.get(s.id) ?? 0
+    if (bizTouch > 0) score += Math.min(8, bizTouch * 1.85)
+    const salCat = `${(s.category_label || '').trim().toLowerCase()}`
+    const salCat2 = `${(s.category || '').trim().toLowerCase()}`
+    if (salCat && reco.preferredSalonCategoryLabels.has(salCat)) score += 5.5
+    else if (salCat2 && reco.preferredSalonCategoryLabels.has(salCat2)) score += 5.5
     if (userLatLng && dist > 0 && Number.isFinite(dist)) {
       const distW = flags.urgentToday ? 0.38 : 0.22
       score -= Math.min(dist, 80) * distW
@@ -999,6 +1005,8 @@ function emptyRecoHistory(): UserRecommendationHistory {
     serviceEventScore: new Map(),
     productEventScore: new Map(),
     businessEventScore: new Map(),
+    recentRosySalonIdsForCards: new Set(),
+    preferredSalonCategoryLabels: new Set(),
   }
 }
 
@@ -1010,6 +1018,27 @@ function decayFactorReco(createdAt: string): number {
 function bumpRecoScore(map: Map<string, number>, id: string, delta: number) {
   if (!id) return
   map.set(id, (map.get(id) ?? 0) + delta)
+}
+
+async function attachPreferredSalonCategoryLabels(sb: SupabaseClient, h: UserRecommendationHistory): Promise<void> {
+  const ids = new Set<string>()
+  for (const id of h.bookedBusinessIds) ids.add(id)
+  for (const id of h.favoriteBusinessIds) ids.add(id)
+  for (const id of h.recentRosySalonIdsForCards) ids.add(id)
+  const idArr = [...ids].slice(0, 36)
+  if (idArr.length === 0) return
+  const { data, error } = await sb.from('businesses').select('category_label,category').in('id', idArr)
+  if (error) {
+    console.warn('[rozi-chat] preferred salon categories', error.message)
+    return
+  }
+  for (const row of data ?? []) {
+    const o = row as { category_label?: string | null; category?: string | null }
+    const a = (o.category_label || '').trim().toLowerCase()
+    const b = (o.category || '').trim().toLowerCase()
+    if (a) h.preferredSalonCategoryLabels.add(a)
+    if (b) h.preferredSalonCategoryLabels.add(b)
+  }
 }
 
 async function fetchRecoHistory(sb: SupabaseClient, userId: string): Promise<UserRecommendationHistory> {
@@ -1051,12 +1080,18 @@ async function fetchRecoHistory(sb: SupabaseClient, userId: string): Promise<Use
     if (pid) h.orderedProductIds.add(pid)
   }
   for (const row of eventsRes.data ?? []) {
-    const r = row as { event_type: string; entity_type: string; entity_id: string; created_at: string }
+    const r = row as {
+      event_type: string
+      entity_type: string
+      entity_id: string
+      created_at: string
+      metadata?: Record<string, unknown> | null
+    }
     const d = decayFactorReco(r.created_at)
     const w =
-      r.event_type === 'book'
+      r.event_type === 'book' || r.event_type === 'booking_click'
         ? 1.15
-        : r.event_type === 'click'
+        : r.event_type === 'click' || r.event_type === 'view' || r.event_type === 'view_salon' || r.event_type === 'ai_recommended_view'
           ? 0.5
           : r.event_type === 'user_preference'
             ? 0.55
@@ -1066,6 +1101,42 @@ async function fetchRecoHistory(sb: SupabaseClient, userId: string): Promise<Use
     else if (r.entity_type === 'product') bumpRecoScore(h.productEventScore, r.entity_id, add)
     else if (r.entity_type === 'business') bumpRecoScore(h.businessEventScore, r.entity_id, add)
   }
+
+  try {
+    const { data: rozRows, error: rozErr } = await sb
+      .from('rozi_events')
+      .select('action_type, entity_id, created_at')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false })
+      .limit(180)
+    if (rozErr) {
+      console.warn('[rozi-chat] rozi_events personalization', rozErr.message)
+    } else {
+      for (const raw of rozRows ?? []) {
+        const row = raw as { action_type?: string; entity_id?: string | null; created_at?: string }
+        const aid = row.action_type
+        const eid = typeof row.entity_id === 'string' ? row.entity_id.trim() : ''
+        const ca = row.created_at
+        if (!aid || !ca) continue
+        const d = decayFactorReco(ca)
+        if (aid === 'book' && eid) {
+          bumpRecoScore(h.businessEventScore, eid, 1.25 * d)
+          if (h.recentRosySalonIdsForCards.size < 20) h.recentRosySalonIdsForCards.add(eid)
+        } else if (aid === 'salon_detail' && eid) {
+          bumpRecoScore(h.businessEventScore, eid, 0.72 * d)
+          if (h.recentRosySalonIdsForCards.size < 20) h.recentRosySalonIdsForCards.add(eid)
+        } else if (aid === 'view_product' && eid) {
+          bumpRecoScore(h.productEventScore, eid, 0.48 * d)
+        } else if (aid === 'add_to_cart' && eid) {
+          bumpRecoScore(h.productEventScore, eid, 0.95 * d)
+        }
+      }
+    }
+  } catch (e) {
+    console.warn('[rozi-chat] rozi_events', e)
+  }
+
+  await attachPreferredSalonCategoryLabels(sb, h)
   return h
 }
 
@@ -1811,6 +1882,22 @@ function formatSkinContextBlock(row: SkinContextRow | null): string {
 عند السؤال عن البشرة أو التوصية، ابدئي أحياناً بـ "بناءً على تحليل بشرتكِ الأخير في التطبيق..." ثم اربطي النصيحة ببيانات الصالونات/الخدمات أدناه عند التوفر.`
 }
 
+function buildRozyLightPersonalizationBlock(reco: UserRecommendationHistory): string {
+  const lines: string[] = []
+  const cats = [...reco.preferredSalonCategoryLabels].filter(Boolean).slice(0, 5)
+  if (cats.length) lines.push(`- اهتمام بتصنيفات صالون مؤخراً: ${cats.join('، ')}`)
+  if (reco.bookedBusinessIds.size > 0) lines.push('- عندها حجوزات سابقة — رجّحي جودة وخيارات موثوقة من الجدول')
+  else if (reco.favoriteBusinessIds.size > 0) lines.push('- لديها صالونات مفضلة — نبرة أقرب للراحة والثقة')
+  if (reco.recentRosySalonIdsForCards.size > 0) {
+    lines.push('- فتحت صالونات من الشات مؤخراً — فضّلي **تنويع الأسماء** عند وجود بديل قوي في الجدول')
+  }
+  if ([...reco.productEventScore.values()].some((v) => v > 0.25) || reco.orderedProductIds.size > 0) {
+    lines.push('- تفاعل مع منتجات المتجر — عند اقتراح منتج اربطي بفائدة واضحة من البيانات')
+  }
+  if (lines.length === 0) return ''
+  return `## تخصيص خفيف (سلوك في التطبيق — لا معرفات ولا أرقام حساسة)\n${lines.join('\n')}`
+}
+
 function buildBrainContext(params: {
   memoryNarrative: string
   profile: ProfileRow
@@ -1824,6 +1911,7 @@ function buildBrainContext(params: {
   storeProductBlock?: string
   cartContextBlock?: string
   locationBrainBlock?: string
+  personalizationBlock?: string
 }): string {
   const {
     memoryNarrative,
@@ -1838,6 +1926,7 @@ function buildBrainContext(params: {
     storeProductBlock,
     cartContextBlock,
     locationBrainBlock,
+    personalizationBlock,
   } = params
   const mem = memoryNarrative.trim() ? `${memoryNarrative.trim()}\n\n` : ''
   const salonLines =
@@ -1878,12 +1967,13 @@ ${rankedProductsLines.trim() || '(لا توجد)'}
       : ''
 
   const locSection = locationBrainBlock?.trim() ? `${locationBrainBlock.trim()}\n\n` : ''
+  const personalizationSection = personalizationBlock?.trim() ? `${personalizationBlock.trim()}\n\n` : ''
 
   return `${mem}## الملف الشخصي
 - الاسم: ${profile.full_name || '—'}
 - المدينة المفضلة في الملف: ${profile.city || '—'}
 
-${locSection}${skinSection}${storePickSection}${cartSection}${rankSection}## آخر المحادثات (ملخص)
+${personalizationSection}${locSection}${skinSection}${storePickSection}${cartSection}${rankSection}## آخر المحادثات (ملخص)
 ${historyText || '(بداية المحادثة)'}
 
 ## صالونات وعيادات (بيانات حقيقية من قاعدة روزيرا — استخدمي المعرفات [uuid] عند التوصية)
@@ -2314,6 +2404,7 @@ Deno.serve(async (req) => {
       storeProductBlock,
       cartContextBlock: cartContextBlock || undefined,
       locationBrainBlock: rozyLoc.locationBrainBlock,
+      personalizationBlock: buildRozyLightPersonalizationBlock(recoHistory),
     })
 
     let negotiationExtraSystem = ''
@@ -2333,7 +2424,10 @@ Deno.serve(async (req) => {
     const extraLegacy = legacyCtx ? `\n\n## سياق إضافي من العميل (قديم — اختياري)\n${legacyCtx}` : ''
 
     const strongBookingIntent = intent === 'booking_request' || utteranceShowsStrongBookingIntent(utterance)
-    const recentSalonIds = parseRecentSalonIdsFromBody(body)
+    const recentSalonIds = new Set<string>([
+      ...parseRecentSalonIdsFromBody(body),
+      ...recoHistory.recentRosySalonIdsForCards,
+    ])
     const rozyUserTurnCount = historyMsgs.filter((m) => m.role === 'user').length
     const softBookingInterest = utteranceShowsSoftBookingInterest(utterance, rozyUserTurnCount)
 
