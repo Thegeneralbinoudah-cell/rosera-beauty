@@ -1523,8 +1523,7 @@ async function fetchSalonsForUser(
       .limit(28)
     if (!fb.error) list = (fb.data ?? []) as SalonRow[]
   }
-  await attachActiveSubscriptionPlans(sb, list)
-  await attachSalonFeaturedAds(sb, list)
+  await Promise.all([attachActiveSubscriptionPlans(sb, list), attachSalonFeaturedAds(sb, list)])
   return list
 }
 
@@ -1546,13 +1545,16 @@ async function fetchServices(sb: SupabaseClient, businessIds: string[], serviceK
   return (data ?? []) as ServiceRow[]
 }
 
+/** Brain ranking uses top-N only; cap keeps DB + prompt size bounded (was 120). */
+const BRAIN_PRODUCT_POOL_LIMIT = 96
+
 async function fetchProducts(sb: SupabaseClient): Promise<ProductRow[]> {
   const { data, error } = await sb
     .from('products')
     .select('id,name_ar,price,category,description_ar,brand_ar,rating,review_count,image_url')
     .eq('is_active', true)
     .eq('is_demo', false)
-    .limit(120)
+    .limit(BRAIN_PRODUCT_POOL_LIMIT)
   if (error) return []
   return (data ?? []) as ProductRow[]
 }
@@ -1797,6 +1799,29 @@ Deno.serve(async (req) => {
       )
     }
 
+    const utterance = lastUserText(historyMsgs, hasImage)
+
+    type ClassifyOutcome = { intent: IntentName; entities: Record<string, unknown> }
+    const runIntentClassify = async (): Promise<ClassifyOutcome | null> => {
+      try {
+        const cls = await openaiJson<{ intent?: string; entities?: Record<string, unknown> }>(
+          apiKey,
+          CLASSIFY_SYSTEM_PROMPT,
+          `User message:\n${utterance.slice(0, 1200)}`
+        )
+        const intent = normalizeIntent(typeof cls.intent === 'string' ? cls.intent : undefined)
+        const entities = sanitizeClassifierEntities(
+          cls.entities && typeof cls.entities === 'object' && !Array.isArray(cls.entities)
+            ? (cls.entities as Record<string, unknown>)
+            : {}
+        )
+        return { intent, entities }
+      } catch (e) {
+        console.warn('[rozi-chat] classify fallback', e)
+        return null
+      }
+    }
+
     const [
       { data: prof, error: pErr },
       { data: histRows, error: hErr },
@@ -1804,6 +1829,7 @@ Deno.serve(async (req) => {
       memoryPack,
       ownerB2bCtx,
       { data: toneStatsRows, error: toneStatsErr },
+      classifyOutcome,
     ] = await Promise.all([
       userSb.from('profiles').select('id,full_name,city,preferred_language').eq('id', userId).maybeSingle(),
       userSb
@@ -1822,6 +1848,7 @@ Deno.serve(async (req) => {
       fetchMemoryPack(userSb, userId),
       fetchSalonOwnerB2BContext(userSb, userId),
       userSb.rpc('rosey_hesitation_tone_stats', { p_days: 90 }),
+      runIntentClassify(),
     ])
 
     if (pErr) console.warn('[rozi-chat] profile', pErr.message)
@@ -1835,8 +1862,6 @@ Deno.serve(async (req) => {
     const profileCity = (profile.city || 'الخبر').trim()
     const historyText = formatHistoryLines((histRows ?? []) as Parameters<typeof formatHistoryLines>[0])
     const skinBlock = formatSkinContextBlock((skinRow ?? null) as SkinContextRow | null)
-
-    const utterance = lastUserText(historyMsgs, hasImage)
 
     const cartLineCount =
       typeof body.cartLineCount === 'number' && body.cartLineCount > 0
@@ -1852,24 +1877,8 @@ Deno.serve(async (req) => {
     const checkoutClickedFromRosy = body.checkoutClickedFromRosy === true
     const clientSalonOwnerSalesMode = body.salonOwnerSalesMode === true
 
-    let intent: IntentName = 'general_question'
-    let entities: Record<string, unknown> = {}
-
-    try {
-      const cls = await openaiJson<{ intent?: string; entities?: Record<string, unknown> }>(
-        apiKey,
-        CLASSIFY_SYSTEM_PROMPT,
-        `User message:\n${utterance.slice(0, 1200)}`
-      )
-      intent = normalizeIntent(typeof cls.intent === 'string' ? cls.intent : undefined)
-      entities = sanitizeClassifierEntities(
-        cls.entities && typeof cls.entities === 'object' && !Array.isArray(cls.entities)
-          ? (cls.entities as Record<string, unknown>)
-          : {}
-      )
-    } catch (e) {
-      console.warn('[rozi-chat] classify fallback', e)
-    }
+    let intent: IntentName = classifyOutcome?.intent ?? 'general_question'
+    let entities: Record<string, unknown> = classifyOutcome?.entities ?? {}
 
     const serviceKeyword =
       typeof entities.service_keyword === 'string'
@@ -1890,11 +1899,13 @@ Deno.serve(async (req) => {
     const urgentToday =
       entities.urgency === 'today' || /اليوم|الحين|الآن|عاجل|حالاً|اليوم$/i.test(utterance)
 
-    const recoHistory = await fetchRecoHistory(userSb, userId)
+    const [recoHistory, salonsRaw] = await Promise.all([
+      fetchRecoHistory(userSb, userId),
+      fetchSalonsForUser(userSb, profileCity, intent, entities),
+    ])
     const hasBookedBefore = recoHistory.bookedBusinessIds.size > 0
     const isFrequentChatter = (histRows ?? []).length >= 8
 
-    const salonsRaw = await fetchSalonsForUser(userSb, profileCity, intent, entities)
     const rankedSalons = partitionFeaturedSalonsFirst(
       rankSalonsForRosy(salonsRaw, recoHistory, userLatLng, {
         luxury: luxuryHint,
@@ -1908,7 +1919,12 @@ Deno.serve(async (req) => {
     const emptyMetrics: SalonOwnerSalesMetrics = { impressions_7d: 0, clicks_7d: 0, bookings_7d: 0 }
     let salesMetrics = emptyMetrics
     let upsellStateRow: RosyUpsellStateRow | null = null
-    if (ownerB2bCtx.is_owner && ownerB2bCtx.salon_id) {
+
+    const businessIds = rankedSalons.map((s) => s.id)
+    const skinPayload = skinPayloadFromRow((skinRow ?? null) as SkinContextRow | null)
+
+    const loadOwnerSalesSnapshot = async (): Promise<void> => {
+      if (!ownerB2bCtx.is_owner || !ownerB2bCtx.salon_id) return
       const sid = ownerB2bCtx.salon_id
       const weekAgoIso = new Date(Date.now() - 7 * 86_400_000).toISOString()
       const fromDate = weekAgoIso.slice(0, 10)
@@ -1936,6 +1952,14 @@ Deno.serve(async (req) => {
       upsellStateRow = stErr ? null : ((st as RosyUpsellStateRow | null) ?? null)
     }
 
+    const parallelLoad = await Promise.all([
+      fetchServices(userSb, businessIds, serviceKeyword || undefined),
+      fetchProducts(userSb),
+      loadOwnerSalesSnapshot(),
+    ])
+    const services = parallelLoad[0]
+    const products = parallelLoad[1]
+
     let hadClickSinceLastCta = false
     if (upsellStateRow?.last_cta_at) {
       const { data: clk } = await userSb
@@ -1957,11 +1981,6 @@ Deno.serve(async (req) => {
       upsellStateRow,
       hadClickSinceLastCta
     )
-
-    const businessIds = rankedSalons.map((s) => s.id)
-    const services = await fetchServices(userSb, businessIds, serviceKeyword || undefined)
-    const products = await fetchProducts(userSb)
-    const skinPayload = skinPayloadFromRow((skinRow ?? null) as SkinContextRow | null)
 
     const storeCats = resolveStoreCategories(entities, utterance, intent)
     const hasProductCategory =
