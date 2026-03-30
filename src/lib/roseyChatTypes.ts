@@ -1,3 +1,6 @@
+/** يطابق `meta.recommendation_mode` من Edge `rozi-chat` */
+export type RozyRecommendationMode = 'none' | 'salon' | 'product' | 'mixed' | 'booking'
+
 /** بطاقة منتج من متجر روزيرا (من Edge) */
 export type RozyProductCard = {
   id: string

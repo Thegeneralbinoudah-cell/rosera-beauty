@@ -1137,16 +1137,37 @@ export default function AiChat({ embedded = false }: { embedded?: boolean }) {
   const renderAssistantAttachments = (row: ChatRow): ReactNode => {
     const hasProducts = Boolean(row.products?.length)
     const hasSalons = Boolean(row.salons?.length)
+    const mode = row.recommendationMode
+
+    const salonsFirst =
+      mode === 'salon' ||
+      mode === 'booking' ||
+      mode === 'mixed' ||
+      (mode === undefined && hasSalons && !hasProducts)
+
+    const salonCards = hasSalons && row.salons ? renderRosySalonCards(row.salons) : null
+    const productCards = hasProducts && row.products ? renderRosyProductCards(row.products) : null
+
     return (
       <>
-        {hasProducts && row.products ? renderRosyProductCards(row.products) : null}
-        {hasSalons && row.salons ? renderRosySalonCards(row.salons) : null}
+        {salonsFirst ? (
+          <>
+            {salonCards}
+            {productCards}
+          </>
+        ) : (
+          <>
+            {productCards}
+            {salonCards}
+          </>
+        )}
         {row.actions?.length ? (
           <RosyStructuredAssistant
             salons={hasSalons ? undefined : row.salons}
             actions={row.actions}
             onBookSalon={(id) => goBooking(id)}
             onAction={handleRozyAction}
+            recommendationMode={mode}
           />
         ) : null}
       </>

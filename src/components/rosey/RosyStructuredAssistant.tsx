@@ -1,9 +1,18 @@
 import { MapPin, Star } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { resolveBusinessCoverImage } from '@/lib/businessImages'
-import type { RozyChatAction, RozySalonCard } from '@/lib/roseyChatTypes'
+import type { RozyChatAction, RozyRecommendationMode, RozySalonCard } from '@/lib/roseyChatTypes'
 import { cn } from '@/lib/utils'
 import { useI18n } from '@/hooks/useI18n'
+
+const BOOKING_ACTION_KINDS = new Set<RozyChatAction['kind']>(['book', 'negotiated_book'])
+
+function sortActionsBookingFirst(actions: RozyChatAction[], mode: RozyRecommendationMode | undefined): RozyChatAction[] {
+  if (!mode || !['booking', 'salon', 'mixed'].includes(mode)) return actions
+  const primary = actions.filter((a) => BOOKING_ACTION_KINDS.has(a.kind))
+  const rest = actions.filter((a) => !BOOKING_ACTION_KINDS.has(a.kind))
+  return [...primary, ...rest]
+}
 
 function MiniSalonCard({
   s,
@@ -58,14 +67,20 @@ export function RosyStructuredAssistant({
   actions,
   onBookSalon,
   onAction,
+  recommendationMode,
 }: {
   salons?: RozySalonCard[]
   actions?: RozyChatAction[]
   onBookSalon: (salonId: string) => void
   onAction: (a: RozyChatAction) => void
+  /** من `rozi-chat` meta — ترتيب الأزرار وتمييز حجز واضح */
+  recommendationMode?: RozyRecommendationMode
 }) {
   const { t } = useI18n()
   if ((!salons || salons.length === 0) && (!actions || actions.length === 0)) return null
+
+  const orderedActions = actions?.length ? sortActionsBookingFirst(actions, recommendationMode) : []
+  const emphasizeBooking = recommendationMode === 'booking'
 
   return (
     <div className="mt-1 w-full space-y-3 border-t border-pink-500/15 pt-3 dark:border-pink-400/10">
@@ -77,11 +92,18 @@ export function RosyStructuredAssistant({
           ))}
         </div>
       ) : null}
-      {actions && actions.length > 0 ? (
+      {orderedActions.length > 0 ? (
         <div className="flex flex-col gap-2">
-          <p className="text-center text-xs font-medium text-primary">{t('aiChat.ctaClosing')}</p>
+          <p
+            className={cn(
+              'text-center text-xs font-medium text-primary',
+              emphasizeBooking && 'font-semibold text-primary'
+            )}
+          >
+            {t('aiChat.ctaClosing')}
+          </p>
           <div className="flex flex-col gap-2">
-            {actions.map((a) => (
+            {orderedActions.map((a) => (
               <Button
                 key={a.id}
                 type="button"
@@ -111,7 +133,10 @@ export function RosyStructuredAssistant({
                     a.kind === 'store' ||
                     a.kind === 'view_product' ||
                     a.kind === 'salon_detail') &&
-                    'border-pink-500/25 text-primary hover:bg-pink-50 dark:border-pink-400/20 dark:hover:bg-pink-950/30'
+                    'border-pink-500/25 text-primary hover:bg-pink-50 dark:border-pink-400/20 dark:hover:bg-pink-950/30',
+                  emphasizeBooking &&
+                    (a.kind === 'book' || a.kind === 'negotiated_book') &&
+                    'ring-2 ring-primary/50 ring-offset-2 ring-offset-background'
                 )}
                 onClick={() => onAction(a)}
               >

@@ -3,7 +3,12 @@ import type { PostgrestError, User } from '@supabase/supabase-js'
 import { supabase } from '@/lib/supabase'
 import { toast } from 'sonner'
 import { getEdgeFunctionErrorMessage, getEdgeFunctionHttpErrorDetail } from '@/lib/edgeInvoke'
-import type { RozyChatAction, RozyProductCard, RozySalonCard } from '@/lib/roseyChatTypes'
+import type {
+  RozyChatAction,
+  RozyProductCard,
+  RozyRecommendationMode,
+  RozySalonCard,
+} from '@/lib/roseyChatTypes'
 import {
   buildRosyWelcomeFromMemoryAndSignals,
   fetchRosyWelcomeContext,
@@ -77,6 +82,23 @@ export function appendMedicalDisclaimerToReply(reply: string): string {
 /** مفتاح كيان محفوظ في `chat_messages.rosey_entities` لنتيجة تحليل المستشار. */
 export const ROZY_VISION_ADVISOR_ENTITY_KEY = 'rozy_vision_advisor_v1'
 
+export type { RozyRecommendationMode } from '@/lib/roseyChatTypes'
+
+const ROZY_RECOMMENDATION_MODES: ReadonlySet<string> = new Set([
+  'none',
+  'salon',
+  'product',
+  'mixed',
+  'booking',
+])
+
+export const ROSEY_ENTITY_RECOMMENDATION_MODE_KEY = 'recommendation_mode' as const
+
+function parseRecommendationMode(raw: unknown): RozyRecommendationMode | undefined {
+  if (typeof raw !== 'string' || !ROZY_RECOMMENDATION_MODES.has(raw)) return undefined
+  return raw as RozyRecommendationMode
+}
+
 export type ChatRow = {
   id: string
   message: string
@@ -85,6 +107,8 @@ export type ChatRow = {
   salons?: RozySalonCard[]
   products?: RozyProductCard[]
   actions?: RozyChatAction[]
+  /** من `rozi-chat` meta أو استنتاج من البطاقات — لترتيب العرض وتمييز الحجز */
+  recommendationMode?: RozyRecommendationMode
   /** نتيجة `invokeRozyAdvisor` — للعرض الغني في واجهة المحادثة فقط */
   visionAdvisorResult?: RozyVisionChatResult
 }
@@ -97,7 +121,28 @@ export type RoziBookingAction = {
   suggested_slots?: string[]
 }
 
+/** عند غياب `meta` (ردود قديمة أو مسارات أخرى) */
+function inferRecommendationMode(
+  salons: RozySalonCard[] | undefined,
+  products: RozyProductCard[] | undefined,
+  booking: RoziBookingAction | null | undefined
+): RozyRecommendationMode {
+  if (booking && booking.action === 'booking' && booking.salon_id) return 'booking'
+  const sc = salons?.length ?? 0
+  const pc = products?.length ?? 0
+  if (sc > 0 && pc > 0) return 'mixed'
+  if (sc > 0) return 'salon'
+  if (pc > 0) return 'product'
+  return 'none'
+}
+
 export type RoziBrainPayload = {
+  meta?: {
+    schema_version?: number
+    ok?: boolean
+    recommendation_mode?: string
+    code?: string
+  }
   reply?: string
   error?: string
   brain?: {
@@ -469,8 +514,11 @@ function mapRowsFromDb(data: ChatRowDb[] | null): ChatRow[] {
     const products = !isUser ? parseProductCards(r.rosey_products) : undefined
     const actions = !isUser ? parseChatActions(r.rosey_actions) : undefined
     let visionAdvisorResult: RozyVisionChatResult | undefined
+    let recommendationMode: RozyRecommendationMode | undefined
     if (!isUser && r.rosey_entities && typeof r.rosey_entities === 'object' && !Array.isArray(r.rosey_entities)) {
-      const raw = (r.rosey_entities as Record<string, unknown>)[ROZY_VISION_ADVISOR_ENTITY_KEY]
+      const ent = r.rosey_entities as Record<string, unknown>
+      recommendationMode = parseRecommendationMode(ent[ROSEY_ENTITY_RECOMMENDATION_MODE_KEY])
+      const raw = ent[ROZY_VISION_ADVISOR_ENTITY_KEY]
       if (raw && typeof raw === 'object' && !Array.isArray(raw)) {
         const o = raw as Record<string, unknown>
         const m = o.mode
@@ -478,6 +526,9 @@ function mapRowsFromDb(data: ChatRowDb[] | null): ChatRow[] {
           visionAdvisorResult = raw as RozyVisionChatResult
         }
       }
+    }
+    if (!isUser && recommendationMode === undefined) {
+      recommendationMode = inferRecommendationMode(salons, products, null)
     }
     return {
       id: r.id,
@@ -487,6 +538,7 @@ function mapRowsFromDb(data: ChatRowDb[] | null): ChatRow[] {
       salons,
       products,
       actions,
+      recommendationMode,
       visionAdvisorResult,
     }
   })
@@ -1070,6 +1122,7 @@ export function useChat(userId: string | undefined, options?: UseChatOptions) {
                 ]
               }
 
+              const smartRecoMode: RozyRecommendationMode = salons.length === 0 ? 'none' : 'salon'
               const botRow: ChatRow = {
                 id: crypto.randomUUID(),
                 message: botText,
@@ -1077,6 +1130,7 @@ export function useChat(userId: string | undefined, options?: UseChatOptions) {
                 created_at: new Date().toISOString(),
                 salons: salonsCards,
                 actions: uiActions,
+                recommendationMode: smartRecoMode,
               }
               setMessages((m) => [...m, botRow])
               captureRosyReplyGenerated('smart_rank')
@@ -1093,6 +1147,7 @@ export function useChat(userId: string | undefined, options?: UseChatOptions) {
                   serviceType,
                   hadGeo: userLocation != null,
                   variant: salons.length === 1 ? 'single_best' : salons.length > 1 ? 'multi' : 'empty',
+                  [ROSEY_ENTITY_RECOMMENDATION_MODE_KEY]: smartRecoMode,
                 },
                 rosey_action: null,
                 rosey_salons: salonsCards ?? null,
@@ -1256,6 +1311,10 @@ export function useChat(userId: string | undefined, options?: UseChatOptions) {
         const productCards = parseProductCards(payload?.products)
         const uiActions = parseChatActions(payload?.actions)
 
+        const recommendationModeFromMeta = parseRecommendationMode(payload?.meta?.recommendation_mode)
+        const recommendationMode =
+          recommendationModeFromMeta ?? inferRecommendationMode(salonsCards, productCards, bookingAction)
+
         const roseyEnt = brain?.entities as Record<string, unknown> | undefined
         if (roseyEnt?.checkout_hesitation === true) {
           const toneRaw = roseyEnt.checkout_hesitation_tone
@@ -1279,6 +1338,7 @@ export function useChat(userId: string | undefined, options?: UseChatOptions) {
           salons: salonsCards,
           products: productCards,
           actions: uiActions,
+          recommendationMode,
         }
         setMessages((m) => [...m, botRow])
         scheduleAssistantTts(messageToStore, ttsOwner)
@@ -1293,7 +1353,10 @@ export function useChat(userId: string | undefined, options?: UseChatOptions) {
           response: String(messageToStore),
           is_user: false,
           rosey_intent: brain?.intent ?? null,
-          rosey_entities: brain?.entities ?? {},
+          rosey_entities: {
+            ...(brain?.entities ?? {}),
+            [ROSEY_ENTITY_RECOMMENDATION_MODE_KEY]: recommendationMode,
+          },
           rosey_action: bookingAction,
           rosey_salons: salonsCards ?? null,
           rosey_products: productCards ?? null,
