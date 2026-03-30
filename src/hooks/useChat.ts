@@ -34,6 +34,7 @@ import { useCartStore } from '@/stores/cartStore'
 import { ensureUserProfile } from '@/lib/ensureUserProfile'
 import { STORAGE_KEYS } from '@/lib/utils'
 import { fetchRosySalonBookingPreview } from '@/lib/roseySalonBookingPreview'
+import { postSalonDetailBookingBoostActive } from '@/lib/rozySalonDetailBoost'
 import { invokeRozyAdvisor, VISION_FAIL_AR } from '@/lib/rozyVisionChatInvoke'
 import { resolveClientPreferredCityForRozy } from '@/lib/rozyChatLocation'
 import type { RozyVisionChatResult, RozyVisionChatAdvisorMode } from '@/lib/rozyVisionChatTypes'
@@ -1327,6 +1328,7 @@ export function useChat(userId: string | undefined, options?: UseChatOptions) {
             checkoutUserTurnsWithCart,
             checkoutClickedFromRosy,
             salonOwnerSalesMode,
+            postSalonDetailBookingBoost: postSalonDetailBookingBoostActive(),
           },
           headers: { Authorization: `Bearer ${accessToken}` },
         })

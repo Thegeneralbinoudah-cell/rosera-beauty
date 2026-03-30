@@ -759,6 +759,30 @@ function utteranceShowsStrongBookingIntent(utterance: string): boolean {
   )
 }
 
+/**
+ * اهتمام بالحجز بعد رؤية خيارات (أضعف من `utteranceShowsStrongBookingIntent`).
+ * يُستخدم لتفعيل نص/CTA أقوى فقط عندما لا نريد ضغطاً على أول توصية.
+ */
+function utteranceShowsSoftBookingInterest(utterance: string, userTurnCount: number): boolean {
+  const t = utterance.trim()
+  if (!t) return false
+  if (
+    /يعجبني|عجبني|نكمّل|نكمل|نثبت|نثبّت|قررت|قررّت|خلينا\s*نحجز|خلّينا\s*نحجز|يلا\s*نحجز|يلّا\s*نحجز|نكمّل\s*الحجز|نكمل\s*الحجز|الأولى|الثانية|هذا\s*أحسن|هذي\s*أحسن|شكل[هه]\s*مناسب|نروح\s*لهذا|نروح\s*لهذي|نبدأ\s*بالحجز|نبدا\s*بالحجز|أبغى\s*أثبت|ابغى\s*اثبت|ابي\s*اثبت|تمام\s*نحجز|تمام\s*نكمّل|تمام\s*نكمل|اوكي\s*احجز|أوكي\s*احجز|يلا\s*احجز|يلّا\s*احجز|تم\s*نكمّل|تم\s*نكمل/i.test(
+      t
+    )
+  ) {
+    return true
+  }
+  if (userTurnCount >= 2 && /^(تم|تمام|أوكي|اوكي|يلا|يلّا|تماماً|تماما)\s*$/i.test(t)) return true
+  if (
+    userTurnCount >= 2 &&
+    /تمام\s*نكمّل|تمام\s*نكمل|اوكي\s*احجز|أوكي\s*احجز|يلا\s*احجز|يلّا\s*احجز/i.test(t)
+  ) {
+    return true
+  }
+  return false
+}
+
 /** أوسع من `shouldIncludeSalonCards` — لاستبعاد النية القوية/تصفح المتجر قبل الاقتراح الاستباقي */
 const ROZY_BROAD_SALON_STORE_TOPIC_RE =
   /صالون|حجز|موعد|سبا|أظافر|شعر|ليزر|مكياج|تجميل|عيادة|أقرب|تقييم|رخيص|سعر|غال[يى]|غالي|خصم|أرخص|ارخص|بشرة|فيس|تحليل|عطور|منتج|متجر|سلة|دفع|checkout/i
@@ -2076,6 +2100,7 @@ Deno.serve(async (req) => {
     const checkoutUserTurnsWithCart = clampInt(body.checkoutUserTurnsWithCart, 0, 10_000, 0)
     const checkoutClickedFromRosy = body.checkoutClickedFromRosy === true
     const clientSalonOwnerSalesMode = body.salonOwnerSalesMode === true
+    const postSalonDetailBookingBoost = body.postSalonDetailBookingBoost === true
 
     let intent: IntentName = classifyOutcome?.intent ?? 'general_question'
     let entities: Record<string, unknown> = classifyOutcome?.entities ?? {}
@@ -2288,6 +2313,8 @@ Deno.serve(async (req) => {
 
     const strongBookingIntent = intent === 'booking_request' || utteranceShowsStrongBookingIntent(utterance)
     const recentSalonIds = parseRecentSalonIdsFromBody(body)
+    const rozyUserTurnCount = historyMsgs.filter((m) => m.role === 'user').length
+    const softBookingInterest = utteranceShowsSoftBookingInterest(utterance, rozyUserTurnCount)
 
     const baseSalonCards =
       !hideSalonsForStoreProducts &&
@@ -2322,7 +2349,14 @@ Deno.serve(async (req) => {
 
     const attachSalonCards = baseSalonCards || proactiveBrowsing || hesitationAttachSalons
 
-    const useAggressiveBooking = strongBookingIntent || (salonHesitation && attachSalonCards)
+    /** CTA نصّي/زر أقوى فقط بعد نية صريحة، تردد، فتح تفاصيل صالون من الشات، اهتمام لاحق، أو تفاوض سعر — ليس على أول بطاقات افتراضية */
+    const useAggressiveBooking =
+      attachSalonCards &&
+      (strongBookingIntent ||
+        salonHesitation ||
+        postSalonDetailBookingBoost ||
+        softBookingInterest ||
+        negotiationActions.length > 0)
 
     const needsProactiveToneHint =
       attachSalonCards &&
@@ -2343,7 +2377,8 @@ Deno.serve(async (req) => {
 
 ## تحويل الحجز (إلزامي — بطاقات صالونات ستظهر)
 - **ممنوع** الرد العام («تقدري تتصفحين») بدون **تسمية صالون واحد على الأقل** من جدول «صالونات وعيادات» أعلاه.
-- أنهي بجملة توجّه للزر تحت البطاقة (مثال: «اضغطي احجزي موعدك تحت اللي يعجبكِ ✨»).`
+- **لكل صالون تذكرينه بالاسم**: أشيري صراحةً إلى زرّي **احجز الآن** و**عرض التفاصيل** الموجودين **تحت بطاقة ذلك الصالون** في الواجهة — لا تكتفي بعبارة مجردة عن إمكانية الحجز.
+- أنهي بجملة توجّه واضحة للحجز من البطاقة (مثال: «اضغطي احجزي موعدك تحت اللي يعجبكِ ✨»).`
       if (useAggressiveBooking) {
         salonCtaSystemAppendix += `
 - **دفعة أوضح نحو الحجز**: ركّزي على **أفضل خيار واحد** حسب التقييم والبيانات وادعي للخطوة التالية بلطف دون إطالة.`

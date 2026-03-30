@@ -34,6 +34,7 @@ import { useI18n } from '@/hooks/useI18n'
 import { buildMapExploreUrl } from '@/lib/mapExploreUrl'
 import { trackEvent } from '@/lib/analytics'
 import { queueRoziEvent } from '@/lib/insertRoziEvent'
+import { markRozySalonDetailBookingBoost } from '@/lib/rozySalonDetailBoost'
 import { captureProductEvent } from '@/lib/posthog'
 import { useCartStore } from '@/stores/cartStore'
 import { fetchRosySalonBookingPreview, type RosySalonBookingPreview } from '@/lib/roseySalonBookingPreview'
@@ -909,6 +910,7 @@ export default function AiChat({ embedded = false }: { embedded?: boolean }) {
       }
       if (a.kind === 'salon_detail' && a.salon_id) {
         trackRozi('salon_detail', a.salon_id)
+        markRozySalonDetailBookingBoost(a.salon_id)
         goSalonDetail(a.salon_id, a.service_id)
         return
       }
@@ -1115,6 +1117,7 @@ export default function AiChat({ embedded = false }: { embedded?: boolean }) {
                 ...extra,
               },
             })
+            if (action_type === 'salon_detail') markRozySalonDetailBookingBoost(entityId)
           }
 
           return (
