@@ -13,10 +13,13 @@ export type RosieFABProps = {
 }
 
 function shouldHideRosieFab(pathname: string): boolean {
-  // Explicitly keep Rosie visible across beauty-store experience.
+  // صفحة المتجر فيها أزرار روزي في الهيدر — لا نكرر FAB فوقها.
+  if (pathname === '/store' || pathname.startsWith('/store/')) {
+    return true
+  }
+
+  // باقي رحلة المتجر (منتج، سلة، دفع): FAB واحد واضح.
   if (
-    pathname === '/store' ||
-    pathname.startsWith('/store/') ||
     pathname.startsWith('/product/') ||
     pathname === '/cart' ||
     pathname === '/checkout'
@@ -107,7 +110,7 @@ function RosieFABShell({
 
   return (
     <div
-      className="pointer-events-none fixed z-[10100] end-[max(1rem,env(safe-area-inset-inline-end,0px))]"
+      className="fixed z-[10100] end-[max(1rem,env(safe-area-inset-inline-end,0px))]"
       style={{
         bottom: elevatedForChat
           ? 'calc(10.75rem + env(safe-area-inset-bottom, 0px))'
@@ -174,7 +177,12 @@ function RosieFABInRouter(props: RosieFABProps) {
   const navigate = useNavigate()
   const { pathname } = useLocation()
   const isChatRoute = pathname === '/chat' || pathname.startsWith('/chat/')
-  const onStoreRoute = pathname === '/store' || pathname.startsWith('/store/')
+  const onCommerceRoute =
+    pathname === '/store' ||
+    pathname.startsWith('/store/') ||
+    pathname.startsWith('/product/') ||
+    pathname === '/cart' ||
+    pathname === '/checkout'
   const onDefaultNavigate = useCallback(() => {
     navigate('/chat')
   }, [navigate])
@@ -190,7 +198,7 @@ function RosieFABInRouter(props: RosieFABProps) {
       {...props}
       onChatRoute={shouldHideRosieFab(pathname)}
       onDefaultNavigate={onDefaultNavigate}
-      showStoreActions={onStoreRoute}
+      showStoreActions={onCommerceRoute}
       onVoiceNavigate={onVoiceNavigate}
       onCameraNavigate={onCameraNavigate}
       elevatedForChat={isChatRoute}
@@ -201,7 +209,12 @@ function RosieFABInRouter(props: RosieFABProps) {
 function RosieFABOutsideRouter(props: RosieFABProps) {
   const pathname = typeof window !== 'undefined' ? window.location.pathname : ''
   const isChatRoute = pathname === '/chat' || pathname.startsWith('/chat/')
-  const onStoreRoute = pathname === '/store' || pathname.startsWith('/store/')
+  const onCommerceRoute =
+    pathname === '/store' ||
+    pathname.startsWith('/store/') ||
+    pathname.startsWith('/product/') ||
+    pathname === '/cart' ||
+    pathname === '/checkout'
   const onDefaultNavigate = useCallback(() => {
     window.location.assign('/chat')
   }, [])
@@ -217,7 +230,7 @@ function RosieFABOutsideRouter(props: RosieFABProps) {
       {...props}
       onChatRoute={shouldHideRosieFab(pathname)}
       onDefaultNavigate={onDefaultNavigate}
-      showStoreActions={onStoreRoute}
+      showStoreActions={onCommerceRoute}
       onVoiceNavigate={onVoiceNavigate}
       onCameraNavigate={onCameraNavigate}
       elevatedForChat={isChatRoute}

@@ -321,7 +321,6 @@ export default function AiChat({ embedded = false }: { embedded?: boolean }) {
   const resumeListenTimeoutRef = useRef<number | null>(null)
   /** أول ضغطة مايك في الجلسة: عرض صوتي لمالكة الصالون */
   const ownerSalesVoiceKickoffDoneRef = useRef(false)
-  const historyErrorRef = useRef<string | null>(null)
   const loadingRef = useRef(false)
   const sendingRef = useRef(false)
   const startVoiceListeningInnerRef = useRef<(opts?: { silentHaptic?: boolean; skipCancelTts?: boolean }) => void>(
@@ -329,10 +328,9 @@ export default function AiChat({ embedded = false }: { embedded?: boolean }) {
   )
 
   useEffect(() => {
-    historyErrorRef.current = historyError
     loadingRef.current = loading
     sendingRef.current = sending
-  }, [historyError, loading, sending])
+  }, [loading, sending])
 
   useEffect(() => {
     liveTranscriptRef.current = liveTranscript
@@ -418,7 +416,7 @@ export default function AiChat({ embedded = false }: { embedded?: boolean }) {
       resumeListenTimeoutRef.current = window.setTimeout(() => {
         resumeListenTimeoutRef.current = null
         if (!chatAliveRef.current || !voiceLoopActiveRef.current) return
-        if (sendingRef.current || historyErrorRef.current || loadingRef.current) return
+        if (sendingRef.current || loadingRef.current) return
         startVoiceListeningInnerRef.current({ silentHaptic: true, skipCancelTts: true })
       }, delayMs)
     },
@@ -428,7 +426,7 @@ export default function AiChat({ embedded = false }: { embedded?: boolean }) {
   const startVoiceListeningInner = useCallback(
     async (opts?: { silentHaptic?: boolean; skipCancelTts?: boolean }) => {
       if (!chatAliveRef.current) return
-      if (historyErrorRef.current || loadingRef.current) return
+      if (loadingRef.current) return
       const Ctor = getRosySpeechRecognitionCtor()
       if (!Ctor) {
         voiceLoopActiveRef.current = false
@@ -1191,7 +1189,6 @@ export default function AiChat({ embedded = false }: { embedded?: boolean }) {
         <button
           type="button"
           disabled={
-            !!historyError ||
             loading ||
             (voiceUi !== 'listening' && voiceUi !== 'speaking' && (sending || voiceUi === 'processing'))
           }
@@ -1255,7 +1252,9 @@ export default function AiChat({ embedded = false }: { embedded?: boolean }) {
                 </p>
               </div>
             </div>
-            <CartHeaderButton />
+            <div className="flex items-center gap-2">
+              <CartHeaderButton />
+            </div>
           </div>
         </header>
       )}
@@ -1614,19 +1613,6 @@ export default function AiChat({ embedded = false }: { embedded?: boolean }) {
           </Button>
         </div>
       </div>
-
-      {!embedded ? (
-        <div
-          className="pointer-events-none fixed left-1/2 z-[10050] flex w-[min(100%,20rem)] -translate-x-1/2 flex-col items-center gap-2 px-4"
-          style={{
-            bottom: 'calc(7.85rem + env(safe-area-inset-bottom, 0px))',
-          }}
-        >
-          <div className="pointer-events-auto flex w-full max-w-[18rem] flex-col items-center gap-2">
-            {renderVoiceUi()}
-          </div>
-        </div>
-      ) : null}
 
     </div>
   )

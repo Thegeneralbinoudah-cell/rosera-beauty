@@ -12,6 +12,12 @@ function emitVoicePhase(phase: RosyVoicePhase) {
 let currentAudio: HTMLAudioElement | null = null
 let currentObjectUrl: string | null = null
 
+function isWebSpeechFallbackEnabled(): boolean {
+  const raw = import.meta.env.VITE_ROSY_WEB_SPEECH_FALLBACK
+  if (typeof raw !== 'string') return false
+  return /^(1|true|yes|on)$/i.test(raw.trim())
+}
+
 let elevenClient: ElevenLabsClient | null = null
 let elevenClientApiKey: string | null = null
 
@@ -106,6 +112,66 @@ function waitForAudioPlaybackWithUnlock(audio: HTMLAudioElement): Promise<void> 
   })
 }
 
+function getSpeechSynthesisSafe(): SpeechSynthesis | null {
+  if (typeof window === 'undefined') return null
+  const synth = window.speechSynthesis
+  return synth ?? null
+}
+
+function pickArabicVoice(synth: SpeechSynthesis): SpeechSynthesisVoice | null {
+  const voices = synth.getVoices?.() ?? []
+  if (!voices.length) return null
+  const arSaudi =
+    voices.find((v) => /^ar-sa$/i.test(v.lang)) ??
+    voices.find((v) => /^ar[_-]sa$/i.test(v.lang)) ??
+    null
+  if (arSaudi) return arSaudi
+  return voices.find((v) => /^ar/i.test(v.lang)) ?? null
+}
+
+function speakWithWebApi(text: string): Promise<RosySpeakResult> {
+  return new Promise((resolve) => {
+    const synth = getSpeechSynthesisSafe()
+    if (!synth || typeof SpeechSynthesisUtterance === 'undefined') {
+      emitVoicePhase('idle')
+      resolve({ ok: false, usedElevenLabs: false, error: 'Web Speech API unavailable' })
+      return
+    }
+
+    // Stop any pending native TTS so the new line speaks cleanly.
+    try {
+      synth.cancel()
+    } catch {
+      /* ignore */
+    }
+
+    const utter = new SpeechSynthesisUtterance(text)
+    utter.lang = 'ar-SA'
+    utter.rate = 1
+    utter.pitch = 1
+    utter.volume = 1
+    const voice = pickArabicVoice(synth)
+    if (voice) utter.voice = voice
+
+    utter.onend = () => {
+      emitVoicePhase('idle')
+      resolve({ ok: true, usedElevenLabs: false })
+    }
+    utter.onerror = () => {
+      emitVoicePhase('idle')
+      resolve({ ok: false, usedElevenLabs: false, error: 'Web speech playback failed' })
+    }
+
+    emitVoicePhase('speaking')
+    try {
+      synth.speak(utter)
+    } catch {
+      emitVoicePhase('idle')
+      resolve({ ok: false, usedElevenLabs: false, error: 'Web speech speak() failed' })
+    }
+  })
+}
+
 /** إيقاف تشغيل ElevenLabs فقط — لا Web Speech API. */
 export function stopRosyVoicePlayback() {
   if (currentAudio) {
@@ -116,6 +182,14 @@ export function stopRosyVoicePlayback() {
   if (currentObjectUrl) {
     URL.revokeObjectURL(currentObjectUrl)
     currentObjectUrl = null
+  }
+  const synth = getSpeechSynthesisSafe()
+  if (synth) {
+    try {
+      synth.cancel()
+    } catch {
+      /* ignore */
+    }
   }
   emitVoicePhase('idle')
 }
@@ -165,6 +239,7 @@ async function speakOnce(text: string): Promise<RosySpeakResult> {
   const apiKey = typeof apiKeyRaw === 'string' ? apiKeyRaw.trim() : ''
   if (!apiKey) {
     console.warn('⚠️ ElevenLabs not configured — missing VITE_ELEVENLABS_API_KEY')
+    if (isWebSpeechFallbackEnabled()) return speakWithWebApi(finalText)
     emitVoicePhase('idle')
     return { ok: false, usedElevenLabs: false, error: 'Missing API key' }
   }
@@ -172,12 +247,14 @@ async function speakOnce(text: string): Promise<RosySpeakResult> {
   const voiceId = import.meta.env.VITE_ELEVENLABS_VOICE_ID
   if (typeof voiceId !== 'string' || !voiceId) {
     console.error('❌ Missing VITE_ELEVENLABS_VOICE_ID')
+    if (isWebSpeechFallbackEnabled()) return speakWithWebApi(finalText)
     emitVoicePhase('idle')
     return { ok: false, usedElevenLabs: false, error: 'Missing cloned voice ID' }
   }
 
   const client = await getElevenLabsClient(apiKey)
   if (!client) {
+    if (isWebSpeechFallbackEnabled()) return speakWithWebApi(finalText)
     emitVoicePhase('idle')
     return { ok: false, usedElevenLabs: false, error: 'ElevenLabs client failed to load' }
   }
@@ -211,6 +288,7 @@ async function speakOnce(text: string): Promise<RosySpeakResult> {
     const msg = e instanceof Error ? e.message : 'ElevenLabs TTS failed'
     console.error('[Rosy TTS]', msg, e)
     stopRosyVoicePlayback()
+    if (isWebSpeechFallbackEnabled()) return speakWithWebApi(finalText)
     emitVoicePhase('idle')
     return { ok: false, usedElevenLabs: false, error: msg }
   }

@@ -24,7 +24,133 @@ const FEATURED_AD_RANK_BOOST = 58
 
 const OPENAI_MODEL = 'gpt-4o'
 
+/** Input limits — يمنع طلبات ضخمة أو استهلاك غير معقول لـ OpenAI */
+const MAX_MESSAGES_IN = 16
+const MAX_MESSAGE_CONTENT_CHARS = 4000
+const MAX_CONTEXT_BLOCK_CHARS = 8000
+const MAX_IMAGE_BASE64_CHARS = 5_000_000
+const MAX_CART_LINES = 500
+const MAX_CART_QTY = 10_000
+
+const ENTITY_STRING_KEYS = new Set([
+  'query',
+  'service_keyword',
+  'salon_hint',
+  'city',
+  'date_hint',
+])
+const ENTITY_OPTIONAL_ENUMS = {
+  budget_tier: new Set(['low', 'mid', 'high']),
+  urgency: new Set(['today', 'soon']),
+  style: new Set(['luxury', 'budget']),
+} as const
+
+const RESPONSE_SCHEMA_VERSION = 1 as const
+
 type Msg = { role: 'user' | 'assistant' | 'system'; content: string }
+
+type RecommendationMode = 'none' | 'salon' | 'product' | 'mixed' | 'booking'
+
+function computeRecommendationMode(params: {
+  hasBooking: boolean
+  salonCount: number
+  productCount: number
+}): RecommendationMode {
+  const { hasBooking, salonCount, productCount } = params
+  if (hasBooking) return 'booking'
+  const s = salonCount > 0
+  const p = productCount > 0
+  if (s && p) return 'mixed'
+  if (s) return 'salon'
+  if (p) return 'product'
+  return 'none'
+}
+
+function clampInt(n: unknown, min: number, max: number, fallback: number): number {
+  if (typeof n !== 'number' || !Number.isFinite(n)) return fallback
+  return Math.min(max, Math.max(min, Math.floor(n)))
+}
+
+function isValidLatLng(lat: number, lng: number): boolean {
+  return Number.isFinite(lat) && Number.isFinite(lng) && lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180
+}
+
+function sanitizeMessageList(raw: unknown): Msg[] {
+  if (!Array.isArray(raw)) return []
+  const out: Msg[] = []
+  for (const m of raw.slice(-MAX_MESSAGES_IN)) {
+    if (!m || typeof m !== 'object') continue
+    const role = (m as Msg).role
+    if (role !== 'user' && role !== 'assistant') continue
+    let content = (m as Msg).content
+    if (typeof content !== 'string') continue
+    content = content.slice(0, MAX_MESSAGE_CONTENT_CHARS)
+    if (!content.trim() && role === 'user') continue
+    out.push({ role, content })
+  }
+  return out
+}
+
+function sanitizeContextBlock(raw: unknown): string {
+  if (typeof raw !== 'string') return ''
+  return raw.trim().slice(0, MAX_CONTEXT_BLOCK_CHARS)
+}
+
+/**
+ * يقلل حقن الحقول العشوائية من المصنّف — فقط مفاتيح معروفة وبطول محدود.
+ */
+function sanitizeClassifierEntities(raw: Record<string, unknown> | null | undefined): Record<string, unknown> {
+  if (!raw || typeof raw !== 'object') return {}
+  const out: Record<string, unknown> = {}
+  for (const key of ENTITY_STRING_KEYS) {
+    const v = raw[key]
+    if (typeof v === 'string') {
+      const t = v.trim().slice(0, 240)
+      if (t) out[key] = t
+    }
+  }
+  for (const [key, allowed] of Object.entries(ENTITY_OPTIONAL_ENUMS) as [keyof typeof ENTITY_OPTIONAL_ENUMS, Set<string>][]) {
+    const v = raw[key]
+    if (typeof v === 'string' && allowed.has(v)) out[key] = v
+  }
+  if (raw.browse_mode === true) out.browse_mode = true
+  const sc = raw.store_categories
+  if (Array.isArray(sc)) {
+    const cats = normalizeStoreCategoriesFromEntities(sc)
+    if (cats.length) out.store_categories = cats
+  }
+  return out
+}
+
+function parseOpenAiJsonContent(raw: string): Record<string, unknown> {
+  const trimmed = raw.trim()
+  try {
+    const v = JSON.parse(trimmed)
+    if (v && typeof v === 'object' && !Array.isArray(v)) return v as Record<string, unknown>
+  } catch {
+    /* fall through */
+  }
+  const fence = trimmed.match(/```(?:json)?\s*([\s\S]*?)```/)
+  if (fence?.[1]) {
+    try {
+      const v = JSON.parse(fence[1].trim())
+      if (v && typeof v === 'object' && !Array.isArray(v)) return v as Record<string, unknown>
+    } catch {
+      /* ignore */
+    }
+  }
+  const brace = trimmed.indexOf('{')
+  const last = trimmed.lastIndexOf('}')
+  if (brace >= 0 && last > brace) {
+    try {
+      const v = JSON.parse(trimmed.slice(brace, last + 1))
+      if (v && typeof v === 'object' && !Array.isArray(v)) return v as Record<string, unknown>
+    } catch {
+      /* ignore */
+    }
+  }
+  throw new Error('Invalid JSON object from model')
+}
 
 type OpenAIContentPart =
   | { type: 'text'; text: string }
@@ -796,10 +922,35 @@ async function openaiJson<T>(apiKey: string, system: string, user: string, maxTo
   if (typeof raw !== 'string' || !raw.trim()) {
     throw new Error('Empty JSON from OpenAI')
   }
-  return JSON.parse(raw) as T
+  return parseOpenAiJsonContent(raw) as T
 }
 
+/** مصنّف النية — مخرجات JSON فقط؛ recommend_clinic يُطابق recommend_service في المنطق الداخلي */
+const CLASSIFY_SYSTEM_PROMPT = `You classify a single user turn for Rosera (Saudi women's beauty: salons, clinics, bookings, in-app store).
+
+Return ONLY a JSON object with this exact shape:
+{"intent":"<intent>","entities":{...}}
+
+## intent (choose one)
+- search_salon — Best salon, compare salons, nearest, explore, "وش تنصحين" about places
+- recommend_service — Service-focused inside a venue: nails, hair, laser (beauty), spa, makeup
+- recommend_clinic — Medical-aesthetic / dermatology clinic, laser clinic, Botox/fillers, doctor-led skin treatments (map internally to service-style recommendations; use service_keyword for treatment)
+- booking_request — Explicit booking: أحجز، موعد، reserve
+- store_products — Buy products from app store: skincare, masks, shampoo, perfume, devices, "أبغى أشتري من المتجر"
+- general_question — Greetings, thanks, unclear image, app help, anything else
+
+## entities (all optional; omit unknown keys)
+- query, service_keyword, salon_hint, city, date_hint: string (short)
+- store_categories: string[] — ONLY these Arabic literals: "عناية بالبشرة","مكياج","عناية بالشعر","عطور","أظافر","أجهزة تجميل","سبا","عناية بالجسم"
+- budget_tier: "low"|"mid"|"high"|null — cheap, budget, discount, expensive cues
+- urgency: "today"|"soon"|null — today, now, urgent
+- style: "luxury"|"budget"|null — VIP, luxury vs budget
+- browse_mode: boolean — browsing/comparing without explicit booking
+
+Dialect hints: يالله، زين، وش، ابغى، ضبطي. If unsure: general_question with {}.`
+
 function normalizeIntent(x: string | undefined): IntentName {
+  if (x === 'recommend_clinic') return 'recommend_service'
   if (x && (INTENTS as string[]).includes(x)) return x as IntentName
   return 'general_question'
 }
@@ -1492,7 +1643,7 @@ function buildRosyPersonalityBlock(params: {
 - **لا تعتذري** — لا تقلي «آسفة» أو «عذراً» أو «معذرة»؛ قدّمي بدلاً من ذلك **خطوة تالية مفيدة** (خريطة، بحث، خدمة مقترحة، أو سؤال واحد واضح).
 - **استنتاجي**: اربطي بالمحادثة السابقة؛ لا تكرري سؤالاً إن الجواب ظاهر في التاريخ أو في ذاكرة المستخدمة.
 - **مسار**: قصد المستخدمة → اقتراح واضح (أفضل 3) → تأكيد خفيف → دفع لطيف نحو الحجز.
-- التصنيف الحالي للرسالة: **${intent}**.
+- التصنيف الحالي للرسالة: **${intent}** (توجيهات العيادات التجميلية/الجلدية تُعالَج مثل خدمات الصالون عند وجودها في البيانات).
 - لا تعرضي JSON أو جداول؛ البطاقات تظهر في الواجهة — اكتفي بجملة قصيرة + إيموجي واحد أو اثنين كحد أقصى.
 - بعد عرض خيارات الصالونات: وجّهي للحجز: "تحبي أحجز لكِ من هنا؟ 💕" أو "نكمّل الحجز؟ ✨"
 - **إن لم تُجد صالونات مناسبة في البيانات**: قدّمي بديلاً فورياً — اقتراح مدينة/حي، أو «جرّبي البحث أو الخريطة من الأسفل»، أو خدمة شائعة (قص، أظافر، عناية) **بدون** اعتذار طويل.
@@ -1573,30 +1724,34 @@ Deno.serve(async (req) => {
   })
 
   try {
-    const body = (await req.json()) as {
-      messages?: Msg[]
-      imageBase64?: string
-      imageMimeType?: string
-      contextBlock?: string
-      userLat?: number
-      userLng?: number
-      cartLineCount?: number
-      cartTotalQty?: number
-      checkoutRecentCartAdd?: boolean
-      checkoutShortAffirm?: boolean
-      checkoutUserTurnsWithCart?: number
-      checkoutClickedFromRosy?: boolean
-      salonOwnerSalesMode?: boolean
+    let bodyRaw: unknown
+    try {
+      bodyRaw = await req.json()
+    } catch {
+      return new Response(
+        JSON.stringify({
+          error: 'طلب غير صالح: JSON',
+          meta: { schema_version: RESPONSE_SCHEMA_VERSION, ok: false, code: 'invalid_json' },
+        }),
+        { status: 400, headers: { ...cors, 'Content-Type': 'application/json' } }
+      )
     }
 
-    const historyMsgs = Array.isArray(body.messages) ? body.messages.filter((m) => m.role !== 'system').slice(-16) : []
-    const legacyCtx = typeof body.contextBlock === 'string' && body.contextBlock.trim() ? body.contextBlock.trim() : ''
+    const body = (bodyRaw && typeof bodyRaw === 'object' ? bodyRaw : {}) as Record<string, unknown>
 
-    const hasImage =
-      typeof body.imageBase64 === 'string' &&
-      body.imageBase64.length > 0 &&
-      typeof body.imageMimeType === 'string' &&
-      body.imageMimeType.length > 0
+    const historyMsgs = sanitizeMessageList(body.messages)
+
+    const rawB64 = typeof body.imageBase64 === 'string' ? body.imageBase64 : ''
+    const rawMime = typeof body.imageMimeType === 'string' ? body.imageMimeType.trim() : ''
+    const mimeOk = /^image\/(jpeg|png|webp|heic|heif)$/i.test(rawMime)
+    if (rawB64.length > MAX_IMAGE_BASE64_CHARS) {
+      console.warn('[rozi-chat] image base64 exceeds cap, ignored')
+    }
+    const imageBase64Payload = rawB64.length > 0 && rawB64.length <= MAX_IMAGE_BASE64_CHARS && mimeOk ? rawB64 : ''
+    const imageMimeTypePayload = imageBase64Payload ? rawMime : ''
+    const hasImage = imageBase64Payload.length > 0
+
+    const legacyCtx = sanitizeContextBlock(body.contextBlock)
 
     const apiKey = readOpenAiApiKey()
     if (!apiKey) {
@@ -1651,13 +1806,16 @@ Deno.serve(async (req) => {
     const utterance = lastUserText(historyMsgs, hasImage)
 
     const cartLineCount =
-      typeof body.cartLineCount === 'number' && body.cartLineCount > 0 ? Math.floor(body.cartLineCount) : 0
+      typeof body.cartLineCount === 'number' && body.cartLineCount > 0
+        ? clampInt(body.cartLineCount, 1, MAX_CART_LINES, 1)
+        : 0
     const cartTotalQty =
-      typeof body.cartTotalQty === 'number' && body.cartTotalQty > 0 ? Math.floor(body.cartTotalQty) : 0
+      typeof body.cartTotalQty === 'number' && body.cartTotalQty > 0
+        ? clampInt(body.cartTotalQty, 1, MAX_CART_QTY, 1)
+        : 0
     const checkoutRecentCartAdd = body.checkoutRecentCartAdd === true
     const checkoutShortAffirm = body.checkoutShortAffirm === true
-    const checkoutUserTurnsWithCart =
-      typeof body.checkoutUserTurnsWithCart === 'number' ? Math.max(0, Math.floor(body.checkoutUserTurnsWithCart)) : 0
+    const checkoutUserTurnsWithCart = clampInt(body.checkoutUserTurnsWithCart, 0, 10_000, 0)
     const checkoutClickedFromRosy = body.checkoutClickedFromRosy === true
     const clientSalonOwnerSalesMode = body.salonOwnerSalesMode === true
 
@@ -1667,29 +1825,15 @@ Deno.serve(async (req) => {
     try {
       const cls = await openaiJson<{ intent?: string; entities?: Record<string, unknown> }>(
         apiKey,
-        `Classify for Rosera (Saudi women's beauty app). JSON only:
-{"intent":"search_salon"|"recommend_service"|"booking_request"|"store_products"|"general_question","entities":{...}}
-
-Intents:
-- booking_request: أبغى أحجز، ابغى احجز، احجز، احجزي، موعد، نحجز، ابي احجز، reserve
-- search_salon: وش الأفضل، وش احسن، وين صالون، أقرب، دوري لي، استكشاف، مقارنة صالونات، "وش تنصحين" (صالونات)
-- recommend_service: تركيز على خدمة في صالون: أظافر، شعر، ليزر، سبا، مكياج…
-- store_products: شراء منتجات من متجر التطبيق، نصيحة منتج، بشرتي جافة، أبغى ماسك، أفضل شامبو، تساقط شعر، عطر، مكياج للبيت، جهاز تجميل، وش أشتري من المتجر، منتجات عناية
-- general_question: التطبيق، شكر، تحية، صورة غير واضحة، غير مصنف
-
-entities (optional):
-- query, service_keyword, salon_hint, city, date_hint (strings)
-- store_categories: string[] — فئات عربية حرفياً من القائمة فقط: "عناية بالبشرة"|"مكياج"|"عناية بالشعر"|"عطور"|"أظافر"|"أجهزة تجميل"|"سبا"|"عناية بالجسم"
-- budget_tier: "low"|"mid"|"high"|null — رخيص، أرخص، توفير، ميزانية، غالي، سعر، خصم → low
-- urgency: "today"|"soon"|null — اليوم، الحين، الآن، عاجل، حالاً → today
-- style: "luxury"|"budget"|null — فخم، VIP، لوكس → luxury
-- browse_mode: boolean — true إن كانت تتصفح/تقارن فقط بدون نية حجز صريحة
-
-افهمي السوق واللهجة الخفيفة (يالله، زين، يلا، نفس، ضبطي). If unsure: general_question + {}.`,
+        CLASSIFY_SYSTEM_PROMPT,
         `User message:\n${utterance.slice(0, 1200)}`
       )
-      intent = normalizeIntent(cls.intent)
-      entities = cls.entities && typeof cls.entities === 'object' ? cls.entities : {}
+      intent = normalizeIntent(typeof cls.intent === 'string' ? cls.intent : undefined)
+      entities = sanitizeClassifierEntities(
+        cls.entities && typeof cls.entities === 'object' && !Array.isArray(cls.entities)
+          ? (cls.entities as Record<string, unknown>)
+          : {}
+      )
     } catch (e) {
       console.warn('[rozi-chat] classify fallback', e)
     }
@@ -1703,8 +1847,7 @@ entities (optional):
 
     const userLatRaw = typeof body.userLat === 'number' ? body.userLat : NaN
     const userLngRaw = typeof body.userLng === 'number' ? body.userLng : NaN
-    const userLatLng =
-      Number.isFinite(userLatRaw) && Number.isFinite(userLngRaw) ? { lat: userLatRaw, lng: userLngRaw } : null
+    const userLatLng = isValidLatLng(userLatRaw, userLngRaw) ? { lat: userLatRaw, lng: userLngRaw } : null
 
     const luxuryHint =
       entities.style === 'luxury' || /فخم|فاخر|vip|لوكس|luxury/i.test(utterance)
@@ -1897,7 +2040,15 @@ entities (optional):
 
     const salonSalesAppendix = buildSalonOwnerSubscriptionSalesSystemAppendix(ownerB2bCtx, rankedSalons, upsellDecision)
 
-    const systemMain = `${personality}${premiumSalonHint}${salonSalesAppendix}
+    const ROZI_SYSTEM_PREAMBLE = `## دوركِ (تعليمات أساسية)
+أنتِ «روزي» — مساعدة داخل تطبيق **Rosera** (صالونات، عيادات تجميل ذات صلة، حجز، ومتجر منتجات) للمستخدمات في السعودية.
+- **مصدر الحقيقة**: الأقسام المسمّاة «بيانات حقيقية» و«منتجات متجر روزيرا» أدناه؛ لا تختلقي أسماء صالونات أو أسعاراً أو معرفات.
+- **شكل الرد**: نص عربي قصير ودافئ؛ بطاقات الصالون/المنتج والأزرار تُولَّد من JSON الخارجي — لا تعرضي جداول Markdown لـ UUID.
+- **العيادات**: عند نية «عيادة/جلدية/ليزر طبي» عامّدي البيانات كما تفعلين مع الصالونات ما دامت موجودة في قائمة الأعمال.`
+
+    const systemMain = `${ROZI_SYSTEM_PREAMBLE}
+
+${personality}${premiumSalonHint}${salonSalesAppendix}
 
 ## مهمتكِ التنفيذية
 - اعتمدي فقط على **البيانات الحقيقية** في القسم التالي لذكر صالون/خدمة/منتج (معرفات [uuid] للحجز: /salon/{id} ثم /booking/{id}).
@@ -1925,7 +2076,7 @@ ${extraLegacy}
     }
 
     if (hasImage) {
-      const dataUrl = `data:${body.imageMimeType};base64,${body.imageBase64}`
+      const dataUrl = `data:${imageMimeTypePayload};base64,${imageBase64Payload}`
       let patched = false
       for (let i = messagesForApi.length - 1; i >= 0; i--) {
         if (messagesForApi[i].role === 'user') {
@@ -2070,8 +2221,19 @@ Recent conversation (last user + assistant):\n${utterance}\n---\nAssistant draft
     const brainIntent =
       productPicks.length > 0 && intent === 'general_question' ? ('store_products' as IntentName) : intent
 
+    const recommendationMode = computeRecommendationMode({
+      hasBooking: bookingAction !== null,
+      salonCount: salonsOut.length,
+      productCount: productPicks.length,
+    })
+
     return new Response(
       JSON.stringify({
+        meta: {
+          schema_version: RESPONSE_SCHEMA_VERSION,
+          ok: true,
+          recommendation_mode: recommendationMode,
+        },
         reply,
         brain: {
           intent: brainIntent,
@@ -2110,6 +2272,12 @@ Recent conversation (last user + assistant):\n${utterance}\n---\nAssistant draft
     console.error('[rozi-chat] unhandled', e)
     return new Response(
       JSON.stringify({
+        meta: {
+          schema_version: RESPONSE_SCHEMA_VERSION,
+          ok: false,
+          recommendation_mode: 'none' as RecommendationMode,
+          code: 'internal_error',
+        },
         reply:
           'لحظة يا حلوة… صار عندي بطء بسيط 💕 جرّبي تكتبين رسالتك مرة ثانية، وإن بقيت المشكلة رجعي بعد شوي.',
         brain: { intent: 'general_question' as IntentName, entities: {} },

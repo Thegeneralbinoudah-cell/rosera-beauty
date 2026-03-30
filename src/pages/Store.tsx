@@ -1,6 +1,19 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Search, LayoutGrid, Bath, Sparkles, Cpu, Droplets, Palette, Wind, Flower2, Sparkle } from 'lucide-react'
+import {
+  Search,
+  LayoutGrid,
+  Bath,
+  Sparkles,
+  Cpu,
+  Droplets,
+  Palette,
+  Wind,
+  Flower2,
+  Sparkle,
+  Camera,
+  Mic,
+} from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { supabase, type Product } from '@/lib/supabase'
 import { fetchSponsoredProductIds } from '@/lib/boosts'
@@ -119,6 +132,22 @@ export default function Store() {
               </p>
             </div>
             <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => nav('/chat?launch=camera')}
+                aria-label="فتح كاميرا روزي"
+                className="flex h-11 w-11 items-center justify-center rounded-full border border-primary/35 bg-card text-primary shadow-sm transition-transform active:scale-95"
+              >
+                <Camera className="h-5 w-5" aria-hidden />
+              </button>
+              <button
+                type="button"
+                onClick={() => nav('/chat?launch=voice')}
+                aria-label="بدء محادثة صوتية مع روزي"
+                className="flex h-11 w-11 items-center justify-center rounded-full border border-primary/35 bg-card text-primary shadow-sm transition-transform active:scale-95"
+              >
+                <Mic className="h-5 w-5" aria-hidden />
+              </button>
               <button
                 type="button"
                 onClick={() => nav('/chat')}
