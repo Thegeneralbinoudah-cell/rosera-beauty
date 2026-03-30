@@ -13,15 +13,34 @@ export type RosieFABProps = {
 }
 
 /**
- * FAB visibility: hidden only on admin, platform owner, and salon owner dashboard.
- * Shown everywhere else (e.g. /home, /search, /city/*, /salon/:id, /chat, /store).
+ * Salon owner portal paths — first segment after `/salon/` (see App.tsx nested `/salon/*` routes).
+ * `/salon/:id` for customers uses any other first segment (e.g. UUID), so the FAB stays visible there.
+ */
+const SALON_OWNER_PORTAL_FIRST_SEGMENTS = new Set([
+  'dashboard',
+  'bookings',
+  'services',
+  'subscription',
+  'ads',
+  'analytics',
+  'profile',
+])
+
+function isSalonOwnerPortalPath(pathname: string): boolean {
+  if (pathname === '/salon') return true
+  if (!pathname.startsWith('/salon/')) return false
+  const first = pathname.slice('/salon/'.length).split('/')[0]
+  return first !== '' && SALON_OWNER_PORTAL_FIRST_SEGMENTS.has(first)
+}
+
+/**
+ * FAB visibility: hidden on admin, platform owner, and full salon owner portal URLs.
+ * Shown on customer salon detail `/salon/:id` and everywhere else.
  */
 function shouldHideRosieFab(pathname: string): boolean {
   if (pathname === '/admin' || pathname.startsWith('/admin/')) return true
   if (pathname === '/owner' || pathname.startsWith('/owner/')) return true
-  if (pathname === '/salon/dashboard' || pathname.startsWith('/salon/dashboard/')) {
-    return true
-  }
+  if (isSalonOwnerPortalPath(pathname)) return true
   return false
 }
 
