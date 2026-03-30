@@ -501,8 +501,8 @@ async function buildActionableFallbackRow(
         is_user: false,
         created_at: new Date().toISOString(),
         actions: [
-          { id: 'fb-map', label: 'خريطة الصالونات', kind: 'map' },
-          { id: 'fb-more', label: 'اقتراحات أخرى', kind: 'more' },
+          { id: 'fb-map', label: 'استكشفي الصالونات على الخريطة 🗺️', kind: 'map' },
+          { id: 'fb-more', label: 'اقتراحات تناسب ذوقك', kind: 'more' },
         ],
       }
     }
@@ -513,15 +513,15 @@ async function buildActionableFallbackRow(
         is_user: false,
         created_at: new Date().toISOString(),
         actions: [
-          { id: 'fb-b1', label: 'احجز الآن', kind: 'book', salon_id: salons[0].id, service_id: topServiceId },
+          { id: 'fb-b1', label: 'احجزي موعدك من هنا 💕', kind: 'book', salon_id: salons[0].id, service_id: topServiceId },
           {
             id: 'fb-d1',
-            label: 'عرض التفاصيل',
+            label: 'تفاصيل وأوقات الصالون',
             kind: 'salon_detail',
             salon_id: salons[0].id,
             service_id: topServiceId,
           },
-          { id: 'fb-map', label: 'الخريطة', kind: 'map' },
+          { id: 'fb-map', label: 'شوفي المزيد على الخريطة 🗺️', kind: 'map' },
         ],
       }
     }
@@ -533,8 +533,8 @@ async function buildActionableFallbackRow(
       created_at: new Date().toISOString(),
       salons: cards,
       actions: [
-        { id: 'fb-b2', label: 'احجز الآن', kind: 'book', salon_id: salons[0].id, service_id: topServiceId },
-        { id: 'fb-map2', label: 'الخريطة', kind: 'map' },
+        { id: 'fb-b2', label: 'احجزي موعدك — أول خيار لكِ ✨', kind: 'book', salon_id: salons[0].id, service_id: topServiceId },
+        { id: 'fb-map2', label: 'شوفي المزيد على الخريطة 🗺️', kind: 'map' },
       ],
     }
   } catch {
@@ -956,7 +956,7 @@ export function useChat(userId: string | undefined, options?: UseChatOptions) {
             const botText = `تم إضافة ${topPick.name_ar} إلى السلة.\n\n${lineSummary}\n\nهل تودين إكمال الطلب الآن؟`
             const checkoutAction: RozyChatAction = {
               id: 'rozy-go-checkout',
-              label: 'إتمام الطلب',
+              label: 'كمّلي طلبك بثواني ✨',
               kind: 'go_to_checkout',
             }
             const botRow: ChatRow = {
@@ -1144,8 +1144,8 @@ export function useChat(userId: string | undefined, options?: UseChatOptions) {
               if (salons.length === 0) {
                 botText = emptyText
                 uiActions = [
-                  { id: 'rosy-empty-map', label: 'خريطة الصالونات', kind: 'map' },
-                  { id: 'rosy-empty-more', label: 'اقتراحات أخرى', kind: 'more' },
+                  { id: 'rosy-empty-map', label: 'استكشفي الصالونات على الخريطة 🗺️', kind: 'map' },
+                  { id: 'rosy-empty-more', label: 'اقتراحات تناسب ذوقك', kind: 'more' },
                 ]
               } else if (salons.length === 1) {
                 const svcHint =
@@ -1157,19 +1157,19 @@ export function useChat(userId: string | undefined, options?: UseChatOptions) {
                 uiActions = [
                   {
                     id: 'rosy-direct-book',
-                    label: 'احجز الآن',
+                    label: 'احجزي موعدك من هنا 💕',
                     kind: 'book',
                     salon_id: salons[0].id,
                     service_id: topServiceId,
                   },
                   {
                     id: 'rosy-direct-detail',
-                    label: 'عرض التفاصيل',
+                    label: 'تفاصيل وأوقات الصالون',
                     kind: 'salon_detail',
                     salon_id: salons[0].id,
                     service_id: topServiceId,
                   },
-                  { id: 'rosy-see-other', label: 'شوفي خيارات ثانية', kind: 'more' },
+                  { id: 'rosy-see-other', label: 'شوفي خيارات ثانية تناسبك', kind: 'more' },
                 ]
               } else {
                 botText = `${salons[0].subscription_plan === 'premium' ? ROSY_PREMIUM_TOP_LINE : ''}ممتاز.\nهذه أفضل الخيارات المناسبة لكِ.`
@@ -1177,19 +1177,19 @@ export function useChat(userId: string | undefined, options?: UseChatOptions) {
                 uiActions = [
                   {
                     id: 'rosy-book-top',
-                    label: 'احجز الآن',
+                    label: 'احجزي موعدك — أول خيار لكِ ✨',
                     kind: 'book',
                     salon_id: salons[0].id,
                     service_id: topServiceId,
                   },
                   {
                     id: 'rosy-detail-top',
-                    label: 'عرض التفاصيل',
+                    label: 'تفاصيل وأوقات أول خيار',
                     kind: 'salon_detail',
                     salon_id: salons[0].id,
                     service_id: topServiceId,
                   },
-                  { id: 'rosy-map-near', label: 'شوفي على الخريطة', kind: 'map' },
+                  { id: 'rosy-map-near', label: 'شوفي المزيد على الخريطة 🗺️', kind: 'map' },
                 ]
               }
 

@@ -444,6 +444,7 @@ function buildStoreProductBrainBlock(
   return `## منتجات متجر روزيرا (مُختارة — استخدميها في الرد)
 ${lines.join('\n')}
 ${contextExtras ? `${contextExtras}\n` : ''}
+- **ممنوع** الاكتفاء بجملة عامة («شوفي المتجر») بدون **تسمية منتج واحد على الأقل** من الجدول بالاسم والسعر.
 - الترتيب يميل لأعلى تقييم وشعبية؛ جرّبي **نبرة الأكثر مبيعاً** بلطف عند أحد المنتجين إن لزم.
 - افتتحي بسطر يبرّر للمستخدم (مثال): **"هلا والله ✨ بشرتك تحتاج ترطيب قوي، أنصحك بهذي:"** — خصّصي حسب سياق البشرة أعلاه إن وُجد.
 - ثم قائمة بنفس النمط (${countHint} من الجدول):
@@ -465,6 +466,18 @@ function appendProductConversionLines(reply: string): string {
     t = `${t}\n\nتبين أضيف لك المنتج للسلة؟ 🛍️`
   }
   return t
+}
+
+/** سطر إغلاق نحو الحجز عندما ستظهر بطاقات صالونات — يتجنب الردود العامة بدون CTA */
+function appendSalonConversionTail(reply: string, aggressive: boolean, topSalonName: string | null | undefined): string {
+  const name = typeof topSalonName === 'string' ? topSalonName.trim() : ''
+  if (!name) return reply.trim()
+  let t = reply.trim()
+  if (/اضغطي.*حجز|زر.*حجز|تحت البطاقة|تحت اللي|موعدك من هنا|احجزي موعدك/i.test(t)) return t
+  const line = aggressive
+    ? `🔥 جاهزة تكمّلين؟ اضغطي «احجزي موعدك» تحت **${name}** وأنا معكِ للخطوة الجاية ✨`
+    : `👇 تحت ردّي بطاقات جاهزة — ابدأي من **${name}** ولو عجبكِ الخيار، لمسة واحدة على الحجز ✨`
+  return `${t}\n\n${line}`
 }
 
 function cartSummaryPhrase(cartLineCount: number): string {
@@ -605,10 +618,10 @@ function appendHesitationCheckoutLines(
 function buildProductConversionActions(picks: RozyProductOut[]): RozyActionOut[] {
   const out: RozyActionOut[] = []
   for (const p of picks) {
-    const shortName = p.name_ar.length > 30 ? `${p.name_ar.slice(0, 28)}…` : p.name_ar
+    const shortName = p.name_ar.length > 28 ? `${p.name_ar.slice(0, 26)}…` : p.name_ar
     out.push({
       id: `rozy-view-product-${p.id}`,
-      label: `عرض ${shortName}`,
+      label: `شوفي التفاصيل — ${shortName} ✨`,
       kind: 'view_product',
       product_id: p.id,
       product_name_ar: p.name_ar,
@@ -618,7 +631,7 @@ function buildProductConversionActions(picks: RozyProductOut[]): RozyActionOut[]
     })
     out.push({
       id: `rozy-add-cart-${p.id}`,
-      label: 'أضف للسلة 🛍️',
+      label: 'ضيفيه للسلة وجرّبيه براحتك 🛍️',
       kind: 'add_to_cart',
       product_id: p.id,
       product_name_ar: p.name_ar,
@@ -636,6 +649,15 @@ function shouldIncludeSalonCards(intent: IntentName, utterance: string): boolean
   if (intent !== 'general_question') return false
   return /صالون|حجز|موعد|سبا|أظافر|شعر|ليزر|مكياج|تجميل|عيادة|أقرب|تقييم|رخيص|سعر|غال[يى]|غالي|خصم|أرخص|ارخص|ابي\s*خصم|أبي\s*خصم|ابغى\s*خصم|فيه\s*أرخص|في\s*أرخص|وش\s*الأفضل|وش\s*احسن|دلّيني|دليني|نصايح|اقتراح/i.test(
     utterance
+  )
+}
+
+/** نية حجز قوية — أزرار ونص أقوى نحو التحويل */
+function utteranceShowsStrongBookingIntent(utterance: string): boolean {
+  const t = utterance.trim()
+  if (!t) return false
+  return /احجز|أحجز|ابغى\s*احجز|ابي\s*احجز|ابغي\s*احجز|بدّي\s*احجز|بدي\s*احجز|أبغى\s*موعد|ابغى\s*موعد|ابي\s*موعد|موعد\s*اليوم|موعد\s*الحين|نكمّل\s*الحجز|نكمل\s*الحجز|أكّد\s*الحجز|اكد\s*الحجز|أبغى\s*أروح|ابغى\s*أروح|ابي\s*أروح|وين\s*احجز|وين\s*أحجز|خلاص\s*احجز|تمام\s*احجز|يس\s*احجز|أرسلي\s*حجز|ارسلي\s*حجز|احجزي\s*لي|احجز\s*لي|reserve|book\s*now/i.test(
+    t
   )
 }
 
@@ -717,12 +739,22 @@ function salonsToPayload(rows: SalonRow[], userLatLng: { lat: number; lng: numbe
   })
 }
 
-function buildActionsForSalons(salons: RozySalonOut[]): RozyActionOut[] {
+function buildActionsForSalons(salons: RozySalonOut[], opts?: { aggressiveBooking?: boolean }): RozyActionOut[] {
   if (salons.length === 0) return []
   const first = salons[0]
+  const shortName = first.name_ar.length > 22 ? `${first.name_ar.slice(0, 20)}…` : first.name_ar
+  const bookLabel = opts?.aggressiveBooking
+    ? 'احجزي موعدك الحين — خطوة وحدة ✨'
+    : 'احجزي موعدك من هنا 💕'
   return [
-    { id: 'book_now', label: 'احجزي الآن', salon_id: first.id, kind: 'book' },
-    { id: 'more_options', label: 'شوفي خيارات ثانية', kind: 'more' },
+    { id: 'book_now', label: bookLabel, salon_id: first.id, kind: 'book' },
+    {
+      id: 'salon_detail_top',
+      label: `تفاصيل وأوقات ${shortName}`,
+      salon_id: first.id,
+      kind: 'salon_detail',
+    },
+    { id: 'more_options', label: 'شوفي خيارات ثانية تناسبك', kind: 'more' },
   ]
 }
 
@@ -1123,7 +1155,7 @@ function buildPriceNegotiationPack(
   if (appliedDiscountPercent != null && appliedDiscountPercent > 0 && discAllowed) {
     actions.push({
       id: 'rosy-negotiated-book',
-      label: 'احجزي بالسعر الجديد',
+      label: 'ثبّتي موعدك بالعرض الحالي ✨',
       salon_id: focus.id,
       kind: 'negotiated_book',
       service_id: cheaperSameSalon?.id ?? null,
@@ -1643,6 +1675,7 @@ function buildRosyPersonalityBlock(params: {
 - **لا تعتذري** — لا تقلي «آسفة» أو «عذراً» أو «معذرة»؛ قدّمي بدلاً من ذلك **خطوة تالية مفيدة** (خريطة، بحث، خدمة مقترحة، أو سؤال واحد واضح).
 - **استنتاجي**: اربطي بالمحادثة السابقة؛ لا تكرري سؤالاً إن الجواب ظاهر في التاريخ أو في ذاكرة المستخدمة.
 - **مسار**: قصد المستخدمة → اقتراح واضح (أفضل 3) → تأكيد خفيف → دفع لطيف نحو الحجز.
+- **عند وجود صالونات أو منتجات في بيانات هذه الرسالة**: لا تكتفي بمعلومة عامة أو ترحيب فقط؛ **اذكري أسماء من الجدول** وادعي لخطوة واضحة (حجز / تفاصيل / سلة).
 - التصنيف الحالي للرسالة: **${intent}** (توجيهات العيادات التجميلية/الجلدية تُعالَج مثل خدمات الصالون عند وجودها في البيانات).
 - لا تعرضي JSON أو جداول؛ البطاقات تظهر في الواجهة — اكتفي بجملة قصيرة + إيموجي واحد أو اثنين كحد أقصى.
 - بعد عرض خيارات الصالونات: وجّهي للحجز: "تحبي أحجز لكِ من هنا؟ 💕" أو "نكمّل الحجز؟ ✨"
@@ -1942,6 +1975,9 @@ Deno.serve(async (req) => {
     const productPicks = shouldFetchStore
       ? await fetchProductsForStoreRecommendations(userSb, entities, utterance, intent, skinPayload, recoHistory, productLimit)
       : []
+    const hideSalonsForStoreProducts =
+      productPicks.length > 0 &&
+      (intent === 'store_products' || (intent === 'general_question' && !utteranceSalonHeavy(utterance)))
     const storeProductBlock = buildStoreProductBrainBlock(
       productPicks,
       skinPayload,
@@ -2022,6 +2058,34 @@ Deno.serve(async (req) => {
 
     const extraLegacy = legacyCtx ? `\n\n## سياق إضافي من العميل (قديم — اختياري)\n${legacyCtx}` : ''
 
+    const strongBookingIntent = intent === 'booking_request' || utteranceShowsStrongBookingIntent(utterance)
+    const willAttachSalonCards =
+      !hideSalonsForStoreProducts &&
+      shouldIncludeSalonCards(intent, utterance) &&
+      rankedSalons.length > 0
+
+    const productCtaSystemAppendix =
+      productPicks.length > 0
+        ? `
+
+## تحويل منتجات المتجر (بطاقات ستظهر للمستخدمة)
+- سمّي **اسم منتج واحد على الأقل** من القائمة المختارة مع **السعر** من البيانات.
+- شجّعي مرة واحدة على زر التفاصيل أو السلة بلطف — دون تكرار مزعج.`
+        : ''
+
+    let salonCtaSystemAppendix = ''
+    if (willAttachSalonCards) {
+      salonCtaSystemAppendix = `
+
+## تحويل الحجز (إلزامي — بطاقات صالونات ستظهر)
+- **ممنوع** الرد العام («تقدري تتصفحين») بدون **تسمية صالون واحد على الأقل** من جدول «صالونات وعيادات» أعلاه.
+- أنهي بجملة توجّه للزر تحت البطاقة (مثال: «اضغطي احجزي موعدك تحت اللي يعجبكِ ✨»).`
+      if (strongBookingIntent) {
+        salonCtaSystemAppendix += `
+- **نية حجز واضحة**: ركّزي بلطف على إتمام الموعد الآن وأبرزي أفضل خيار حسب التقييم والبيانات.`
+      }
+    }
+
     const personality = buildRosyPersonalityBlock({
       intent,
       hasBookedBefore,
@@ -2057,6 +2121,7 @@ ${personality}${premiumSalonHint}${salonSalesAppendix}
 - منتجات المتجر: /store و /product/{id} — إن وُجد قسم "منتجات متجر روزيرا (مُختارة)" فالزمي الأسماء والأسعار والفوائد منه فقط.
 - صورة الوجه: تحليل مختصر — **ليس تشخيصاً طبياً** — ولا تطلبي حفظ الصور.
 - قسم تحليل البشرة والتوصيات المرتبة: استخدميهما عند الصلة دون إطالة.
+${salonCtaSystemAppendix}${productCtaSystemAppendix}
 
 ## بيانات حقيقية (Supabase)
 ${brainContext}
@@ -2120,10 +2185,6 @@ ${extraLegacy}
         : appendCheckoutConversionLines(reply, cartLineCount)
     }
 
-    const hideSalonsForStoreProducts =
-      productPicks.length > 0 &&
-      (intent === 'store_products' || (intent === 'general_question' && !utteranceSalonHeavy(utterance)))
-
     if (shouldIncludeSalonCards(intent, utterance) && rankedSalons.length === 0 && !hideSalonsForStoreProducts) {
       reply = `ما لقيت شيء مناسب 😢\nخليني أوريك الأقرب لك\n\n${reply}`
     }
@@ -2136,7 +2197,7 @@ ${extraLegacy}
       rankedSalons.length > 0
     ) {
       salonsOut = salonsToPayload(rankedSalons, userLatLng)
-      actionsOut = buildActionsForSalons(salonsOut)
+      actionsOut = buildActionsForSalons(salonsOut, { aggressiveBooking: strongBookingIntent })
     }
     const subscriptionUpsell = upsellDecision.showCta
     if (subscriptionUpsell) {
@@ -2150,16 +2211,20 @@ ${extraLegacy}
     }
     if (productPicks.length > 0) {
       actionsOut = [...actionsOut, ...buildProductConversionActions(productPicks)]
-      actionsOut.push({ id: 'rozy-open-store', label: 'تصفحي المتجر', kind: 'store' })
+      actionsOut.push({ id: 'rozy-open-store', label: 'تصفحي منتجات تناسبك ✨', kind: 'store' })
     }
     if (shouldOfferCheckout && !actionsOut.some((a) => a.kind === 'go_to_checkout')) {
       actionsOut = [
         ...actionsOut,
-        { id: 'rozy-go-checkout', label: 'إتمام الطلب', kind: 'go_to_checkout' },
+        { id: 'rozy-go-checkout', label: 'كمّلي طلبك بثواني ✨', kind: 'go_to_checkout' },
       ]
     }
     if (urgentToday && salonsOut.length > 0) {
       reply = `في مواعيد اليوم متاحة 🔥\n\n${reply}`
+    }
+
+    if (salonsOut.length > 0) {
+      reply = appendSalonConversionTail(reply, strongBookingIntent, salonsOut[0]?.name_ar)
     }
 
     let bookingAction: {
