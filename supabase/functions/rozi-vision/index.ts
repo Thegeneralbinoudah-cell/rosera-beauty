@@ -24,6 +24,10 @@ const cors = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
+console.log('[rozi-vision] edge secrets presence', {
+  OPENAI_API_KEY: Boolean(Deno.env.get('OPENAI_API_KEY')?.trim()),
+})
+
 const MAX_BASE64_CHARS = 5_200_000
 
 function jsonDebugResponse(
@@ -58,6 +62,7 @@ Deno.serve(async (req) => {
   }
 
   const accessToken = auth.slice(7).trim()
+  console.log('[rozi-vision] bearer access_token present', accessToken.length > 0)
   const supabaseUrl = Deno.env.get('SUPABASE_URL')?.trim()
   const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY')?.trim()
   if (!supabaseUrl || !supabaseAnonKey) {

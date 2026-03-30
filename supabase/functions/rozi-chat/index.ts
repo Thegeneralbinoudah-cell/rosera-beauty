@@ -19,6 +19,11 @@ const cors = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
+console.log('[rozi-chat] edge secrets presence', {
+  OPENAI_API_KEY: Boolean(Deno.env.get('OPENAI_API_KEY')?.trim()),
+  ELEVENLABS_API_KEY: Boolean(Deno.env.get('ELEVENLABS_API_KEY')?.trim()),
+})
+
 /** Global funnel aggregates (RPC with service_role); empty if secret missing or RPC fails. */
 type RozyRevenueSignals = { salon: Map<string, number>; product: Map<string, number> }
 

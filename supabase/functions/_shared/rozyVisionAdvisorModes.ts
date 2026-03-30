@@ -2,6 +2,7 @@
  * Rosy Vision — advisor-only modes (structured JSON).
  * Does not modify roziVisionCore.ts. Used by `rozi-vision` Edge Function for hair_color / haircut (+ hand_nail when routed).
  */
+import { openAiAssistantContentToString } from './openAiAssistantContent.ts'
 
 const OPENAI_MODEL = 'gpt-4o'
 const MAX_TOKENS = 1000
@@ -99,13 +100,24 @@ async function openAiVisionJson(dataUrl: string, apiKey: string, instruction: st
     throw new Error(`OpenAI ${res.status}: ${t.slice(0, 200)}`)
   }
   const data = (await res.json()) as {
-    choices?: Array<{ message?: { content?: string } }>
+    choices?: Array<{ message?: { content?: unknown } }>
   }
-  const content = data.choices?.[0]?.message?.content
-  if (typeof content !== 'string' || !content.trim()) {
+  console.log('[openAiVisionJson] full OpenAI response:\n', JSON.stringify(data, null, 2))
+  const choice0 = data.choices?.[0]
+  const msg = choice0?.message
+  const contentRaw = msg?.content
+  const text = openAiAssistantContentToString(contentRaw).trim()
+  console.log('[openAiVisionJson] shape check', {
+    hasChoices: Array.isArray(data.choices) && data.choices.length > 0,
+    hasMessage: Boolean(msg),
+    contentType:
+      Array.isArray(contentRaw) ? 'array' : contentRaw === null || contentRaw === undefined ? 'nullish' : typeof contentRaw,
+    contentLength: text.length,
+  })
+  if (!text) {
     throw new Error('رد فارغ من النموذج')
   }
-  return content.trim()
+  return text
 }
 
 function parseJsonObject(raw: string): Record<string, unknown> {

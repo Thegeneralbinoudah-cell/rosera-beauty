@@ -162,9 +162,19 @@ export function normalizeRozyVisionResult(raw: unknown, fallbackMode: RozyVision
  * Requires authenticated session; returns strict JSON from Edge.
  */
 export async function invokeRozyVision(payload: RozyVisionInvokePayload): Promise<RozyVisionResult> {
-  const { data: sess } = await supabase.auth.refreshSession()
-  const token = sess.session?.access_token
-  if (!token) throw new Error('انتهت الجلسة — سجّلي دخولكِ من جديد')
+  const { data: { session } } = await supabase.auth.getSession()
+  let token = session?.access_token?.trim() ?? ''
+  const now = Math.floor(Date.now() / 1000)
+  const exp = session?.expires_at
+  const needsRefresh = !token || (typeof exp === 'number' && exp <= now + 30)
+  if (needsRefresh) {
+    const { data: ref } = await supabase.auth.refreshSession()
+    token = ref.session?.access_token?.trim() ?? ''
+  }
+  console.log('[invokeRozyVision] access_token present', Boolean(token))
+  if (!token) {
+    throw new Error('يجب تسجيل الدخول لتحليل الصورة. سجّلي دخولكِ ثم أعيدي المحاولة.')
+  }
 
   if (payload.imageBase64.length > MAX_ROZY_VISION_BASE64_CHARS) {
     throw new Error('الصورة كبيرة جداً بعد التحويل — اختاري ملفاً أصغر')

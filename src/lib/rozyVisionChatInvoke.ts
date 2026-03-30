@@ -31,12 +31,20 @@ export async function invokeRozyAdvisor(
       throw new Error(msg)
     }
 
-    const { data: sess } = await supabase.auth.refreshSession()
-    const token = sess.session?.access_token
+    const { data: { session } } = await supabase.auth.getSession()
+    let token = session?.access_token?.trim() ?? ''
+    const now = Math.floor(Date.now() / 1000)
+    const exp = session?.expires_at
+    const needsRefresh = !token || (typeof exp === 'number' && exp <= now + 30)
+    if (needsRefresh) {
+      const { data: ref } = await supabase.auth.refreshSession()
+      token = ref.session?.access_token?.trim() ?? ''
+    }
+    console.log('[rozyVisionChatInvoke] access_token present', Boolean(token))
     if (!token) {
-      const msg = '[rozyVisionChatInvoke] no access_token after refreshSession'
-      console.error(msg)
-      throw new Error(msg)
+      throw new Error(
+        'يجب تسجيل الدخول لاستخدام روزي مع الصورة. سجّلي دخولكِ ثم أعيدي المحاولة.',
+      )
     }
 
     const { data, error, response: fnResponse } = await supabase.functions.invoke('rozi-vision', {

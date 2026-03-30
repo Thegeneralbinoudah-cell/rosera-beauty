@@ -2,6 +2,7 @@
  * Shared Rosi/Rozy vision pipeline: validate → gate → AI JSON → normalize.
  * No HTTP, no storage. Callers must not log image payloads.
  */
+import { openAiAssistantContentToString } from './openAiAssistantContent.ts'
 
 export function readOpenAiApiKey(): string {
   const raw = Deno.env.get('OPENAI_API_KEY')?.trim() || ''
@@ -630,15 +631,24 @@ async function openaiVisionQualityGate(apiKey: string, mode: VisionMode, dataUrl
 
   const data = (await res.json()) as {
     error?: { message?: string }
-    choices?: { message?: { content?: string | null } }[]
+    choices?: { message?: { content?: unknown } }[]
   }
+  console.log('[openaiVisionQualityGate] full OpenAI response:\n', JSON.stringify(data, null, 2))
 
   if (!res.ok) {
     return false
   }
 
-  const raw = data.choices?.[0]?.message?.content
-  if (typeof raw !== 'string' || !raw.trim()) {
+  const contentRaw = data.choices?.[0]?.message?.content
+  const raw = openAiAssistantContentToString(contentRaw).trim()
+  console.log('[openaiVisionQualityGate] shape check', {
+    hasChoices: Array.isArray(data.choices) && data.choices.length > 0,
+    hasMessage: Boolean(data.choices?.[0]?.message),
+    contentType:
+      Array.isArray(contentRaw) ? 'array' : contentRaw === null || contentRaw === undefined ? 'nullish' : typeof contentRaw,
+    contentLength: raw.length,
+  })
+  if (!raw) {
     return false
   }
   try {
@@ -700,15 +710,24 @@ async function openaiVisionJsonStrict(
 
   const data = (await res.json()) as {
     error?: { message?: string }
-    choices?: { message?: { content?: string | null } }[]
+    choices?: { message?: { content?: unknown } }[]
   }
+  console.log('[openaiVisionJsonStrict] full OpenAI response:\n', JSON.stringify(data, null, 2))
 
   if (!res.ok) {
     throw new Error(data.error?.message || `OpenAI ${res.status}`)
   }
 
-  const raw = data.choices?.[0]?.message?.content
-  if (typeof raw !== 'string' || !raw.trim()) {
+  const contentRaw = data.choices?.[0]?.message?.content
+  const raw = openAiAssistantContentToString(contentRaw).trim()
+  console.log('[openaiVisionJsonStrict] shape check', {
+    hasChoices: Array.isArray(data.choices) && data.choices.length > 0,
+    hasMessage: Boolean(data.choices?.[0]?.message),
+    contentType:
+      Array.isArray(contentRaw) ? 'array' : contentRaw === null || contentRaw === undefined ? 'nullish' : typeof contentRaw,
+    contentLength: raw.length,
+  })
+  if (!raw) {
     throw new Error('Empty vision JSON')
   }
   try {
