@@ -41,6 +41,21 @@ import type { RozyVisionChatResult, RozyVisionChatAdvisorMode } from '@/lib/rozy
 
 const ROSY_PREMIUM_TOP_LINE = 'هذا من أفضل الصالونات المميزة\n'
 
+const ROZI_CHAT_INVOKE_TIMEOUT_MS = 10_000
+
+/** `functions.invoke` timeout / AbortSignal — Supabase wraps fetch abort as `FunctionsFetchError` with `context`. */
+function isFunctionsInvokeAborted(error: unknown): boolean {
+  if (error == null || typeof error !== 'object') return false
+  const o = error as { name?: string; context?: unknown }
+  if (o.name === 'AbortError') return true
+  const ctx = o.context
+  if (ctx instanceof Error && ctx.name === 'AbortError') return true
+  if (ctx != null && typeof ctx === 'object' && 'name' in ctx && (ctx as { name: string }).name === 'AbortError') {
+    return true
+  }
+  return false
+}
+
 /** رد مساعد — بدون نص الرسالة؛ source يحدد المسار (نموذج/حافة/صوت). */
 function captureRosyReplyGenerated(
   source: string,
@@ -657,6 +672,9 @@ type ChatMessageInsert = {
 
 /**
  * Rosy Brain: history from `chat_messages`; replies + intent + DB context from Edge `rozi-chat`.
+ *
+ * `sendMessage` يعيد `true` بعد إدراج رسالة المستخدم في DB وإكمال المسار (آمن لمسح حقل الإدخال)،
+ * و`false` عند الحظر (busy / debounce) أو فشل المصادقة/الملف الشخصي/إدراج الرسالة.
  */
 export function useChat(userId: string | undefined, options?: UseChatOptions) {
   const {
@@ -863,16 +881,16 @@ export function useChat(userId: string | undefined, options?: UseChatOptions) {
       image?: { base64: string; mime: string } | null,
       clientGeo?: { lat: number; lng: number } | null,
       opts?: RozySendMessageOptions
-    ) => {
+    ): Promise<boolean> => {
       const rawTrim = text.trim()
       const normalizedText = rawTrim ? normalizeArabic(rawTrim) : ''
-      if (!normalizedText && !image) return
+      if (!normalizedText && !image) return false
       // History load failure should not freeze chat actions; clear banner on new interaction.
       setHistoryError(null)
 
-      if (sendBusyRef.current) return
+      if (sendBusyRef.current) return false
       const sendNow = Date.now()
-      if (sendNow - lastUserSendAtRef.current < 150) return
+      if (sendNow - lastUserSendAtRef.current < 150) return false
       lastUserSendAtRef.current = sendNow
       sendBusyRef.current = true
       try {
@@ -885,7 +903,7 @@ export function useChat(userId: string | undefined, options?: UseChatOptions) {
           })
         }
         toast.error('يجب تسجيل الدخول لإرسال الرسائل. سجّلي دخولكِ ثم أعيدي المحاولة.')
-        return
+        return false
       }
       const uid = authData.user.id
 
@@ -895,7 +913,7 @@ export function useChat(userId: string | undefined, options?: UseChatOptions) {
           userId: uid,
         })
         toast.error('تعذر تجهيز حسابكِ لحفظ المحادثة. حاولي مرة أخرى.')
-        return
+        return false
       }
 
       const displayText = image ? (normalizedText || 'صورة للتحليل (لا تُحفظ)') : normalizedText
@@ -919,7 +937,7 @@ export function useChat(userId: string | undefined, options?: UseChatOptions) {
           logChatInsertError('user message', insUserErr)
           toast.error('تعذر حفظ رسالتكِ. حاولي مرة أخرى.')
           setMessages((m) => m.filter((x) => x.id !== userRow.id))
-          return
+          return false
         }
         {
           const textLen = normalizedText.length
@@ -935,7 +953,7 @@ export function useChat(userId: string | undefined, options?: UseChatOptions) {
         console.error('Chat insert exception (user message):', e)
         toast.error('تعذر حفظ رسالتكِ. حاولي مرة أخرى.')
         setMessages((m) => m.filter((x) => x.id !== userRow.id))
-        return
+        return false
       }
 
       if (image && opts?.visionAdvisorMode) {
@@ -998,7 +1016,7 @@ export function useChat(userId: string | undefined, options?: UseChatOptions) {
           setSending(false)
           setSendingImage(false)
         }
-        return
+        return true
       }
 
       setSending(true)
@@ -1069,7 +1087,7 @@ export function useChat(userId: string | undefined, options?: UseChatOptions) {
             } catch (e) {
               console.error('Chat insert exception (affirm add product):', e)
             }
-            return
+            return true
           }
 
           if (
@@ -1104,7 +1122,7 @@ export function useChat(userId: string | undefined, options?: UseChatOptions) {
               console.error('Chat insert exception (salon owner sub nav):', e)
             }
             onSalonOwnerSubscriptionIntent?.()
-            return
+            return true
           }
 
           if (voiceBookingAwaitingChoiceRef.current) {
@@ -1154,7 +1172,7 @@ export function useChat(userId: string | undefined, options?: UseChatOptions) {
                 if (top) {
                   onBookingAction?.({ action: 'booking', salon_id: top.id })
                 }
-                return
+                return true
               } catch (e) {
                 console.error('Voice booking pick failed:', e)
                 voiceBookingAwaitingChoiceRef.current = false
@@ -1190,7 +1208,7 @@ export function useChat(userId: string | undefined, options?: UseChatOptions) {
             } catch (e) {
               console.error('Chat insert exception (voice booking prompt):', e)
             }
-            return
+            return true
           }
 
           const rankIntent = detectRosyRankFromMessage(normalizedText, prefServiceRef.current)
@@ -1317,7 +1335,7 @@ export function useChat(userId: string | undefined, options?: UseChatOptions) {
                 console.error('Chat insert exception (assistant rosey smart):', e)
                 toast.error('تم استلام الرد لكن تعذر حفظه في السجل.')
               }
-              return
+              return true
             } catch (e) {
               console.error('Rosy smart rank failed, falling back to rozi-chat:', e)
             }
@@ -1333,7 +1351,7 @@ export function useChat(userId: string | undefined, options?: UseChatOptions) {
               ? 'انتهت صلاحية الجلسة أو تعذر التحقق منها. سجّلي دخولكِ مرة أخرى.'
               : 'تعذر تجديد الجلسة لروزي. سجّلي خروجاً ثم دخولاً من جديد.'
           )
-          return
+          return true
         }
 
         let cartLineCount = 0
@@ -1382,12 +1400,16 @@ export function useChat(userId: string | undefined, options?: UseChatOptions) {
             postSalonDetailBookingBoost: postSalonDetailBookingBoostActive(),
           },
           headers: { Authorization: `Bearer ${accessToken}` },
+          timeout: ROZI_CHAT_INVOKE_TIMEOUT_MS,
         })
 
         const payload = data as RoziBrainPayload | null
         const gotReply = Boolean(payload && typeof payload.reply === 'string' && payload.reply.trim())
 
         if (!gotReply) {
+          if (error && isFunctionsInvokeAborted(error)) {
+            toast.error('انتهت مهلة انتظار روزي (10 ثوانٍ). تحققي من الاتصال وحاولي مرة أخرى.')
+          }
           if (error) {
             const fromBody = await getEdgeFunctionHttpErrorDetail(error, fnResponse ?? null)
             const hint = fromBody ?? getEdgeFunctionErrorMessage(error as Error, data)
@@ -1414,7 +1436,7 @@ export function useChat(userId: string | undefined, options?: UseChatOptions) {
               } catch (insErr) {
                 console.error('Chat insert exception (session hint):', insErr)
               }
-              return
+              return true
             }
           }
 
@@ -1441,7 +1463,7 @@ export function useChat(userId: string | undefined, options?: UseChatOptions) {
           } catch (insEx) {
             console.error('Chat insert exception (assistant fallback):', insEx)
           }
-          return
+          return true
         }
 
         const botText = payload!.reply as string
@@ -1593,6 +1615,7 @@ export function useChat(userId: string | undefined, options?: UseChatOptions) {
         setSending(false)
         setSendingImage(false)
       }
+      return true
       } finally {
         sendBusyRef.current = false
       }

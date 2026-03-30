@@ -19,6 +19,46 @@ const cors = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
+/** Global funnel aggregates (RPC with service_role); empty if secret missing or RPC fails. */
+type RozyRevenueSignals = { salon: Map<string, number>; product: Map<string, number> }
+
+const EMPTY_REVENUE_SIGNALS: RozyRevenueSignals = { salon: new Map(), product: new Map() }
+
+let revenueSignalsCache: { loadedAt: number; data: RozyRevenueSignals } | null = null
+const REVENUE_SIGNAL_TTL_MS = 4 * 60 * 1000
+
+async function loadRevenueSignals(serviceSb: SupabaseClient | null): Promise<RozyRevenueSignals> {
+  if (!serviceSb) return EMPTY_REVENUE_SIGNALS
+  const now = Date.now()
+  if (revenueSignalsCache && now - revenueSignalsCache.loadedAt < REVENUE_SIGNAL_TTL_MS) {
+    return revenueSignalsCache.data
+  }
+  try {
+    const { data, error } = await serviceSb.rpc('rozy_entity_revenue_signals', { p_days: 30 })
+    if (error) {
+      console.warn('[rozi-chat] rozy_entity_revenue_signals', error.message)
+      return EMPTY_REVENUE_SIGNALS
+    }
+    const salon = new Map<string, number>()
+    const product = new Map<string, number>()
+    for (const row of data ?? []) {
+      const r = row as { entity_kind?: string; entity_id?: string; signal?: number | string }
+      const k = typeof r.entity_id === 'string' ? r.entity_id.trim() : ''
+      const rawSig = typeof r.signal === 'number' ? r.signal : Number(r.signal)
+      const sig = Number.isFinite(rawSig) ? rawSig : 0
+      if (!k || sig === 0) continue
+      if (r.entity_kind === 'salon') salon.set(k, sig)
+      else if (r.entity_kind === 'product') product.set(k, sig)
+    }
+    const dataOut: RozyRevenueSignals = { salon, product }
+    revenueSignalsCache = { loadedAt: now, data: dataOut }
+    return dataOut
+  } catch (e) {
+    console.warn('[rozi-chat] revenue signals', e)
+    return EMPTY_REVENUE_SIGNALS
+  }
+}
+
 /** Matches client `FEATURED_AD_AI_RANK_BOOST` in aiRanking / salonAds. */
 const FEATURED_AD_RANK_BOOST = 58
 
@@ -386,6 +426,19 @@ function diversifyCommercePicks(scored: ScoredItem<ProductForRank>[], limit: num
   return pickOrder.slice(0, limit).map((item) => scoreMap.get(item.id)!)
 }
 
+function applyProductRevenueToRanked(
+  ranked: ScoredItem<ProductForRank>[],
+  rev: Map<string, number>
+): ScoredItem<ProductForRank>[] {
+  if (!rev.size) return ranked
+  return [...ranked]
+    .map((x) => {
+      const d = rev.get(x.item.id) ?? 0
+      return d === 0 ? x : { ...x, score: x.score + d }
+    })
+    .sort((a, b) => b.score - a.score)
+}
+
 async function fetchProductsForStoreRecommendations(
   sb: SupabaseClient,
   entities: Record<string, unknown>,
@@ -393,7 +446,8 @@ async function fetchProductsForStoreRecommendations(
   intent: IntentName,
   skinPayload: SkinPayloadForRank | null,
   reco: UserRecommendationHistory,
-  max = 3
+  max = 3,
+  revenueProductSignal: Map<string, number> = EMPTY_REVENUE_SIGNALS.product
 ): Promise<RozyProductOut[]> {
   const poolSize = 12
   const primary = pickPrimaryStoreCategory(entities, utterance)
@@ -403,7 +457,7 @@ async function fetchProductsForStoreRecommendations(
       const asRank = rows as unknown as ProductForRank[]
       const tokens = skinTokensFromPayload(skinPayload)
       const ranked = rankProducts(asRank, skinPayload, tokens, reco, Math.min(24, asRank.length))
-      const diversified = diversifyCommercePicks(ranked, max)
+      const diversified = diversifyCommercePicks(applyProductRevenueToRanked(ranked, revenueProductSignal), max)
       return mapRankedProductsToRozyOut(diversified)
     }
   }
@@ -425,7 +479,7 @@ async function fetchProductsForStoreRecommendations(
   if (rows.length === 0) return []
   const tokens = skinTokensFromPayload(skinPayload)
   const ranked = rankProducts(rows, skinPayload, tokens, reco, Math.min(24, rows.length))
-  const diversified = diversifyCommercePicks(ranked, max)
+  const diversified = diversifyCommercePicks(applyProductRevenueToRanked(ranked, revenueProductSignal), max)
   return mapRankedProductsToRozyOut(diversified)
 }
 
@@ -878,6 +932,8 @@ function rankSalonsForRosy(
     preferredPriceRange?: string | null
     /** Canonical Arabic city — boosts matching `salon.city` without removing other signals */
     preferredCityForScoreBoost?: string | null
+    /** Global rozi_events-derived boost/penalty per salon id (service_role aggregate). */
+    revenueSalonSignal?: Map<string, number> | null
   }
 ): SalonRow[] {
   const pref = flags.preferredCityForScoreBoost?.trim() || null
@@ -922,6 +978,8 @@ function rankSalonsForRosy(
       const pref = flags.preferredPriceRange?.trim()
       if (pref && s.price_range && s.price_range.trim() === pref) score += 10
     }
+    const revSig = flags.revenueSalonSignal?.get(s.id)
+    if (revSig != null && Number.isFinite(revSig)) score += revSig
     return { s, score, dist }
   })
   scored.sort((a, b) => b.score - a.score)
@@ -2086,6 +2144,12 @@ Deno.serve(async (req) => {
   const userSb = createClient(supabaseUrl, supabaseAnonKey, {
     global: { headers: { Authorization: `Bearer ${accessToken}` } },
   })
+  const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')?.trim()
+  const serviceSb = serviceRoleKey
+    ? createClient(supabaseUrl, serviceRoleKey, {
+        auth: { persistSession: false, autoRefreshToken: false },
+      })
+    : null
 
   try {
     let bodyRaw: unknown
@@ -2235,9 +2299,10 @@ Deno.serve(async (req) => {
     const urgentToday =
       entities.urgency === 'today' || /اليوم|الحين|الآن|عاجل|حالاً|اليوم$/i.test(utterance)
 
-    const [recoHistory, salonsRaw] = await Promise.all([
+    const [recoHistory, salonsRaw, revenueSignals] = await Promise.all([
       fetchRecoHistory(userSb, userId),
       fetchSalonsForUser(userSb, rozyLoc.cityForQueryFilter, intent, entities, rozyLoc.preferredCityAr),
+      loadRevenueSignals(serviceSb),
     ])
     const hasBookedBefore = recoHistory.bookedBusinessIds.size > 0
     const isFrequentChatter = (histRows ?? []).length >= 8
@@ -2250,6 +2315,7 @@ Deno.serve(async (req) => {
         urgentToday,
         preferredPriceRange: memoryPack.preferredPriceRange,
         preferredCityForScoreBoost: rozyLoc.preferredCityAr,
+        revenueSalonSignal: revenueSignals.salon,
       })
     )
 
@@ -2334,7 +2400,16 @@ Deno.serve(async (req) => {
       utteranceShowsStrongStoreProductIntent(utterance)
     const productLimit: 1 | 2 | 3 = strongStoreProductIntent ? 3 : uncertainProducts ? 1 : 2
     const productPicks = shouldFetchStore
-      ? await fetchProductsForStoreRecommendations(userSb, entities, utterance, intent, skinPayload, recoHistory, productLimit)
+      ? await fetchProductsForStoreRecommendations(
+          userSb,
+          entities,
+          utterance,
+          intent,
+          skinPayload,
+          recoHistory,
+          productLimit,
+          revenueSignals.product
+        )
       : []
     /** لا تخفي صالونات عند نية منتجات غير واضحة (general + تصنيف من استنتاج النص فقط) */
     const hideSalonsForStoreProducts =

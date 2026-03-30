@@ -785,8 +785,8 @@ export default function AiChat({ embedded = false }: { embedded?: boolean }) {
   const send = async (text: string) => {
     const t = text.trim()
     if (!t) return
-    setInput('')
-    await sendMessage(t, null, clientGeoRef.current)
+    const ok = await sendMessage(t, null, clientGeoRef.current)
+    if (ok) setInput('')
   }
 
   const onPickImage = async (e: ChangeEvent<HTMLInputElement>) => {
@@ -797,12 +797,12 @@ export default function AiChat({ embedded = false }: { embedded?: boolean }) {
       photoPickFromLiveRef.current = false
       const { base64, mime } = await fileToBase64(f)
       const text = input.trim()
-      setInput('')
       const mode = committedAdvisorModeRef.current
       committedAdvisorModeRef.current = null
-      await sendMessage(text || '', { base64, mime }, clientGeoRef.current, {
+      const ok = await sendMessage(text || '', { base64, mime }, clientGeoRef.current, {
         visionAdvisorMode: mode ?? undefined,
       })
+      if (ok) setInput('')
       setAdvisorMode(null)
     } catch {
       /* ignore */
@@ -868,9 +868,10 @@ export default function AiChat({ embedded = false }: { embedded?: boolean }) {
     const { base64, mime } = await fileToBase64(file)
     setLiveCameraOpen(false)
     committedAdvisorModeRef.current = null
-    await sendMessage(input.trim() || '', { base64, mime }, clientGeoRef.current, {
+    const ok = await sendMessage(input.trim() || '', { base64, mime }, clientGeoRef.current, {
       visionAdvisorMode: mode ?? undefined,
     })
+    if (ok) setInput('')
   }
 
   const onlyWelcome = !loading && !historyError && messages.length === 1 && messages[0]?.id === 'welcome'
