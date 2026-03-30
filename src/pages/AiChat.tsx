@@ -225,6 +225,7 @@ export default function AiChat({ embedded = false }: { embedded?: boolean }) {
     reloadHistory,
     clearChatHistory,
     kickoffSalonOwnerVoiceSales,
+    schedulePostAddToCartCheckoutNudge,
   } = useChat(user?.id, {
       onBookingAction,
       salonOwnerSalesMode,
@@ -960,6 +961,7 @@ export default function AiChat({ embedded = false }: { embedded?: boolean }) {
             metadata: { source: 'rosy_add_to_cart' },
           })
         }
+        schedulePostAddToCartCheckoutNudge()
         return
       }
       if (a.kind === 'more') {
@@ -987,7 +989,7 @@ export default function AiChat({ embedded = false }: { embedded?: boolean }) {
         goBooking(a.salon_id)
       }
     },
-    [goBooking, goSalonDetail, sendMessage, nav, user, t]
+    [goBooking, goSalonDetail, sendMessage, nav, user, t, schedulePostAddToCartCheckoutNudge]
   )
 
   if (authLoading) {

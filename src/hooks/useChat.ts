@@ -677,6 +677,7 @@ export function useChat(userId: string | undefined, options?: UseChatOptions) {
   const voiceOwnerSalesAwaitingAffirmRef = useRef(false)
   /** عدد رسائل المستخدم إلى rozi-chat والسلة غير فارغة (للجولة 2+ → دفع checkout) */
   const userEdgeTurnsWhileCartRef = useRef(0)
+  const postAddCartNudgeDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   /** منع الإرسال المزدوج + حد أدنى 150ms بين محاولات الإرسال */
   const sendBusyRef = useRef(false)
   const lastUserSendAtRef = useRef(0)
@@ -684,6 +685,56 @@ export function useChat(userId: string | undefined, options?: UseChatOptions) {
   useEffect(() => {
     messagesRef.current = messages
   }, [messages])
+
+  useEffect(() => {
+    return () => {
+      if (postAddCartNudgeDebounceRef.current) clearTimeout(postAddCartNudgeDebounceRef.current)
+    }
+  }, [])
+
+  /** بعد «أضيف للسلة» من أزرار روزي — رسالة مساعد قصيرة + زر إتمام الطلب (بدون طلب Edge جديد) */
+  const schedulePostAddToCartCheckoutNudge = useCallback(() => {
+    if (!userId || salonOwnerSalesMode) return
+    if (postAddCartNudgeDebounceRef.current) clearTimeout(postAddCartNudgeDebounceRef.current)
+    postAddCartNudgeDebounceRef.current = setTimeout(() => {
+      postAddCartNudgeDebounceRef.current = null
+      const uid = userId
+      const msg =
+        'تمام ✨ المنتج صار في سلتك. تبغين نكمّل الطلب الحين؟ اضغطي «إتمام الطلب» تحت وكمّلي الدفع براحتك 💕'
+      const checkoutAction: RozyChatAction = {
+        id: `rozy-go-checkout-post-cart-${crypto.randomUUID()}`,
+        label: 'إتمام الطلب — بسرعة ✨',
+        kind: 'go_to_checkout',
+      }
+      const botRow: ChatRow = {
+        id: crypto.randomUUID(),
+        message: msg,
+        is_user: false,
+        created_at: new Date().toISOString(),
+        actions: [checkoutAction],
+        recommendationMode: 'product',
+      }
+      setMessages((m) => [...m, botRow])
+      scheduleAssistantTts(msg)
+      void supabase
+        .from('chat_messages')
+        .insert({
+          user_id: uid,
+          message: msg,
+          response: msg,
+          is_user: false,
+          rosey_intent: 'rozy_post_add_to_cart_checkout_v1',
+          rosey_entities: { [ROSEY_ENTITY_RECOMMENDATION_MODE_KEY]: 'product' },
+          rosey_action: null,
+          rosey_salons: null,
+          rosey_products: null,
+          rosey_actions: [checkoutAction],
+        } as never)
+        .then(({ error }) => {
+          if (error) logChatInsertError('assistant message (post add-to-cart nudge)', error)
+        })
+    }, 500)
+  }, [userId, salonOwnerSalesMode])
 
   const reloadHistory = useCallback(async () => {
     if (!userId) {
@@ -1559,5 +1610,6 @@ export function useChat(userId: string | undefined, options?: UseChatOptions) {
     reloadHistory,
     clearChatHistory,
     kickoffSalonOwnerVoiceSales,
+    schedulePostAddToCartCheckoutNudge,
   }
 }

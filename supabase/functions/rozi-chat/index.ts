@@ -266,6 +266,15 @@ function utteranceSalonHeavy(utterance: string): boolean {
   return /صالون|حجز|موعد|احجز|أحجز|احجزي|أقرب\s*صالون|دلّيني\s*صالون|دليني\s*صالون|موعد\s*في/i.test(utterance)
 }
 
+/** نية شراء واضحة من المتجر — تسمح بعرض حتى 3 منتجات */
+function utteranceShowsStrongStoreProductIntent(utterance: string): boolean {
+  const t = utterance.trim()
+  if (!t) return false
+  return /أبغى\s*أشتري|ابغى\s*اشتري|ابي\s*اشتري|أبي\s*أشتري|من\s*المتجر|من\s*متجر\s*روزيرا|من\s*روزيرا|اشتري\s*من|أطلب\s*منتج|اطلب\s*منتج|شراء\s*منتج|منتجات\s*المتجر|عرض\s*المنتجات|شنو\s*عندكم\s*منتج|وش\s*عندكم\s*منتج|أبي\s*أطلب|ابي\s*اطلب|اطلب\s*لي\s*من|سلة\s*المتجر|تسوق\s*من/i.test(
+    t
+  )
+}
+
 /** استنتاج فئات المتجر من نص المستخدم — يطابق أعمدة `products.category` */
 function inferStoreCategoriesFromUtterance(utterance: string): string[] {
   const s = new Set<string>()
@@ -424,7 +433,7 @@ function buildStoreProductBrainBlock(
   picks: RozyProductOut[],
   skinPayload: SkinPayloadForRank | null,
   memoryNarrative: string,
-  slotCap: 2 | 3
+  slotCap: 1 | 2 | 3
 ): string {
   if (picks.length === 0) return ''
   const lines = picks.map(
@@ -439,7 +448,12 @@ function buildStoreProductBrainBlock(
     ? `- تفضيلات وذاكرة المحادثة (استخدميها بلطف دون إطالة): ${memoryNarrative.slice(0, 400)}${memoryNarrative.length > 400 ? '…' : ''}`
     : ''
   const contextExtras = [skinHint, prefHint].filter(Boolean).join('\n')
-  const countHint = slotCap === 2 ? '**منتجان فقط** (نية غير واضحة من المصنّف)' : 'حتى **3** منتجات'
+  const countHint =
+    slotCap === 1
+      ? '**منتج واحد فقط** (نية متجر خفيفة — لا تعرضي أكثر من خيار واحد من الجدول)'
+      : slotCap === 2
+        ? '**منتجان كحد أقصى**'
+        : 'حتى **3** منتجات'
 
   return `## منتجات متجر روزيرا (مُختارة — استخدميها في الرد)
 ${lines.join('\n')}
@@ -451,7 +465,7 @@ ${contextExtras ? `${contextExtras}\n` : ''}
   - [اسم المنتج] — [السعر] ر.س
 - **عبارة إلحاح واحدة فقط** عندما يكون المنتج قوياً في التقييم/المراجعات في البيانات — **مرة واحدة في كل الرد** ولا تكرّريها: **"هذا من الأكثر طلباً 🔥"** — لا تضيفي غيرها من عبارات الاستعجال.
 - **بعد القائمة مباشرة** أضيفي سطرين ثابتين (سيُكمَلان برمجياً إن نسيتِ): **"إذا تبين، أختار لك الأفضل بينهم ✨"** ثم **"تبين أضيف لك المنتج للسلة؟ 🛍️"**
-- أزرار الواجهة: عرض المنتج + أضف للسلة — شجّعي على التجربة بلطف دون ضغط.
+- أزرار الواجهة: **شوفي المنتج بالتفصيل** و**أضيفيه للسلة بضغطة** — صيغي دعوة قصيرة تربط الفائدة بالضغط (بدون مبالغة).
 - روابط: /store و /product/{id}.
 `
 }
@@ -621,7 +635,7 @@ function buildProductConversionActions(picks: RozyProductOut[]): RozyActionOut[]
     const shortName = p.name_ar.length > 28 ? `${p.name_ar.slice(0, 26)}…` : p.name_ar
     out.push({
       id: `rozy-view-product-${p.id}`,
-      label: `شوفي التفاصيل — ${shortName} ✨`,
+      label: `شوفي السعر والمكوّنات — ${shortName} ✨`,
       kind: 'view_product',
       product_id: p.id,
       product_name_ar: p.name_ar,
@@ -631,7 +645,7 @@ function buildProductConversionActions(picks: RozyProductOut[]): RozyActionOut[]
     })
     out.push({
       id: `rozy-add-cart-${p.id}`,
-      label: 'ضيفيه للسلة وجرّبيه براحتك 🛍️',
+      label: `احفظيه بالسلة — ${shortName} 🛍️`,
       kind: 'add_to_cart',
       product_id: p.id,
       product_name_ar: p.name_ar,
@@ -2223,18 +2237,25 @@ Deno.serve(async (req) => {
       (intent === 'store_products' ||
         ((intent === 'general_question' || intent === 'recommend_service') && !utteranceSalonHeavy(utterance)))
     const uncertainProducts = isUncertainStoreIntent(entities)
-    const productLimit = uncertainProducts ? 2 : 3
+    const storeCategoriesFromClassifier = normalizeStoreCategoriesFromEntities(entities.store_categories).length > 0
+    const strongStoreProductIntent =
+      intent === 'store_products' ||
+      storeCategoriesFromClassifier ||
+      utteranceShowsStrongStoreProductIntent(utterance)
+    const productLimit: 1 | 2 | 3 = strongStoreProductIntent ? 3 : uncertainProducts ? 1 : 2
     const productPicks = shouldFetchStore
       ? await fetchProductsForStoreRecommendations(userSb, entities, utterance, intent, skinPayload, recoHistory, productLimit)
       : []
+    /** لا تخفي صالونات عند نية منتجات غير واضحة (general + تصنيف من استنتاج النص فقط) */
     const hideSalonsForStoreProducts =
       productPicks.length > 0 &&
-      (intent === 'store_products' || (intent === 'general_question' && !utteranceSalonHeavy(utterance)))
+      (intent === 'store_products' ||
+        (intent === 'general_question' && !utteranceSalonHeavy(utterance) && !uncertainProducts))
     const storeProductBlock = buildStoreProductBrainBlock(
       productPicks,
       skinPayload,
       memoryPack.narrative,
-      productLimit === 2 ? 2 : 3
+      productLimit
     )
 
     const qtyForCartBrain = cartTotalQty > 0 ? cartTotalQty : cartLineCount
@@ -2367,8 +2388,9 @@ Deno.serve(async (req) => {
         ? `
 
 ## تحويل منتجات المتجر (بطاقات ستظهر للمستخدمة)
-- سمّي **اسم منتج واحد على الأقل** من القائمة المختارة مع **السعر** من البيانات.
-- شجّعي مرة واحدة على زر التفاصيل أو السلة بلطف — دون تكرار مزعج.`
+- سمّي **اسم منتج واحد على الأقل** من القائمة المختارة مع **السعر** من البيانات و**فائدة واحدة** من الوصف.
+- اربطي الجملة بأزرار الواجهة: دعوة واضحة لـ **شوفي التفصيل** ولـ **أضيفيه للسلة** (صياغة قصيرة، مرة واحدة — دون تكرار مزعج).
+- إن وُجد **منتج واحد فقط** في القائمة: ركّزي عليه بثقة ولا تذكري خيارات وهمية.`
         : ''
 
     let salonCtaSystemAppendix = ''
