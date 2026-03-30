@@ -12,28 +12,17 @@ export type RosieFABProps = {
   onPress?: () => void
 }
 
+/**
+ * FAB visibility: hidden only on admin, platform owner, and salon owner dashboard.
+ * Shown everywhere else (e.g. /home, /search, /city/*, /salon/:id, /chat, /store).
+ */
 function shouldHideRosieFab(pathname: string): boolean {
-  // صفحة المتجر فيها أزرار روزي في الهيدر — لا نكرر FAB فوقها.
-  if (pathname === '/store' || pathname.startsWith('/store/')) {
+  if (pathname === '/admin' || pathname.startsWith('/admin/')) return true
+  if (pathname === '/owner' || pathname.startsWith('/owner/')) return true
+  if (pathname === '/salon/dashboard' || pathname.startsWith('/salon/dashboard/')) {
     return true
   }
-
-  // باقي رحلة المتجر (منتج، سلة، دفع): FAB واحد واضح.
-  if (
-    pathname.startsWith('/product/') ||
-    pathname === '/cart' ||
-    pathname === '/checkout'
-  ) {
-    return false
-  }
-
-  return (
-    pathname === '/chat' ||
-    pathname.startsWith('/chat/') ||
-    pathname.startsWith('/admin') ||
-    pathname.startsWith('/owner') ||
-    pathname.startsWith('/salon')
-  )
+  return false
 }
 
 function RosieFABShell({
@@ -176,6 +165,8 @@ function RosieFABShell({
 function RosieFABInRouter(props: RosieFABProps) {
   const navigate = useNavigate()
   const { pathname } = useLocation()
+  const shouldHide = shouldHideRosieFab(pathname)
+  console.log('RosieFAB visible:', !shouldHide)
   const isChatRoute = pathname === '/chat' || pathname.startsWith('/chat/')
   const onCommerceRoute =
     pathname === '/store' ||
@@ -196,7 +187,7 @@ function RosieFABInRouter(props: RosieFABProps) {
   return (
     <RosieFABShell
       {...props}
-      onChatRoute={shouldHideRosieFab(pathname)}
+      onChatRoute={shouldHide}
       onDefaultNavigate={onDefaultNavigate}
       showStoreActions={onCommerceRoute}
       onVoiceNavigate={onVoiceNavigate}
@@ -208,6 +199,8 @@ function RosieFABInRouter(props: RosieFABProps) {
 
 function RosieFABOutsideRouter(props: RosieFABProps) {
   const pathname = typeof window !== 'undefined' ? window.location.pathname : ''
+  const shouldHide = shouldHideRosieFab(pathname)
+  console.log('RosieFAB visible:', !shouldHide)
   const isChatRoute = pathname === '/chat' || pathname.startsWith('/chat/')
   const onCommerceRoute =
     pathname === '/store' ||
@@ -228,7 +221,7 @@ function RosieFABOutsideRouter(props: RosieFABProps) {
   return (
     <RosieFABShell
       {...props}
-      onChatRoute={shouldHideRosieFab(pathname)}
+      onChatRoute={shouldHide}
       onDefaultNavigate={onDefaultNavigate}
       showStoreActions={onCommerceRoute}
       onVoiceNavigate={onVoiceNavigate}
