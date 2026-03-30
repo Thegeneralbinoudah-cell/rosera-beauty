@@ -94,6 +94,9 @@ const ROZY_RECOMMENDATION_MODES: ReadonlySet<string> = new Set([
 
 export const ROSEY_ENTITY_RECOMMENDATION_MODE_KEY = 'recommendation_mode' as const
 
+/** نسخة مضغوطة من `meta` الـ Edge تُحفظ في `rosey_entities` للتدقيق وإصدارات لاحقة */
+export const ROSEY_ENTITY_RESPONSE_META_KEY = 'rosey_response_meta' as const
+
 function parseRecommendationMode(raw: unknown): RozyRecommendationMode | undefined {
   if (typeof raw !== 'string' || !ROZY_RECOMMENDATION_MODES.has(raw)) return undefined
   return raw as RozyRecommendationMode
@@ -109,6 +112,8 @@ export type ChatRow = {
   actions?: RozyChatAction[]
   /** من `rozi-chat` meta أو استنتاج من البطاقات — لترتيب العرض وتمييز الحجز */
   recommendationMode?: RozyRecommendationMode
+  /** من `rosey_action` عند استرجاع السجل أو من رد Edge مباشرة */
+  bookingAction?: RoziBookingAction | null
   /** نتيجة `invokeRozyAdvisor` — للعرض الغني في واجهة المحادثة فقط */
   visionAdvisorResult?: RozyVisionChatResult
 }
@@ -121,7 +126,7 @@ export type RoziBookingAction = {
   suggested_slots?: string[]
 }
 
-/** عند غياب `meta` (ردود قديمة أو مسارات أخرى) */
+/** استنتاج الوضع عند غياب `meta.recommendation_mode` المخزّن — يحترم `booking` إن وُجد */
 function inferRecommendationMode(
   salons: RozySalonCard[] | undefined,
   products: RozyProductCard[] | undefined,
@@ -134,6 +139,51 @@ function inferRecommendationMode(
   if (sc > 0) return 'salon'
   if (pc > 0) return 'product'
   return 'none'
+}
+
+/** يستعيد حجزاً من عمود `rosey_action` أو يعيد null إن البيانات ناقصة/قديمة */
+function parseRoziBookingAction(raw: unknown): RoziBookingAction | null {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null
+  const o = raw as Record<string, unknown>
+  if (o.action !== 'booking') return null
+  const salon_id = typeof o.salon_id === 'string' ? o.salon_id.trim() : ''
+  if (!salon_id) return null
+  const slotsRaw = o.suggested_slots
+  const suggested_slots = Array.isArray(slotsRaw)
+    ? (slotsRaw as unknown[]).filter((x): x is string => typeof x === 'string' && x.length > 0)
+    : undefined
+  const bd = o.booking_date
+  const booking_date =
+    typeof bd === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(bd) ? bd : null
+  const sid = o.service_id
+  return {
+    action: 'booking',
+    salon_id,
+    service_id: typeof sid === 'string' && sid.trim() ? sid : null,
+    booking_date,
+    suggested_slots: suggested_slots?.length ? suggested_slots : undefined,
+  }
+}
+
+/**
+ * دمج `recommendation_mode` المخزّن مع حجز من `rosey_action` — الحجز الصالح يتقدّم على أي قيمة مخزّنة.
+ */
+function resolveRecommendationModeForRow(params: {
+  stored: RozyRecommendationMode | undefined
+  booking: RoziBookingAction | null
+  salons: RozySalonCard[] | undefined
+  products: RozyProductCard[] | undefined
+}): RozyRecommendationMode {
+  const { stored, booking, salons, products } = params
+  if (booking && booking.action === 'booking' && booking.salon_id) return 'booking'
+  const hasCards = (salons?.length ?? 0) > 0 || (products?.length ?? 0) > 0
+  if (stored !== undefined) {
+    if (stored === 'none' && hasCards) {
+      return inferRecommendationMode(salons, products, null)
+    }
+    return stored
+  }
+  return inferRecommendationMode(salons, products, null)
 }
 
 export type RoziBrainPayload = {
@@ -156,6 +206,19 @@ export type RoziBrainPayload = {
   salons?: RozySalonCard[]
   products?: RozyProductCard[]
   actions?: RozyChatAction[]
+}
+
+function compactResponseMeta(meta: RoziBrainPayload['meta']): Record<string, unknown> | undefined {
+  if (!meta || typeof meta !== 'object' || Array.isArray(meta)) return undefined
+  const out: Record<string, unknown> = {}
+  if (typeof meta.schema_version === 'number' && Number.isFinite(meta.schema_version)) {
+    out.schema_version = meta.schema_version
+  }
+  if (typeof meta.ok === 'boolean') out.ok = meta.ok
+  if (typeof meta.code === 'string' && meta.code.trim()) {
+    out.code = meta.code.trim().slice(0, 80)
+  }
+  return Object.keys(out).length ? out : undefined
 }
 
 function parseProductCards(raw: unknown): RozyProductCard[] | undefined {
@@ -505,6 +568,7 @@ type ChatRowDb = {
   rosey_products?: unknown
   rosey_actions?: unknown
   rosey_entities?: unknown
+  rosey_action?: unknown
 }
 
 function mapRowsFromDb(data: ChatRowDb[] | null): ChatRow[] {
@@ -513,11 +577,12 @@ function mapRowsFromDb(data: ChatRowDb[] | null): ChatRow[] {
     const salons = !isUser ? parseSalonCards(r.rosey_salons) : undefined
     const products = !isUser ? parseProductCards(r.rosey_products) : undefined
     const actions = !isUser ? parseChatActions(r.rosey_actions) : undefined
+    const bookingFromDb = !isUser ? parseRoziBookingAction(r.rosey_action) : null
     let visionAdvisorResult: RozyVisionChatResult | undefined
-    let recommendationMode: RozyRecommendationMode | undefined
+    let storedRecommendationMode: RozyRecommendationMode | undefined
     if (!isUser && r.rosey_entities && typeof r.rosey_entities === 'object' && !Array.isArray(r.rosey_entities)) {
       const ent = r.rosey_entities as Record<string, unknown>
-      recommendationMode = parseRecommendationMode(ent[ROSEY_ENTITY_RECOMMENDATION_MODE_KEY])
+      storedRecommendationMode = parseRecommendationMode(ent[ROSEY_ENTITY_RECOMMENDATION_MODE_KEY])
       const raw = ent[ROZY_VISION_ADVISOR_ENTITY_KEY]
       if (raw && typeof raw === 'object' && !Array.isArray(raw)) {
         const o = raw as Record<string, unknown>
@@ -527,9 +592,14 @@ function mapRowsFromDb(data: ChatRowDb[] | null): ChatRow[] {
         }
       }
     }
-    if (!isUser && recommendationMode === undefined) {
-      recommendationMode = inferRecommendationMode(salons, products, null)
-    }
+    const recommendationMode = !isUser
+      ? resolveRecommendationModeForRow({
+          stored: storedRecommendationMode,
+          booking: bookingFromDb,
+          salons,
+          products,
+        })
+      : undefined
     return {
       id: r.id,
       message: isUser ? (r.message || '') : (r.response || r.message || ''),
@@ -539,6 +609,7 @@ function mapRowsFromDb(data: ChatRowDb[] | null): ChatRow[] {
       products,
       actions,
       recommendationMode,
+      bookingAction: !isUser ? bookingFromDb : undefined,
       visionAdvisorResult,
     }
   })
@@ -598,7 +669,7 @@ export function useChat(userId: string | undefined, options?: UseChatOptions) {
     const { data, error } = await supabase
       .from('chat_messages')
       .select(
-        'id, message, response, is_user, created_at, rosey_salons, rosey_products, rosey_actions, rosey_entities',
+        'id, message, response, is_user, created_at, rosey_salons, rosey_products, rosey_actions, rosey_entities, rosey_action',
       )
       .eq('user_id', userId)
       .order('created_at', { ascending: true })
@@ -1312,8 +1383,12 @@ export function useChat(userId: string | undefined, options?: UseChatOptions) {
         const uiActions = parseChatActions(payload?.actions)
 
         const recommendationModeFromMeta = parseRecommendationMode(payload?.meta?.recommendation_mode)
-        const recommendationMode =
-          recommendationModeFromMeta ?? inferRecommendationMode(salonsCards, productCards, bookingAction)
+        const recommendationMode = resolveRecommendationModeForRow({
+          stored: recommendationModeFromMeta,
+          booking: bookingAction,
+          salons: salonsCards,
+          products: productCards,
+        })
 
         const roseyEnt = brain?.entities as Record<string, unknown> | undefined
         if (roseyEnt?.checkout_hesitation === true) {
@@ -1330,6 +1405,8 @@ export function useChat(userId: string | undefined, options?: UseChatOptions) {
           }
         }
 
+        const metaBlob = compactResponseMeta(payload?.meta)
+
         const botRow: ChatRow = {
           id: crypto.randomUUID(),
           message: messageToStore,
@@ -1339,6 +1416,7 @@ export function useChat(userId: string | undefined, options?: UseChatOptions) {
           products: productCards,
           actions: uiActions,
           recommendationMode,
+          bookingAction,
         }
         setMessages((m) => [...m, botRow])
         scheduleAssistantTts(messageToStore, ttsOwner)
@@ -1356,6 +1434,7 @@ export function useChat(userId: string | undefined, options?: UseChatOptions) {
           rosey_entities: {
             ...(brain?.entities ?? {}),
             [ROSEY_ENTITY_RECOMMENDATION_MODE_KEY]: recommendationMode,
+            ...(metaBlob ? { [ROSEY_ENTITY_RESPONSE_META_KEY]: metaBlob } : {}),
           },
           rosey_action: bookingAction,
           rosey_salons: salonsCards ?? null,
