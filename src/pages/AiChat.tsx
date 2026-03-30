@@ -287,6 +287,8 @@ export default function AiChat({ embedded = false }: { embedded?: boolean }) {
   const [input, setInput] = useState('')
   const scrollRef = useRef<HTMLDivElement>(null)
   const chatInputRef = useRef<HTMLInputElement>(null)
+  /** يمنع ضغطات متتالية على إرسال/Enter قبل أن يكتمل sendMessage (بما فيها auth والإدراج). */
+  const composerTextSendLockRef = useRef(false)
 
   /** iOS / Android: اجعل حقل الإدخال فوق لوحة المفاتيح — يعمل في الوضع المضمّن وصفحة /chat الكاملة */
   useEffect(() => {
@@ -783,10 +785,16 @@ export default function AiChat({ embedded = false }: { embedded?: boolean }) {
   }, [liveCameraOpen])
 
   const send = async (text: string) => {
+    if (sending || composerTextSendLockRef.current) return
     const t = text.trim()
     if (!t) return
-    const ok = await sendMessage(t, null, clientGeoRef.current)
-    if (ok) setInput('')
+    composerTextSendLockRef.current = true
+    try {
+      const ok = await sendMessage(t, null, clientGeoRef.current)
+      if (ok) setInput('')
+    } finally {
+      composerTextSendLockRef.current = false
+    }
   }
 
   const onPickImage = async (e: ChangeEvent<HTMLInputElement>) => {

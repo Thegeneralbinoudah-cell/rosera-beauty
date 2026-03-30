@@ -696,9 +696,8 @@ export function useChat(userId: string | undefined, options?: UseChatOptions) {
   /** عدد رسائل المستخدم إلى rozi-chat والسلة غير فارغة (للجولة 2+ → دفع checkout) */
   const userEdgeTurnsWhileCartRef = useRef(0)
   const postAddCartNudgeDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  /** منع الإرسال المزدوج + حد أدنى 150ms بين محاولات الإرسال */
+  /** يمنع معالجة أكثر من إرسال واحد في نفس الوقت (حتى انتهاء المسار بالكامل). */
   const sendBusyRef = useRef(false)
-  const lastUserSendAtRef = useRef(0)
 
   useEffect(() => {
     messagesRef.current = messages
@@ -889,9 +888,6 @@ export function useChat(userId: string | undefined, options?: UseChatOptions) {
       setHistoryError(null)
 
       if (sendBusyRef.current) return false
-      const sendNow = Date.now()
-      if (sendNow - lastUserSendAtRef.current < 150) return false
-      lastUserSendAtRef.current = sendNow
       sendBusyRef.current = true
       try {
       const { data: authData, error: authGetErr } = await supabase.auth.getUser()
