@@ -759,6 +759,75 @@ function utteranceShowsStrongBookingIntent(utterance: string): boolean {
   )
 }
 
+/** أوسع من `shouldIncludeSalonCards` — لاستبعاد النية القوية/تصفح المتجر قبل الاقتراح الاستباقي */
+const ROZY_BROAD_SALON_STORE_TOPIC_RE =
+  /صالون|حجز|موعد|سبا|أظافر|شعر|ليزر|مكياج|تجميل|عيادة|أقرب|تقييم|رخيص|سعر|غال[يى]|غالي|خصم|أرخص|ارخص|بشرة|فيس|تحليل|عطور|منتج|متجر|سلة|دفع|checkout/i
+
+function utteranceMentionsBroadSalonOrStoreTopic(utterance: string): boolean {
+  return ROZY_BROAD_SALON_STORE_TOPIC_RE.test(utterance)
+}
+
+function detectSalonBrowseHesitation(utterance: string): boolean {
+  return /متردد|تردد|ما\s*ادري|ما\s*أدري|مدري|مو\s*متأكد|مش\s*متأكد|خايف\s*من\s*الاختيار|مش\s*عارف|ما\s*اعرف|ما\s*أعرف|صعب\s*اختار|صعب\s*الاختيار|ايش\s*اختار|وش\s*اختار|ش\s*اختار|ما\s*يعجبني|كلهم\s*حلوين|نفس\s*الشي|ولي\s*شي|ولّي\s*شي|مزنوج|محتار|حيرة|تردد\s*بين|ما\s*قررت/i.test(
+    utterance
+  )
+}
+
+function shouldProactiveSalonBrowsing(params: {
+  intent: IntentName
+  utterance: string
+  hasImage: boolean
+  hideSalonsForStoreProducts: boolean
+  salonOwnerSalesMode: boolean
+  isSalonOwner: boolean
+  cartLineCount: number
+}): boolean {
+  if (params.isSalonOwner) return false
+  if (params.hasImage) return false
+  if (params.salonOwnerSalesMode) return false
+  if (params.hideSalonsForStoreProducts) return false
+  if (params.cartLineCount > 0) return false
+  if (params.intent !== 'general_question') return false
+  if (utteranceShowsStrongBookingIntent(params.utterance)) return false
+  if (utteranceMentionsBroadSalonOrStoreTopic(params.utterance)) return false
+  const t = params.utterance.trim()
+  if (t.length === 0) return true
+  if (t.length <= 120) return true
+  if (/^(هلا|مرحب|السلام|هاي|صباح|مساء|الو|hi|hello)\b/i.test(t)) return true
+  if (/ابغى\s*اقتراح|ابي\s*اقتراح|وش\s*عندك|وريني|ورّيني|وريني\s*صالون|اقترح|دلّيني|دليني|ساعديني|help|ايش\s*اللي\s*ينفع|ش\s*تنصح/i.test(t)) return true
+  return false
+}
+
+function parseRecentSalonIdsFromBody(body: Record<string, unknown>): Set<string> {
+  const raw = body.recentRozySalonIds
+  const out = new Set<string>()
+  if (!Array.isArray(raw)) return out
+  const uuidRe = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+  for (const x of raw) {
+    if (typeof x !== 'string') continue
+    const id = x.trim()
+    if (uuidRe.test(id)) out.add(id)
+  }
+  return out
+}
+
+/** يفضّل صالونات لم تُعرَض في آخر بطاقات؛ يكمل من الترتيب الأصلي عند الحاجة */
+function pickSalonRowsForCards(ranked: SalonRow[], recentIds: Set<string>, max = 3): SalonRow[] {
+  if (ranked.length === 0) return []
+  if (recentIds.size === 0) return ranked.slice(0, max)
+  const fresh = ranked.filter((s) => !recentIds.has(s.id))
+  if (fresh.length >= max) return fresh.slice(0, max)
+  if (fresh.length > 0) {
+    const picked: SalonRow[] = [...fresh]
+    for (const s of ranked) {
+      if (picked.length >= max) break
+      if (!picked.some((p) => p.id === s.id)) picked.push(s)
+    }
+    return picked.slice(0, max)
+  }
+  return ranked.slice(0, max)
+}
+
 function rankSalonsForRosy(
   salons: SalonRow[],
   reco: UserRecommendationHistory,
@@ -2218,10 +2287,46 @@ Deno.serve(async (req) => {
     const extraLegacy = legacyCtx ? `\n\n## سياق إضافي من العميل (قديم — اختياري)\n${legacyCtx}` : ''
 
     const strongBookingIntent = intent === 'booking_request' || utteranceShowsStrongBookingIntent(utterance)
-    const willAttachSalonCards =
+    const recentSalonIds = parseRecentSalonIdsFromBody(body)
+
+    const baseSalonCards =
       !hideSalonsForStoreProducts &&
       shouldIncludeSalonCards(intent, utterance) &&
       rankedSalons.length > 0
+
+    const proactiveBrowsing =
+      !hideSalonsForStoreProducts &&
+      rankedSalons.length > 0 &&
+      shouldProactiveSalonBrowsing({
+        intent,
+        utterance,
+        hasImage,
+        hideSalonsForStoreProducts,
+        salonOwnerSalesMode: clientSalonOwnerSalesMode,
+        isSalonOwner: ownerB2bCtx.is_owner,
+        cartLineCount,
+      }) &&
+      !baseSalonCards
+
+    const salonHesitation = detectSalonBrowseHesitation(utterance)
+
+    const hesitationAttachSalons =
+      !hideSalonsForStoreProducts &&
+      rankedSalons.length > 0 &&
+      salonHesitation &&
+      !baseSalonCards &&
+      !hasImage &&
+      !clientSalonOwnerSalesMode &&
+      !ownerB2bCtx.is_owner &&
+      cartLineCount === 0
+
+    const attachSalonCards = baseSalonCards || proactiveBrowsing || hesitationAttachSalons
+
+    const useAggressiveBooking = strongBookingIntent || (salonHesitation && attachSalonCards)
+
+    const needsProactiveToneHint =
+      attachSalonCards &&
+      (proactiveBrowsing || hesitationAttachSalons || (salonHesitation && baseSalonCards))
 
     const productCtaSystemAppendix =
       productPicks.length > 0
@@ -2233,15 +2338,28 @@ Deno.serve(async (req) => {
         : ''
 
     let salonCtaSystemAppendix = ''
-    if (willAttachSalonCards) {
+    if (attachSalonCards) {
       salonCtaSystemAppendix = `
 
 ## تحويل الحجز (إلزامي — بطاقات صالونات ستظهر)
 - **ممنوع** الرد العام («تقدري تتصفحين») بدون **تسمية صالون واحد على الأقل** من جدول «صالونات وعيادات» أعلاه.
 - أنهي بجملة توجّه للزر تحت البطاقة (مثال: «اضغطي احجزي موعدك تحت اللي يعجبكِ ✨»).`
-      if (strongBookingIntent) {
+      if (useAggressiveBooking) {
         salonCtaSystemAppendix += `
-- **نية حجز واضحة**: ركّزي بلطف على إتمام الموعد الآن وأبرزي أفضل خيار حسب التقييم والبيانات.`
+- **دفعة أوضح نحو الحجز**: ركّزي على **أفضل خيار واحد** حسب التقييم والبيانات وادعي للخطوة التالية بلطف دون إطالة.`
+      }
+    }
+
+    let proactiveSalonSystemAppendix = ''
+    if (needsProactiveToneHint) {
+      proactiveSalonSystemAppendix = `
+
+## اقتراح مختصر (هذه الجولة فقط)
+- **2–3 جمل كحد أقصى**: اذكري أسماء من جدول «صالونات وعيادات» + فائدة سريعة (تقييم/قرب عند وجود بيانات) + توجيه للبطاقات تحت الرد.
+- تجنّبي تكرار نفس الصالونات الظاهرة مؤخراً في بطاقات المحادثة؛ رجّحي أسماءً أخرى من الجدول عند التوفر.`
+      if (salonHesitation) {
+        proactiveSalonSystemAppendix += `
+- المستخدمة **مترددة**: ركّزي على **أقوى خيار واحد** مع دعوة واضحة للحجز أو التفاصيل.`
       }
     }
 
@@ -2281,7 +2399,7 @@ ${personality}${premiumSalonHint}${salonSalesAppendix}
 - منتجات المتجر: /store و /product/{id} — إن وُجد قسم "منتجات متجر روزيرا (مُختارة)" فالزمي الأسماء والأسعار والفوائد منه فقط.
 - صورة الوجه: تحليل مختصر — **ليس تشخيصاً طبياً** — ولا تطلبي حفظ الصور.
 - قسم تحليل البشرة والتوصيات المرتبة: استخدميهما عند الصلة دون إطالة.
-${salonCtaSystemAppendix}${productCtaSystemAppendix}
+${salonCtaSystemAppendix}${proactiveSalonSystemAppendix}${productCtaSystemAppendix}
 
 ## بيانات حقيقية (Supabase)
 ${brainContext}
@@ -2351,13 +2469,12 @@ ${extraLegacy}
 
     let salonsOut: RozySalonOut[] = []
     let actionsOut: RozyActionOut[] = []
-    if (
-      !hideSalonsForStoreProducts &&
-      shouldIncludeSalonCards(intent, utterance) &&
-      rankedSalons.length > 0
-    ) {
-      salonsOut = salonsToPayload(rankedSalons, userLatLng)
-      actionsOut = buildActionsForSalons(salonsOut, { aggressiveBooking: strongBookingIntent })
+    if (attachSalonCards && rankedSalons.length > 0) {
+      const salonRowsForCards = pickSalonRowsForCards(rankedSalons, recentSalonIds, 3)
+      if (salonRowsForCards.length > 0) {
+        salonsOut = salonsToPayload(salonRowsForCards, userLatLng)
+        actionsOut = buildActionsForSalons(salonsOut, { aggressiveBooking: useAggressiveBooking })
+      }
     }
     const subscriptionUpsell = upsellDecision.showCta
     if (subscriptionUpsell) {
@@ -2384,7 +2501,7 @@ ${extraLegacy}
     }
 
     if (salonsOut.length > 0) {
-      reply = appendSalonConversionTail(reply, strongBookingIntent, salonsOut[0]?.name_ar)
+      reply = appendSalonConversionTail(reply, useAggressiveBooking, salonsOut[0]?.name_ar)
     }
 
     let bookingAction: {

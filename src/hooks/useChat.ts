@@ -253,6 +253,29 @@ function parseProductCards(raw: unknown): RozyProductCard[] | undefined {
   return out.length ? out : undefined
 }
 
+/** آخر معرّفات صالونات من ردود المساعد — يُمرَّر لـ rozi-chat لتفادي تكرار البطاقات */
+function collectRecentRozySalonIdsFromRows(rows: ChatRow[], maxAssistants = 4, maxIds = 12): string[] {
+  const seen = new Set<string>()
+  const out: string[] = []
+  let assistantsVisited = 0
+  for (let i = rows.length - 1; i >= 0; i--) {
+    const m = rows[i]
+    if (m.is_user) continue
+    assistantsVisited += 1
+    if (assistantsVisited > maxAssistants) break
+    const salons = m.salons
+    if (!salons?.length) continue
+    for (const s of salons) {
+      const id = typeof s.id === 'string' ? s.id.trim() : ''
+      if (!id || seen.has(id)) continue
+      seen.add(id)
+      out.push(id)
+      if (out.length >= maxIds) return out
+    }
+  }
+  return out
+}
+
 function parseSalonCards(raw: unknown): RozySalonCard[] | undefined {
   if (!Array.isArray(raw) || raw.length === 0) return undefined
   const out: RozySalonCard[] = []
@@ -1286,6 +1309,7 @@ export function useChat(userId: string | undefined, options?: UseChatOptions) {
         }
 
         const rozyClientCity = resolveClientPreferredCityForRozy(profileCityForRozy, normalizedText)
+        const recentRozySalonIds = collectRecentRozySalonIdsFromRows(priorRows)
 
         const { data, error, response: fnResponse } = await supabase.functions.invoke('rozi-chat', {
           body: {
@@ -1295,6 +1319,7 @@ export function useChat(userId: string | undefined, options?: UseChatOptions) {
             userLat: clientGeo?.lat,
             userLng: clientGeo?.lng,
             clientPreferredCity: rozyClientCity ?? undefined,
+            recentRozySalonIds: recentRozySalonIds.length > 0 ? recentRozySalonIds : undefined,
             cartLineCount,
             cartTotalQty,
             checkoutRecentCartAdd,

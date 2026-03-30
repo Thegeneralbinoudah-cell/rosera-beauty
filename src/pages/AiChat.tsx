@@ -7,7 +7,7 @@ import {
   type ChangeEvent,
   type ReactNode,
 } from 'react'
-import { useNavigate, useSearchParams } from 'react-router-dom'
+import { useNavigate, useSearchParams, Navigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { Send, Sparkles, Camera, ImageIcon, MapPin, Star, Loader2, Package, Mic } from 'lucide-react'
 import { pickMediaRecorderMimeType, isMediaRecorderSupported } from '@/lib/webVoiceRecording'
@@ -127,7 +127,7 @@ function isSalonOwnerRosySalesRole(profileRole: string | null | undefined, isSal
 
 export default function AiChat({ embedded = false }: { embedded?: boolean }) {
   const { t, lang } = useI18n()
-  const { user, profile, isSalonPortal } = useAuth()
+  const { user, profile, isSalonPortal, loading: authLoading } = useAuth()
   const nav = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
   const salonOwnerSalesMode = useMemo(
@@ -780,12 +780,6 @@ export default function AiChat({ embedded = false }: { embedded?: boolean }) {
     }
   }, [liveCameraOpen])
 
-  useEffect(() => {
-    if (!user) {
-      nav('/auth')
-    }
-  }, [user, nav])
-
   const send = async (text: string) => {
     const t = text.trim()
     if (!t) return
@@ -994,7 +988,23 @@ export default function AiChat({ embedded = false }: { embedded?: boolean }) {
     [goBooking, goSalonDetail, sendMessage, nav, user, t]
   )
 
-  if (!user) return null
+  if (authLoading) {
+    return (
+      <div
+        className={cn(
+          'flex flex-col items-center justify-center gap-3 text-foreground',
+          embedded ? 'min-h-[12rem] flex-1' : 'luxury-page-canvas min-h-dvh'
+        )}
+      >
+        <Loader2 className="h-8 w-8 animate-spin text-primary" aria-hidden />
+        <p className="text-sm font-medium">جاري التحميل...</p>
+      </div>
+    )
+  }
+
+  if (!user) {
+    return <Navigate to="/auth" replace />
+  }
 
   const rosyAvatar = (size: 'sm' | 'md' = 'md') => (
     <div
