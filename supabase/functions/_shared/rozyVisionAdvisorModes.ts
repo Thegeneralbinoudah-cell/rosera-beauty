@@ -3,6 +3,7 @@
  * Does not modify roziVisionCore.ts. Used by `rozi-vision` Edge Function for hair_color / haircut (+ hand_nail when routed).
  */
 import { openAiAssistantContentToString } from './openAiAssistantContent.ts'
+import { logOpenAiContentBeforeParse, readOpenAiChatCompletionJson } from './roziVisionCore.ts'
 
 const OPENAI_MODEL = 'gpt-4o'
 const MAX_TOKENS = 1000
@@ -73,7 +74,22 @@ Treatments: "brand" MUST be exactly one of: La Roche-Posay, CeraVe, Neutrogena, 
 
 If condition is "normal", "clinic_services" must be [].`
 
+const ADVISOR_VISION_SYSTEM =
+  'You are a beauty AI assistant. Analyze the image and return valid JSON.'
+
 async function openAiVisionJson(dataUrl: string, apiKey: string, instruction: string): Promise<string> {
+  const userPrompt = instruction
+  console.log('[openAiVisionJson] OpenAI request', {
+    model: OPENAI_MODEL,
+    max_tokens: MAX_TOKENS,
+    response_format: 'json_object',
+    messageShape: 'system_plus_user_text_image_url',
+    systemPrompt: ADVISOR_VISION_SYSTEM,
+    userPromptPreview: userPrompt.slice(0, 320),
+    userPromptLength: userPrompt.length,
+    dataUrlLengthChars: dataUrl.length,
+  })
+
   const res = await fetch('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
     headers: {
@@ -85,38 +101,42 @@ async function openAiVisionJson(dataUrl: string, apiKey: string, instruction: st
       max_tokens: MAX_TOKENS,
       response_format: { type: 'json_object' },
       messages: [
+        { role: 'system', content: ADVISOR_VISION_SYSTEM },
         {
           role: 'user',
           content: [
-            { type: 'text', text: instruction },
+            { type: 'text', text: userPrompt },
             { type: 'image_url', image_url: { url: dataUrl, detail: 'low' } },
           ],
         },
       ],
     }),
   })
+  const { status, data, rawText } = await readOpenAiChatCompletionJson(res, 'openAiVisionJson')
   if (!res.ok) {
-    const t = await res.text().catch(() => '')
-    throw new Error(`OpenAI ${res.status}: ${t.slice(0, 200)}`)
+    const errObj = data.error as { message?: string } | undefined
+    console.log('[openAiVisionJson] outcome: HTTP error', { status, bodyPreview: rawText.slice(0, 300) })
+    throw new Error(errObj?.message || `OpenAI ${status}: ${rawText.slice(0, 200)}`)
   }
-  const data = (await res.json()) as {
-    choices?: Array<{ message?: { content?: unknown } }>
-  }
-  console.log('[openAiVisionJson] full OpenAI response:\n', JSON.stringify(data, null, 2))
-  const choice0 = data.choices?.[0]
+  const choices = data.choices as Array<{ message?: { content?: unknown } }> | undefined
+  const choice0 = choices?.[0]
   const msg = choice0?.message
   const contentRaw = msg?.content
+  logOpenAiContentBeforeParse('[openAiVisionJson]', contentRaw)
+
   const text = openAiAssistantContentToString(contentRaw).trim()
   console.log('[openAiVisionJson] shape check', {
-    hasChoices: Array.isArray(data.choices) && data.choices.length > 0,
+    hasChoices: Array.isArray(choices) && choices.length > 0,
     hasMessage: Boolean(msg),
     contentType:
       Array.isArray(contentRaw) ? 'array' : contentRaw === null || contentRaw === undefined ? 'nullish' : typeof contentRaw,
-    contentLength: text.length,
+    normalizedTextLength: text.length,
   })
   if (!text) {
+    console.log('[openAiVisionJson] outcome: EMPTY after normalize (will throw رد فارغ من النموذج)')
     throw new Error('رد فارغ من النموذج')
   }
+  console.log('[openAiVisionJson] outcome: text OK for JSON parse', { textPreview: text.slice(0, 200) })
   return text
 }
 

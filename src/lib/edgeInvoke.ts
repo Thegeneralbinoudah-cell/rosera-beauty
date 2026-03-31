@@ -41,3 +41,35 @@ export async function getEdgeFunctionHttpErrorDetail(
     return null
   }
 }
+
+export type EdgeFunctionErrorPayload = {
+  error?: string
+  debug?: { phase?: string; detail?: string; reason?: string }
+}
+
+/** يقرأ جسم JSON كاملاً من استجابة Edge عند non-2xx (يشمل ‎debug‎ إن وُجد). */
+export async function getEdgeFunctionErrorPayload(
+  error: unknown,
+  invokeResponse?: Response | null,
+): Promise<EdgeFunctionErrorPayload | null> {
+  const fromInvoke = invokeResponse instanceof Response ? invokeResponse : null
+  const fromContext =
+    error &&
+    typeof error === 'object' &&
+    error !== null &&
+    'context' in error &&
+    (error as { context: unknown }).context instanceof Response
+      ? ((error as { context: Response }).context as Response)
+      : null
+  const res = fromInvoke ?? fromContext
+  if (!res) return null
+  try {
+    const text = (await res.clone().text()).trim()
+    if (!text) return null
+    const j = JSON.parse(text) as EdgeFunctionErrorPayload
+    if (j && typeof j === 'object') return j
+  } catch {
+    /* ليس JSON */
+  }
+  return null
+}

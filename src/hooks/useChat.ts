@@ -985,10 +985,9 @@ export function useChat(userId: string | undefined, options?: UseChatOptions) {
           }
         } catch (e) {
           console.error('[useChat] rozy vision advisor invoke failed', e)
+          // TEMP DEBUG: عرض رسالة rozi-vision كاملة (phase / reason / detail) في الفقاعة — أزيلي لاحقاً
           const failMsg =
-            e instanceof Error && e.message.trim()
-              ? `${VISION_FAIL_AR}\n\n[debug] ${e.message}`
-              : VISION_FAIL_AR
+            e instanceof Error && e.message.trim() ? e.message.trim() : VISION_FAIL_AR
           const botRow: ChatRow = {
             id: crypto.randomUUID(),
             message: failMsg,

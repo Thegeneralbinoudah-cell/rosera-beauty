@@ -13,6 +13,24 @@ export function readOpenAiApiKey(): string {
   return k.replace(/\r?\n/g, '').replace(/\s+/g, '')
 }
 
+/** Logs response.status, full raw body, then JSON.parse. Throws if body is not JSON. */
+export async function readOpenAiChatCompletionJson(
+  res: Response,
+  logLabel: string,
+): Promise<{ status: number; data: Record<string, unknown>; rawText: string }> {
+  const status = res.status
+  console.log(`[${logLabel}] response.status`, status)
+  const rawText = await res.text()
+  console.log(`[${logLabel}] full OpenAI response body (raw):\n`, rawText)
+  let data: Record<string, unknown>
+  try {
+    data = rawText.trim() ? (JSON.parse(rawText) as Record<string, unknown>) : {}
+  } catch {
+    throw new Error(`${logLabel}: OpenAI returned non-JSON body (HTTP ${status})`)
+  }
+  return { status, data, rawText }
+}
+
 export type VisionMode = 'hand' | 'face'
 
 type RawVision = {
@@ -598,7 +616,41 @@ function qualityGateSystemForMode(mode: VisionMode): string {
   return QUALITY_GATE_SYSTEM.replace('HAND_OR_FACE', subj)
 }
 
+/** Debug: describe message.content before normalization (no image data in logs). */
+export function logOpenAiContentBeforeParse(
+  label: string,
+  contentRaw: unknown,
+): void {
+  let rawLen = 0
+  if (typeof contentRaw === 'string') rawLen = contentRaw.length
+  else if (Array.isArray(contentRaw)) rawLen = contentRaw.length
+  else if (contentRaw != null) rawLen = JSON.stringify(contentRaw).length
+  const preview =
+    typeof contentRaw === 'string'
+      ? contentRaw.slice(0, 500)
+      : JSON.stringify(contentRaw, null, 0)?.slice(0, 500) ?? String(contentRaw)
+  console.log(`${label} BEFORE parsing: raw message.content`, {
+    typeofContent: contentRaw === null ? 'null' : contentRaw === undefined ? 'undefined' : Array.isArray(contentRaw) ? 'array' : typeof contentRaw,
+    contentRawLengthApprox: rawLen,
+    previewFirst500Chars: preview,
+  })
+}
+
 async function openaiVisionQualityGate(apiKey: string, mode: VisionMode, dataUrl: string): Promise<boolean> {
+  const systemPrompt = qualityGateSystemForMode(mode)
+  const userPromptText =
+    mode === 'hand'
+      ? 'هل هذه الصورة مناسبة لتحليل اليد؟ أرجعي {"passes":true} أو {"passes":false} فقط.'
+      : 'هل هذه الصورة مناسبة لتحليل الوجه؟ أرجعي {"passes":true} أو {"passes":false} فقط.'
+
+  console.log('[openaiVisionQualityGate] OpenAI request', {
+    model: OPENAI_MODEL,
+    messageShape: 'system_plus_user_text_image_url',
+    systemPromptPreview: systemPrompt.slice(0, 220),
+    userPromptText,
+    dataUrlLengthChars: dataUrl.length,
+  })
+
   const res = await fetch('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
     headers: {
@@ -608,17 +660,11 @@ async function openaiVisionQualityGate(apiKey: string, mode: VisionMode, dataUrl
     body: JSON.stringify({
       model: OPENAI_MODEL,
       messages: [
-        { role: 'system', content: qualityGateSystemForMode(mode) },
+        { role: 'system', content: systemPrompt },
         {
           role: 'user',
           content: [
-            {
-              type: 'text',
-              text:
-                mode === 'hand'
-                  ? 'هل هذه الصورة مناسبة لتحليل اليد؟ أرجعي {"passes":true} أو {"passes":false} فقط.'
-                  : 'هل هذه الصورة مناسبة لتحليل الوجه؟ أرجعي {"passes":true} أو {"passes":false} فقط.',
-            },
+            { type: 'text', text: userPromptText },
             { type: 'image_url', image_url: { url: dataUrl } },
           ],
         },
@@ -629,34 +675,47 @@ async function openaiVisionQualityGate(apiKey: string, mode: VisionMode, dataUrl
     }),
   })
 
-  const data = (await res.json()) as {
-    error?: { message?: string }
-    choices?: { message?: { content?: unknown } }[]
-  }
-  console.log('[openaiVisionQualityGate] full OpenAI response:\n', JSON.stringify(data, null, 2))
+  const { status, data } = await readOpenAiChatCompletionJson(res, 'openaiVisionQualityGate')
 
   if (!res.ok) {
-    return false
+    const errObj = data.error as { message?: string } | undefined
+    const msg = errObj?.message || `HTTP ${status}`
+    throw new Error(`OpenAI quality gate: ${msg}`)
   }
 
-  const contentRaw = data.choices?.[0]?.message?.content
+  const choices = data.choices as { message?: { content?: unknown } }[] | undefined
+  const contentRaw = choices?.[0]?.message?.content
+  logOpenAiContentBeforeParse('[openaiVisionQualityGate]', contentRaw)
+
   const raw = openAiAssistantContentToString(contentRaw).trim()
   console.log('[openaiVisionQualityGate] shape check', {
-    hasChoices: Array.isArray(data.choices) && data.choices.length > 0,
-    hasMessage: Boolean(data.choices?.[0]?.message),
+    hasChoices: Array.isArray(choices) && choices.length > 0,
+    hasMessage: Boolean(choices?.[0]?.message),
     contentType:
       Array.isArray(contentRaw) ? 'array' : contentRaw === null || contentRaw === undefined ? 'nullish' : typeof contentRaw,
-    contentLength: raw.length,
+    normalizedTextLength: raw.length,
   })
   if (!raw) {
-    return false
+    throw new Error('OpenAI quality gate: empty assistant message content')
   }
+  let parsed: { passes?: boolean }
   try {
-    const parsed = JSON.parse(raw) as { passes?: boolean }
-    return parsed.passes === true
-  } catch {
-    return false
+    parsed = JSON.parse(raw) as { passes?: boolean }
+  } catch (parseErr) {
+    const pe = parseErr instanceof Error ? parseErr.message : String(parseErr)
+    throw new Error(`OpenAI quality gate: invalid JSON in assistant content (${pe})`)
   }
+  const pass = parsed.passes === true
+  console.log('[openaiVisionQualityGate] passes value (model)', {
+    passes: parsed.passes,
+    wouldBlockWithoutBypass: !pass,
+  })
+  if (!pass) {
+    console.warn('[quality-gate] bypassed, passes was false', { parsed })
+  } else {
+    console.log('[openaiVisionQualityGate] gate result: PASS', { passes: true })
+  }
+  return true
 }
 
 function clampPersonalizationHint(raw: string | undefined): string | undefined {
@@ -681,6 +740,18 @@ async function openaiVisionJsonStrict(
   const hint = clampPersonalizationHint(personalizationHint)
   const userText = hint ? `${baseUserText}\n\n---\n${hint}` : baseUserText
 
+  const systemPrompt = buildSystemPrompt(mode)
+  console.log('[openaiVisionJsonStrict] OpenAI request', {
+    model: OPENAI_MODEL,
+    mode,
+    messageShape: 'system_plus_user_text_image_url',
+    systemPromptPreview: systemPrompt.slice(0, 220),
+    userTextPreview: userText.slice(0, 320),
+    userTextLength: userText.length,
+    dataUrlLengthChars: dataUrl.length,
+    responseFormat: 'json_schema (rozyVisionResponseFormat)',
+  })
+
   const res = await fetch('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
     headers: {
@@ -690,14 +761,11 @@ async function openaiVisionJsonStrict(
     body: JSON.stringify({
       model: OPENAI_MODEL,
       messages: [
-        { role: 'system', content: buildSystemPrompt(mode) },
+        { role: 'system', content: systemPrompt },
         {
           role: 'user',
           content: [
-            {
-              type: 'text',
-              text: userText,
-            },
+            { type: 'text', text: userText },
             { type: 'image_url', image_url: { url: dataUrl } },
           ],
         },
@@ -708,31 +776,38 @@ async function openaiVisionJsonStrict(
     }),
   })
 
-  const data = (await res.json()) as {
-    error?: { message?: string }
-    choices?: { message?: { content?: unknown } }[]
-  }
-  console.log('[openaiVisionJsonStrict] full OpenAI response:\n', JSON.stringify(data, null, 2))
+  const { status, data } = await readOpenAiChatCompletionJson(res, 'openaiVisionJsonStrict')
 
   if (!res.ok) {
-    throw new Error(data.error?.message || `OpenAI ${res.status}`)
+    const errObj = data.error as { message?: string } | undefined
+    throw new Error(errObj?.message || `OpenAI vision JSON HTTP ${status}`)
   }
 
-  const contentRaw = data.choices?.[0]?.message?.content
+  const choices = data.choices as { message?: { content?: unknown } }[] | undefined
+  const contentRaw = choices?.[0]?.message?.content
+  logOpenAiContentBeforeParse('[openaiVisionJsonStrict]', contentRaw)
+
   const raw = openAiAssistantContentToString(contentRaw).trim()
   console.log('[openaiVisionJsonStrict] shape check', {
-    hasChoices: Array.isArray(data.choices) && data.choices.length > 0,
-    hasMessage: Boolean(data.choices?.[0]?.message),
+    hasChoices: Array.isArray(choices) && choices.length > 0,
+    hasMessage: Boolean(choices?.[0]?.message),
     contentType:
       Array.isArray(contentRaw) ? 'array' : contentRaw === null || contentRaw === undefined ? 'nullish' : typeof contentRaw,
-    contentLength: raw.length,
+    normalizedTextLength: raw.length,
   })
   if (!raw) {
+    console.log('[openaiVisionJsonStrict] outcome: EMPTY normalized content (will throw Empty vision JSON)')
     throw new Error('Empty vision JSON')
   }
   try {
-    return coerceParsedVision(JSON.parse(raw))
-  } catch {
+    const out = coerceParsedVision(JSON.parse(raw))
+    console.log('[openaiVisionJsonStrict] outcome: parsed OK', { summaryArLength: String(out.summaryAr ?? '').length })
+    return out
+  } catch (parseErr) {
+    console.log('[openaiVisionJsonStrict] outcome: JSON parse / coerce failed', {
+      parseErr: parseErr instanceof Error ? parseErr.message : String(parseErr),
+      rawPreview: raw.slice(0, 400),
+    })
     throw new Error('Vision model returned non-JSON')
   }
 }
@@ -751,16 +826,17 @@ export async function runVisionAnalysis(
   apiKey: string,
   opts?: VisionAnalysisOptions,
 ): Promise<RozyVisionResult> {
-  try {
-    const passesGate = await openaiVisionQualityGate(apiKey, mode, dataUrl)
-    if (!passesGate) {
-      return buildQualityRejectedResult(mode)
-    }
-    const raw = await openaiVisionJsonStrict(apiKey, mode, dataUrl, opts?.personalizationHint)
-    return normalizeResult(raw, mode)
-  } catch (e) {
-    const m = e instanceof Error ? e.message : String(e)
-    console.error('[runVisionAnalysis]', m)
-    return safeFallbackResult(mode)
+  const passesGate = await openaiVisionQualityGate(apiKey, mode, dataUrl)
+  console.log('[runVisionAnalysis] quality gate summary', {
+    mode,
+    passesGate,
+    ifFalseMeans: passesGate
+      ? 'n/a'
+      : 'buildQualityRejectedResult (صورة رُفضت بالبوابة — ليس بالضرورة رد OpenAI فارغ)',
+  })
+  if (!passesGate) {
+    return buildQualityRejectedResult(mode)
   }
+  const raw = await openaiVisionJsonStrict(apiKey, mode, dataUrl, opts?.personalizationHint)
+  return normalizeResult(raw, mode)
 }

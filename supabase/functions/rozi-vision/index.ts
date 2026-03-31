@@ -30,13 +30,17 @@ console.log('[rozi-vision] edge secrets presence', {
 
 const MAX_BASE64_CHARS = 5_200_000
 
-function jsonDebugResponse(
-  status: number,
-  error: string,
-  debug: { phase: string; detail?: string },
-): Response {
+type RoziVisionDebug = { phase: string; detail?: string; reason?: string }
+
+function jsonDebugResponse(status: number, error: string, debug: RoziVisionDebug): Response {
   return new Response(JSON.stringify({ error, debug }), {
     status,
+    headers: { ...cors, 'Content-Type': 'application/json' },
+  })
+}
+
+function jsonOkWithDebug(body: Record<string, unknown>, debug: RoziVisionDebug): Response {
+  return new Response(JSON.stringify({ ...body, debug }), {
     headers: { ...cors, 'Content-Type': 'application/json' },
   })
 }
@@ -47,17 +51,18 @@ const ADVISOR_MODES = new Set(['hair_color', 'haircut', 'hand_nail', 'skin_analy
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: cors })
   if (req.method !== 'POST') {
-    return new Response(JSON.stringify({ error: 'Method not allowed' }), {
-      status: 405,
-      headers: { ...cors, 'Content-Type': 'application/json' },
+    return jsonDebugResponse(405, 'Method not allowed', {
+      phase: 'http',
+      reason: 'method_not_allowed',
+      detail: req.method,
     })
   }
 
   const auth = req.headers.get('Authorization')
   if (!auth?.startsWith('Bearer ')) {
-    return new Response(JSON.stringify({ error: 'يجب تسجيل الدخول' }), {
-      status: 401,
-      headers: { ...cors, 'Content-Type': 'application/json' },
+    return jsonDebugResponse(401, 'يجب تسجيل الدخول', {
+      phase: 'auth',
+      reason: 'missing_or_invalid_authorization_header',
     })
   }
 
@@ -66,18 +71,19 @@ Deno.serve(async (req) => {
   const supabaseUrl = Deno.env.get('SUPABASE_URL')?.trim()
   const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY')?.trim()
   if (!supabaseUrl || !supabaseAnonKey) {
-    return new Response(JSON.stringify({ error: 'إعداد Supabase ناقص' }), {
-      status: 500,
-      headers: { ...cors, 'Content-Type': 'application/json' },
+    return jsonDebugResponse(500, 'إعداد Supabase ناقص', {
+      phase: 'config',
+      reason: 'missing_supabase_url_or_anon_key',
     })
   }
 
   const authClient = createClient(supabaseUrl, supabaseAnonKey)
   const { data: userData, error: authErr } = await authClient.auth.getUser(accessToken)
   if (authErr || !userData?.user) {
-    return new Response(JSON.stringify({ error: 'جلسة غير صالحة' }), {
-      status: 401,
-      headers: { ...cors, 'Content-Type': 'application/json' },
+    return jsonDebugResponse(401, 'جلسة غير صالحة', {
+      phase: 'auth',
+      reason: 'get_user_failed',
+      detail: authErr?.message ?? 'no_user',
     })
   }
 
@@ -93,6 +99,7 @@ Deno.serve(async (req) => {
     console.error('[rozi-vision] invalid JSON body', parseErr)
     return jsonDebugResponse(400, 'جسم الطلب غير صالح', {
       phase: 'invalid_json',
+      reason: 'body_parse_failed',
       detail: parseErr instanceof Error ? parseErr.message : String(parseErr),
     })
   }
@@ -103,7 +110,7 @@ Deno.serve(async (req) => {
     return jsonDebugResponse(
       400,
       'mode يجب أن يكون hand أو face أو hair_color أو haircut أو hand_nail أو skin_analysis',
-      { phase: 'invalid_mode', detail: String(body.mode ?? '') },
+      { phase: 'invalid_mode', reason: 'unsupported_mode', detail: String(body.mode ?? '') },
     )
   }
 
@@ -116,6 +123,7 @@ Deno.serve(async (req) => {
     })
     return jsonDebugResponse(400, 'صورة غير صالحة أو كبيرة جداً', {
       phase: 'invalid_image',
+      reason: !b64 ? 'empty_base64' : 'base64_too_large',
       detail: !b64 ? 'empty_base64' : `length_${b64.length}_exceeds_max`,
     })
   }
@@ -127,40 +135,58 @@ Deno.serve(async (req) => {
   }
   const mime = mimeAccepted ? mimeRaw.toLowerCase().replace('jpg', 'jpeg') : 'image/jpeg'
 
+  console.log('[rozi-vision] image payload (no raw base64)', {
+    mode: modeRaw,
+    imageBase64Length: b64.length,
+    imageMimeTypeRaw: mimeRaw || '(omitted)',
+    imageMimeResolved: mime,
+    mimeAcceptedFromClient: mimeAccepted,
+  })
+
   const dataUrl = `data:${mime};base64,${b64}`
 
-  const apiKey = readOpenAiApiKey()
-  if (!apiKey) {
-    console.error('[rozi-vision] missing OPENAI_API_KEY in Edge Function secrets')
-    return jsonDebugResponse(503, 'OPENAI_API_KEY غير مُعرّف في أسرار الدالة', {
-      phase: 'missing_openai_key',
-    })
-  }
-
+  let debugKeyInfo = ''
   try {
+    const key = Deno.env.get('OPENAI_API_KEY') || ''
+    debugKeyInfo = `
+   exists: ${Boolean(key)}
+   length: ${key.length}
+   startsWith sk: ${key.startsWith('sk-')}
+   first10: ${key.slice(0, 10)}
+   `
+
+    return new Response(
+      JSON.stringify({
+        error: 'debug_key_check',
+        debug: {
+          phase: 'key_check',
+          detail: debugKeyInfo,
+        },
+      }),
+      { status: 500, headers: { ...cors, 'Content-Type': 'application/json' } },
+    )
+
+    if (!key) throw new Error('OPENAI_API_KEY missing')
+    if (!key.startsWith('sk-')) throw new Error('OPENAI_API_KEY invalid format')
+    if (key.length < 20) throw new Error('OPENAI_API_KEY too short')
+
+    const apiKey = readOpenAiApiKey()
+
     if (ADVISOR_MODES.has(modeRaw)) {
       if (modeRaw === 'hand_nail') {
         const advisor_result = await runHandNailAdvisor(dataUrl, apiKey)
-        return new Response(JSON.stringify({ advisor_result }), {
-          headers: { ...cors, 'Content-Type': 'application/json' },
-        })
+        return jsonOkWithDebug({ advisor_result }, { phase: 'ok', detail: 'hand_nail' })
       }
       if (modeRaw === 'hair_color') {
         const advisor_result = await runHairColorAdvisor(dataUrl, apiKey)
-        return new Response(JSON.stringify({ advisor_result }), {
-          headers: { ...cors, 'Content-Type': 'application/json' },
-        })
+        return jsonOkWithDebug({ advisor_result }, { phase: 'ok', detail: 'hair_color' })
       }
       if (modeRaw === 'skin_analysis') {
         const advisor_result = await runSkinAnalysisAdvisor(dataUrl, apiKey)
-        return new Response(JSON.stringify({ advisor_result }), {
-          headers: { ...cors, 'Content-Type': 'application/json' },
-        })
+        return jsonOkWithDebug({ advisor_result }, { phase: 'ok', detail: 'skin_analysis' })
       }
       const advisor_result = await runHaircutAdvisor(dataUrl, apiKey)
-      return new Response(JSON.stringify({ advisor_result }), {
-        headers: { ...cors, 'Content-Type': 'application/json' },
-      })
+      return jsonOkWithDebug({ advisor_result }, { phase: 'ok', detail: 'haircut' })
     }
 
     const mode = modeRaw as VisionMode
@@ -170,16 +196,19 @@ Deno.serve(async (req) => {
         : undefined
 
     const result = await runVisionAnalysis(mode, dataUrl, apiKey, hint ? { personalizationHint: hint } : undefined)
-    return new Response(JSON.stringify({ result }), {
-      headers: { ...cors, 'Content-Type': 'application/json' },
-    })
+    return jsonOkWithDebug({ result }, { phase: 'ok', detail: mode })
   } catch (e) {
     const msg = e instanceof Error ? e.message : 'خطأ غير متوقع'
     const stack = e instanceof Error ? e.stack : undefined
     console.error('[rozi-vision] OpenAI / advisor pipeline failed', { message: msg, stack, err: e })
+    const detailTail = stack?.split('\n').slice(0, 5).join(' | ') ?? ''
+    const detailWithKey = debugKeyInfo
+      ? `${debugKeyInfo.trim()}\n\n${detailTail}`.trim()
+      : detailTail
     return jsonDebugResponse(500, msg, {
       phase: 'openai_or_advisor',
-      detail: stack?.split('\n').slice(0, 5).join(' | '),
+      reason: e instanceof Error ? e.name : 'unknown',
+      detail: detailWithKey || undefined,
     })
   }
 })

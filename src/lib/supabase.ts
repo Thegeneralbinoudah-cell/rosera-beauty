@@ -21,6 +21,11 @@ function isPlaceholderAnonKey(k: string): boolean {
 const url = readViteEnv('VITE_SUPABASE_URL')
 const key = readViteEnv('VITE_SUPABASE_ANON_KEY')
 
+console.log('[ENV CHECK]', {
+  url: import.meta.env.VITE_SUPABASE_URL,
+  key: Boolean(import.meta.env.VITE_SUPABASE_ANON_KEY),
+})
+
 if (!url || !key) {
   console.error('Supabase ENV missing')
 }
