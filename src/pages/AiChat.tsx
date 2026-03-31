@@ -1689,13 +1689,13 @@ export default function AiChat({ embedded = false }: { embedded?: boolean }) {
         </div>
       ) : null}
 
-      {/* z-composer above z-app-nav; bottom offset clears fixed nav hit area */}
+      {/* z-composer above z-app-nav; bottom offset clears fixed nav + thumb / home indicator */}
       <div
         className={cn(
           'sticky border-t border-primary/12 bg-gradient-to-b from-card to-muted/40 shadow-[0_-8px_32px_-12px_rgb(212_165_165/0.12)] dark:from-card dark:to-card dark:shadow-none',
           embedded
             ? 'bottom-0 z-sticky-section pb-[calc(env(safe-area-inset-bottom,0px)+12px)]'
-            : 'z-composer bottom-[calc(4.5rem+env(safe-area-inset-bottom,0px))] pb-[calc(5.5rem+env(safe-area-inset-bottom,0px)+12px)]'
+            : 'z-composer bottom-[calc(5.75rem+env(safe-area-inset-bottom,0px))] pb-[calc(5.5rem+env(safe-area-inset-bottom,0px)+12px)]'
         )}
       >
         <div
