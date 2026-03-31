@@ -8,6 +8,7 @@ import ProtectedRoute from '@/components/ProtectedRoute'
 import { usePreferences } from '@/contexts/PreferencesContext'
 /** استيراد ثابت للصفحة الرئيسية فقط — يقلّل حجم الحزمة الأولى بعد التقسيم */
 import Home from '@/pages/Home'
+import DevConnectivityCheck from '@/pages/DevConnectivityCheck'
 
 const Onboarding = lazy(() => import('@/pages/Onboarding'))
 const Auth = lazy(() => import('@/pages/Auth'))
@@ -126,6 +127,10 @@ export default function App() {
     <Suspense fallback={<PageFallback />}>
       <Routes>
         <Route path="/" element={<SplashScreen />} />
+        <Route
+          path="/dev/connectivity"
+          element={import.meta.env.DEV ? <DevConnectivityCheck /> : <Navigate to="/" replace />}
+        />
         <Route path="/onboarding" element={<Onboarding />} />
         <Route path="/auth" element={<Auth />} />
         <Route path="/auth/callback" element={<AuthCallback />} />

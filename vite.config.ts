@@ -73,14 +73,18 @@ function definePaymentEnv(merged: Record<string, string>, mode: string) {
 }
 
 /**
- * صوت روزي — VITE_* من الدمج؛ وإن وُجد `ELEVENLABS_VOICE_ID` بدون بادئة VITE (مثل أسرار rozi/Edge)
- * يُحقَن كـ VITE_ELEVENLABS_VOICE_ID عندما يكون الأخير فارغاً — يوحّد مصدر voice_id مع الخادم.
- * لا نحقن مفتاح API من متغيرات غير VITE (تجنّب تسريب غير مقصود).
+ * صوت روزي — VITE_* من الدمج؛ `ELEVENLABS_VOICE_ID` بدون بادئة يُحقَن كـ VITE_ELEVENLABS_VOICE_ID إن وُجد.
+ * `ELEVENLABS_API_KEY` (اسم الخادم) يُحقَن كـ VITE_ELEVENLABS_API_KEY إن كان VITE_* فارغاً — يظهر في حزمة العميل؛
+ * للإنتاج الأأمن استخدمي دالة `rosey-tts` على Supabase بدون مفتاح في الواجهة.
  */
 function defineElevenLabsFromMerged(merged: Record<string, string>, mode: string) {
   const parentAll = loadEnv(mode, parentRoot, '')
   const roseraAll = loadEnv(mode, roseraRoot, '')
-  const apiKey = (merged.VITE_ELEVENLABS_API_KEY ?? '').trim()
+  /** نفس المفتاح غالباً في .env كـ ELEVENLABS_API_KEY للخادم — نحقنه للعميل إن لم يُضبط VITE_* */
+  const apiKey =
+    (merged.VITE_ELEVENLABS_API_KEY ?? '').trim() ||
+    (roseraAll.ELEVENLABS_API_KEY ?? '').trim() ||
+    (parentAll.ELEVENLABS_API_KEY ?? '').trim()
   const voiceFromVite = (merged.VITE_ELEVENLABS_VOICE_ID ?? '').trim()
   const voiceFromLegacy = (
     (roseraAll.ELEVENLABS_VOICE_ID ?? '').trim() ||

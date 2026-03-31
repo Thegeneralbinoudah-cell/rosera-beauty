@@ -412,7 +412,11 @@ export default function AiChat({ embedded = false }: { embedded?: boolean }) {
   const startVoiceRecordingPipeline = useCallback(async () => {
     if (!isMediaRecorderSupported()) return
     const stream = await navigator.mediaDevices.getUserMedia({
-      audio: { echoCancellation: true, noiseSuppression: true },
+      audio: {
+        echoCancellation: true,
+        noiseSuppression: true,
+        autoGainControl: true,
+      },
     })
     if (!chatAliveRef.current) {
       stream.getTracks().forEach((t) => t.stop())

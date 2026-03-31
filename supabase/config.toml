@@ -26,6 +26,10 @@ verify_jwt = false
 [functions.rozi-vision]
 verify_jwt = false
 
+# صوت روزي (ElevenLabs) — المفتاح في أسرار الدالة فقط؛ يُستدعى من التطبيق بمفتاح anon.
+[functions.rosey-tts]
+verify_jwt = false
+
 [functions.growth-pipeline]
 verify_jwt = false
 

@@ -429,9 +429,16 @@ function scheduleAssistantTts(responseText: string, voiceMode?: 'salon_owner_sal
       }
       try {
         const r = await playRosyVoice(text, voiceMode ? { mode: voiceMode } : undefined)
-        if (!r.ok && r.error) console.warn('[Rosy voice TTS]', r.error)
+        if (!r.ok && r.error) {
+          console.warn('[Rosy voice TTS]', r.error)
+          toast.error(
+            'صوت روزي غير جاهز. ثبّتي VITE_ELEVENLABS_API_KEY + voice_id، أو انشري دالة rosey-tts على Supabase مع أسرار ElevenLabs.',
+            { id: 'rosey-tts-miss', duration: 8000 },
+          )
+        }
       } catch (e) {
         console.error('[Rosy voice]', e)
+        toast.error('تعذّر تشغيل صوت روزي.', { id: 'rosey-tts-err', duration: 6000 })
       }
     })()
   }, 100)
