@@ -127,8 +127,10 @@ function Home() {
     store: lang === 'ar' ? 'متجر الجمال' : 'Beauty Store',
     shopNow: lang === 'ar' ? 'تسوقي ←' : 'Shop now <-',
     regions: lang === 'ar' ? 'المناطق' : 'Regions',
-    citiesCount: lang === 'ar' ? 'مدينة' : 'cities',
-    citiesCountMany: lang === 'ar' ? 'مدن' : 'cities',
+    /** عربي: دائماً «مدينة» بعد الرقم (تفضيل صياغة واضحة). إنجليزي: city / cities */
+    citySuffixAr: 'مدينة',
+    citySuffixEnOne: 'city',
+    citySuffixEnMany: 'cities',
     topSalons: lang === 'ar' ? 'أفضل الصالونات' : 'Top salons',
     topSalonsHint:
       lang === 'ar' ? 'تقييم عالٍ وتقييمات حقيقية' : 'Top rated with real reviews',
@@ -387,9 +389,16 @@ function Home() {
 
         <h2 className="luxury-section-heading mt-4 mb-2">{ui.regions}</h2>
         {loading ? (
-          <div className="flex flex-wrap justify-center gap-5">
+          <div className="motion-stagger flex flex-wrap justify-center gap-x-5 gap-y-8 px-1">
             {Array.from({ length: 13 }, (_, i) => i).map((i) => (
-              <Skeleton key={i} className="h-36 w-36 shrink-0 rounded-2xl" />
+              <div
+                key={i}
+                className="flex w-[9.25rem] flex-col items-center gap-2 sm:w-40"
+              >
+                <Skeleton className="h-10 w-full max-w-[11rem] rounded-lg" />
+                <Skeleton className="aspect-square w-full shrink-0 rounded-2xl" />
+                <Skeleton className="h-4 w-20 rounded-md" />
+              </div>
             ))}
           </div>
         ) : regions.length === 0 ? (
@@ -397,35 +406,35 @@ function Home() {
         ) : (
           <div className="motion-stagger flex flex-wrap justify-center gap-x-5 gap-y-8 px-1">
             {regions.map((reg) => {
-              const cityLabel =
-                reg.totalCities === 1 ? ui.citiesCount : ui.citiesCountMany
+              const citySuffix =
+                lang === 'ar'
+                  ? ui.citySuffixAr
+                  : reg.totalCities === 1
+                    ? ui.citySuffixEnOne
+                    : ui.citySuffixEnMany
               return (
-                <div key={reg.id} className="flex flex-col items-center">
-                  <Link
-                    to={`/region/${reg.id}`}
-                    className="group relative flex h-[9.25rem] w-[9.25rem] sm:h-40 sm:w-40 flex-col items-center justify-center overflow-hidden rounded-2xl border border-border/70 shadow-md ring-1 ring-black/5 transition duration-300 md:hover:scale-[1.02] md:hover:shadow-lg dark:ring-white/10"
-                  >
+                <Link
+                  key={reg.id}
+                  to={`/region/${reg.id}`}
+                  className="group flex w-[9.25rem] flex-col items-center gap-2 sm:w-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+                >
+                  <h3 className="line-clamp-2 min-h-[2.5rem] w-full px-0.5 text-center font-sans text-[0.9375rem] font-bold leading-snug text-foreground sm:min-h-[2.75rem] sm:text-[1.0625rem]">
+                    {reg.name_ar}
+                  </h3>
+                  <div className="relative aspect-square w-full shrink-0 overflow-hidden rounded-2xl border border-border/70 shadow-md ring-1 ring-black/5 transition duration-300 md:group-hover:scale-[1.02] md:group-hover:shadow-lg dark:ring-white/10">
                     <img
                       src={reg.image_url}
-                      alt={reg.name_ar}
+                      alt=""
                       loading="lazy"
                       decoding="async"
-                      className="absolute inset-0 h-full w-full object-cover transform-gpu [backface-visibility:hidden] transition-transform duration-500 ease-out md:group-hover:scale-105"
+                      className="h-full w-full object-cover transform-gpu [backface-visibility:hidden] transition-transform duration-500 ease-out md:group-hover:scale-105"
                     />
-                    <div
-                      className="pointer-events-none absolute inset-0 z-[1] bg-gradient-to-t from-black/65 via-black/28 to-black/12 dark:from-black/78 dark:via-black/48 dark:to-black/24"
-                      aria-hidden
-                    />
-                    <div className="relative z-[2] flex min-h-[5.5rem] w-[90%] flex-col items-center justify-between gap-1 rounded-xl border border-white/30 bg-black/40 px-3 py-2.5 text-center shadow-md backdrop-blur-[2px] dark:border-white/25 dark:bg-black/50">
-                      <h3 className="line-clamp-2 min-h-[2.75rem] max-w-full font-sans text-[1.0625rem] font-bold leading-snug text-white [text-shadow:0_1px_3px_rgba(0,0,0,0.92),0_0_14px_rgba(0,0,0,0.45)] sm:text-[1.125rem]">
-                        {reg.name_ar}
-                      </h3>
-                      <p className="min-h-[1.35rem] font-sans text-sm font-bold leading-tight tabular-nums text-white sm:text-[0.9375rem] [text-shadow:0_1px_2px_rgba(0,0,0,0.88)]">
-                        <CountUp value={reg.totalCities} className="tabular-nums" decimals={0} /> {cityLabel}
-                      </p>
-                    </div>
-                  </Link>
-                </div>
+                  </div>
+                  <p className="px-0.5 text-center font-sans text-sm font-semibold tabular-nums text-muted-foreground sm:text-[0.9375rem]">
+                    <CountUp value={reg.totalCities} className="tabular-nums" decimals={0} />{' '}
+                    {citySuffix}
+                  </p>
+                </Link>
               )
             })}
           </div>
