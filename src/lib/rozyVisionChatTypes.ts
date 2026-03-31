@@ -1,6 +1,12 @@
 import type { RozyVisionResult } from '@/lib/rozyVisionTypes'
 
 /** Must match `supabase/functions/_shared/rozyVisionAdvisorModes.ts` */
+export type VisionAdvisorWireFields = {
+  summary: string
+  details: string
+  recommendations: string[]
+}
+
 export type HandNailAdvisorResult = {
   advisor_mode: 'hand_nail'
   undertone: 'warm' | 'cool' | 'neutral' | 'unclear'
@@ -14,7 +20,7 @@ export type HandNailAdvisorResult = {
     brand: string
   }>
   avoid_colors: string[]
-}
+} & VisionAdvisorWireFields
 
 export type HairColorAdvisorResult = {
   advisor_mode: 'hair_color'
@@ -30,7 +36,7 @@ export type HairColorAdvisorResult = {
   }>
   avoid_colors: string[]
   disclaimer_ar: string
-}
+} & VisionAdvisorWireFields
 
 export type HaircutAdvisorResult = {
   advisor_mode: 'haircut'
@@ -44,7 +50,7 @@ export type HaircutAdvisorResult = {
   }>
   avoid_cuts: Array<{ name_ar: string; reason_ar: string }>
   styling_tip_ar: string
-}
+} & VisionAdvisorWireFields
 
 export type SkinAnalysisAdvisorResult = {
   advisor_mode: 'skin_analysis'
@@ -65,7 +71,7 @@ export type SkinAnalysisAdvisorResult = {
   }>
   clinic_needed: boolean
   disclaimer_ar: string
-}
+} & VisionAdvisorWireFields
 
 /** All modes accepted by `rozi-vision` Edge Function body. */
 export type RozyAdvisorMode = 'hand' | 'face' | 'hair_color' | 'haircut' | 'hand_nail' | 'skin_analysis'

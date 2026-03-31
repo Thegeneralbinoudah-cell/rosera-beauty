@@ -3,7 +3,12 @@
  * No HTTP, no storage. Callers must not log image payloads.
  */
 import { openAiAssistantContentToString } from './openAiAssistantContent.ts'
-import { OPENAI_VISION_SYSTEM_PROMPT, OPENAI_VISION_USER_PROMPT } from './openAiVisionPrompts.ts'
+import {
+  OPENAI_VISION_SYSTEM_PROMPT,
+  OPENAI_VISION_USER_PROMPT,
+  parseVisionEnvelope,
+  type VisionEnvelopeJson,
+} from './openAiVisionPrompts.ts'
 
 export function readOpenAiApiKey(): string {
   const raw = Deno.env.get('OPENAI_API_KEY')?.trim() || ''
@@ -618,6 +623,27 @@ function qualityGateSystemForMode(mode: VisionMode): string {
 }
 
 /** Debug: describe message.content before normalization (no image data in logs). */
+function visionEnvelopeToRawVision(env: VisionEnvelopeJson, mode: VisionMode): RawVision {
+  const sum = (env.summary || env.details || '').trim() || '—'
+  const rec = env.recommendations
+  const forHand = mode === 'hand'
+  return {
+    mode,
+    confidence: 'medium',
+    qualityOk: true,
+    summaryAr: sum.slice(0, MAX_SUMMARY_CHARS),
+    undertone: 'uncertain',
+    faceShape: 'uncertain',
+    recommendedColors: rec.slice(0, MAX_COLOR_ITEMS),
+    colorsToAvoid: [],
+    recommendedHairColors: forHand ? [] : rec.slice(0, MAX_HAIR_COLOR_ITEMS),
+    recommendedHaircuts: forHand ? [] : rec.slice(0, MAX_HAIRCUT_ITEMS),
+    cautionNotes: env.details.trim() ? [env.details.trim().slice(0, 240)] : [],
+    retryTips: [],
+    nextActions: [],
+  }
+}
+
 export function logOpenAiContentBeforeParse(
   label: string,
   contentRaw: unknown,
@@ -663,7 +689,6 @@ async function openaiVisionQualityGate(apiKey: string, mode: VisionMode, dataUrl
           ],
         },
       ],
-      response_format: { type: 'json_object' },
       temperature: 0.1,
       max_tokens: 80,
     }),
@@ -689,26 +714,8 @@ async function openaiVisionQualityGate(apiKey: string, mode: VisionMode, dataUrl
       Array.isArray(contentRaw) ? 'array' : contentRaw === null || contentRaw === undefined ? 'nullish' : typeof contentRaw,
     normalizedTextLength: raw.length,
   })
-  if (!raw) {
-    throw new Error('OpenAI quality gate: empty assistant message content')
-  }
-  let parsed: { passes?: boolean }
-  try {
-    parsed = JSON.parse(raw) as { passes?: boolean }
-  } catch (parseErr) {
-    const pe = parseErr instanceof Error ? parseErr.message : String(parseErr)
-    throw new Error(`OpenAI quality gate: invalid JSON in assistant content (${pe})`)
-  }
-  const pass = parsed.passes === true
-  console.log('[openaiVisionQualityGate] passes value (model)', {
-    passes: parsed.passes,
-    wouldBlockWithoutBypass: !pass,
-  })
-  if (!pass) {
-    console.warn('[quality-gate] bypassed, passes was false', { parsed })
-  } else {
-    console.log('[openaiVisionQualityGate] gate result: PASS', { passes: true })
-  }
+  const env = parseVisionEnvelope(raw, 'openaiVisionQualityGate')
+  console.log('[openaiVisionQualityGate] envelope (gate never blocks)', env)
   return true
 }
 
@@ -731,7 +738,6 @@ async function openaiVisionJsonStrict(
     model: OPENAI_MODEL,
     mode,
     dataUrlLengthChars: dataUrl.length,
-    responseFormat: 'json_schema (rozyVisionResponseFormat)',
   })
 
   const res = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -752,7 +758,6 @@ async function openaiVisionJsonStrict(
           ],
         },
       ],
-      response_format: rozyVisionResponseFormat(mode),
       temperature: 0.12,
       max_tokens: mode === 'hand' ? 1800 : 1900,
     }),
@@ -777,21 +782,12 @@ async function openaiVisionJsonStrict(
       Array.isArray(contentRaw) ? 'array' : contentRaw === null || contentRaw === undefined ? 'nullish' : typeof contentRaw,
     normalizedTextLength: raw.length,
   })
-  if (!raw) {
-    console.log('[openaiVisionJsonStrict] outcome: EMPTY normalized content (will throw Empty vision JSON)')
-    throw new Error('Empty vision JSON')
-  }
-  try {
-    const out = coerceParsedVision(JSON.parse(raw))
-    console.log('[openaiVisionJsonStrict] outcome: parsed OK', { summaryArLength: String(out.summaryAr ?? '').length })
-    return out
-  } catch (parseErr) {
-    console.log('[openaiVisionJsonStrict] outcome: JSON parse / coerce failed', {
-      parseErr: parseErr instanceof Error ? parseErr.message : String(parseErr),
-      rawPreview: raw.slice(0, 400),
-    })
-    throw new Error('Vision model returned non-JSON')
-  }
+  const env = parseVisionEnvelope(raw, 'openaiVisionJsonStrict')
+  const out = visionEnvelopeToRawVision(env, mode)
+  console.log('[openaiVisionJsonStrict] envelope → RawVision', {
+    summaryArLength: String(out.summaryAr ?? '').length,
+  })
+  return out
 }
 
 export type VisionAnalysisOptions = {

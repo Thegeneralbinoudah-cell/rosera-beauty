@@ -16,7 +16,10 @@ interface ImportMetaEnv {
   readonly VITE_PAYMENT_MODE?: string
   /** ElevenLabs — يُعرَض للعميل؛ يُفضّل بروكسي من الخادم في الإنتاج */
   readonly VITE_ELEVENLABS_API_KEY?: string
-  /** معرّف الصوت المستنسخ الوحيد لروزي (سعودي) — لا يوجد صوت بديل في التطبيق */
+  /**
+   * معرّف الصوت المستنسخ لروزي. يُحقَن من `ELEVENLABS_VOICE_ID` في `.env` عندما يكون هذا فارغاً (vite.config).
+   * عند التشغيل: أولاً `public.rosey_voice_config.voice_id` ثم هذا الحقل.
+   */
   readonly VITE_ELEVENLABS_VOICE_ID?: string
   /** PostHog — مفتاح المشروع من لوحة app.posthog.com (اختياري؛ بدون مفتاح لا يُحمَّل التتبع) */
   readonly VITE_POSTHOG_KEY?: string

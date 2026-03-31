@@ -155,17 +155,6 @@ Deno.serve(async (req) => {
    first10: ${key.slice(0, 10)}
    `
 
-    return new Response(
-      JSON.stringify({
-        error: 'debug_key_check',
-        debug: {
-          phase: 'key_check',
-          detail: debugKeyInfo,
-        },
-      }),
-      { status: 500, headers: { ...cors, 'Content-Type': 'application/json' } },
-    )
-
     if (!key) throw new Error('OPENAI_API_KEY missing')
     if (!key.startsWith('sk-')) throw new Error('OPENAI_API_KEY invalid format')
     if (key.length < 20) throw new Error('OPENAI_API_KEY too short')
@@ -174,18 +163,18 @@ Deno.serve(async (req) => {
 
     if (ADVISOR_MODES.has(modeRaw)) {
       if (modeRaw === 'hand_nail') {
-        const advisor_result = await runHandNailAdvisor(dataUrl, apiKey)
+        const { advisor_result } = await runHandNailAdvisor(dataUrl, apiKey)
         return jsonOkWithDebug({ advisor_result }, { phase: 'ok', detail: 'hand_nail' })
       }
       if (modeRaw === 'hair_color') {
-        const advisor_result = await runHairColorAdvisor(dataUrl, apiKey)
+        const { advisor_result } = await runHairColorAdvisor(dataUrl, apiKey)
         return jsonOkWithDebug({ advisor_result }, { phase: 'ok', detail: 'hair_color' })
       }
       if (modeRaw === 'skin_analysis') {
-        const advisor_result = await runSkinAnalysisAdvisor(dataUrl, apiKey)
+        const { advisor_result } = await runSkinAnalysisAdvisor(dataUrl, apiKey)
         return jsonOkWithDebug({ advisor_result }, { phase: 'ok', detail: 'skin_analysis' })
       }
-      const advisor_result = await runHaircutAdvisor(dataUrl, apiKey)
+      const { advisor_result } = await runHaircutAdvisor(dataUrl, apiKey)
       return jsonOkWithDebug({ advisor_result }, { phase: 'ok', detail: 'haircut' })
     }
 

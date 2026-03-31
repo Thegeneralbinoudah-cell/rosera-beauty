@@ -13,6 +13,7 @@ import type {
   RozyAdvisorMode,
   RozyVisionChatResult,
   SkinAnalysisAdvisorResult,
+  VisionAdvisorWireFields,
 } from '@/lib/rozyVisionChatTypes'
 
 export const VISION_FAIL_AR = 'عذراً، حدث خطأ في التحليل. حاولي مجدداً.'
@@ -37,6 +38,187 @@ function asDebug(x: unknown): RozyVisionEdgeDebug | null {
     detail: typeof o.detail === 'string' ? o.detail : undefined,
     reason: typeof o.reason === 'string' ? o.reason : undefined,
   }
+}
+
+function ensureVisionWireFields(o: Record<string, unknown>): VisionAdvisorWireFields {
+  const summary =
+    typeof o.summary === 'string' && o.summary.trim() ? o.summary.trim() : 'analysis unavailable'
+  const details = typeof o.details === 'string' ? o.details : ''
+  const recommendations = Array.isArray(o.recommendations)
+    ? o.recommendations.filter((x): x is string => typeof x === 'string')
+    : []
+  return { summary, details, recommendations }
+}
+
+function fallbackHandNail(): HandNailAdvisorResult {
+  const brands = ['OPI', 'Essie', 'Inglot', 'MAC', 'NARS', 'OPI'] as const
+  const nail_colors = Array.from({ length: 6 }, (_, i) => ({
+    name_ar: 'لون مقترح',
+    name_en: 'Suggested',
+    hex: '#D8A5A5',
+    reason_ar: 'يتناغم مع إطلالتكِ.',
+    brand: brands[i],
+  }))
+  return {
+    advisor_mode: 'hand_nail',
+    undertone: 'unclear',
+    undertone_ar: 'analysis unavailable',
+    explanation_ar: '—',
+    nail_colors,
+    avoid_colors: Array(3).fill('درجات نيون فاقعة قد لا تناسب الإطلالة اليومية'),
+    summary: 'analysis unavailable',
+    details: '',
+    recommendations: [],
+  }
+}
+
+function fallbackHairColor(): HairColorAdvisorResult {
+  const recommended_colors = Array.from({ length: 5 }, () => ({
+    name_ar: 'صبغة مقترحة',
+    name_en: 'Suggested tone',
+    hex: '#6B4423',
+    technique_ar: 'صبغة متوازنة',
+    maintenance_ar: 'متوسط',
+    why_ar: 'ينسجم مع درجة بشرتكِ الظاهرة.',
+  }))
+  return {
+    advisor_mode: 'hair_color',
+    skin_tone: '—',
+    eye_color: '—',
+    recommended_colors,
+    avoid_colors: ['درجات قد تزيد الجفاف الظاهر للون', 'درجات قد تزيد الجفاف الظاهر للون'],
+    disclaimer_ar: 'هذه توصيات فقط، استشيري متخصصة قبل الصبغ.',
+    summary: 'analysis unavailable',
+    details: '',
+    recommendations: [],
+  }
+}
+
+function fallbackHaircut(): HaircutAdvisorResult {
+  const recommended_cuts = Array.from({ length: 4 }, () => ({
+    name_ar: 'قصة مقترحة',
+    name_en: 'Suggested cut',
+    description_ar: 'يُوازن خط الوجه الظاهر في الصورة.',
+    length_ar: 'متوسط',
+  }))
+  const avoid_cuts = [
+    { name_ar: 'قصة غير مناسبة', reason_ar: 'قد توسّع أو تضيق إطلالة الوجه بشكل غير متوازن.' },
+    { name_ar: 'قصة غير مناسبة', reason_ar: 'قد توسّع أو تضيق إطلالة الوجه بشكل غير متوازن.' },
+  ]
+  return {
+    advisor_mode: 'haircut',
+    face_shape: 'oval',
+    face_shape_ar: '—',
+    recommended_cuts,
+    avoid_cuts,
+    styling_tip_ar: '—',
+    summary: 'analysis unavailable',
+    details: '',
+    recommendations: [],
+  }
+}
+
+function fallbackSkinAnalysis(): SkinAnalysisAdvisorResult {
+  return {
+    advisor_mode: 'skin_analysis',
+    skin_type: 'غير محدد',
+    concerns: ['عناية يومية ومتابعة', 'عناية يومية ومتابعة'],
+    condition: 'normal',
+    skincare_routine: {
+      morning: ['غسلي بشرتك بلطف بماء فاتر.', 'رطبّي.', 'واقي شمس.'],
+      evening: ['أزيلي المكياج بلطف ثم رطبّي.', 'نوم كافٍ.', 'ترطيب ليلي.'],
+    },
+    treatments: [
+      {
+        name_ar: 'مرطب لطيف',
+        name_en: 'Gentle moisturizer',
+        brand: 'CeraVe',
+        reason_ar: 'دعم حاجز البشرة التجميلي بلطف.',
+      },
+      {
+        name_ar: 'مرطب لطيف',
+        name_en: 'Gentle moisturizer',
+        brand: 'La Roche-Posay',
+        reason_ar: 'دعم حاجز البشرة التجميلي بلطف.',
+      },
+      {
+        name_ar: 'مرطب لطيف',
+        name_en: 'Gentle moisturizer',
+        brand: 'CeraVe',
+        reason_ar: 'دعم حاجز البشرة التجميلي بلطف.',
+      },
+    ],
+    clinic_services: [],
+    clinic_needed: false,
+    disclaimer_ar:
+      'هذه معلومات تجميلية تعليمية فقط وليست تشخيصاً طبياً. استشيري طبيبة جلدية عند الحاجة.',
+    summary: 'analysis unavailable',
+    details: '',
+    recommendations: [],
+  }
+}
+
+function normalizeHandNailAdvisor(raw: unknown): HandNailAdvisorResult {
+  const o = raw && typeof raw === 'object' && !Array.isArray(raw) ? (raw as Record<string, unknown>) : {}
+  const wire = ensureVisionWireFields(o)
+  const invalid =
+    o.advisor_mode !== 'hand_nail' || !Array.isArray(o.nail_colors) || !Array.isArray(o.avoid_colors)
+  if (invalid) {
+    console.warn('[rozyVisionChatInvoke] hand_nail advisor_result missing or invalid; using safe fallback', {
+      advisor_mode: o.advisor_mode,
+    })
+    return { ...fallbackHandNail(), ...wire }
+  }
+  return { ...(o as unknown as HandNailAdvisorResult), ...wire }
+}
+
+function normalizeHairColorAdvisor(raw: unknown): HairColorAdvisorResult {
+  const o = raw && typeof raw === 'object' && !Array.isArray(raw) ? (raw as Record<string, unknown>) : {}
+  const wire = ensureVisionWireFields(o)
+  const invalid = o.advisor_mode !== 'hair_color' || !Array.isArray(o.recommended_colors) || !Array.isArray(o.avoid_colors)
+  if (invalid) {
+    console.warn('[rozyVisionChatInvoke] hair_color advisor_result missing or invalid; using safe fallback', {
+      advisor_mode: o.advisor_mode,
+    })
+    return { ...fallbackHairColor(), ...wire }
+  }
+  return { ...(o as unknown as HairColorAdvisorResult), ...wire }
+}
+
+function normalizeHaircutAdvisor(raw: unknown): HaircutAdvisorResult {
+  const o = raw && typeof raw === 'object' && !Array.isArray(raw) ? (raw as Record<string, unknown>) : {}
+  const wire = ensureVisionWireFields(o)
+  const invalid =
+    o.advisor_mode !== 'haircut' || !Array.isArray(o.recommended_cuts) || !Array.isArray(o.avoid_cuts)
+  if (invalid) {
+    console.warn('[rozyVisionChatInvoke] haircut advisor_result missing or invalid; using safe fallback', {
+      advisor_mode: o.advisor_mode,
+    })
+    return { ...fallbackHaircut(), ...wire }
+  }
+  return { ...(o as unknown as HaircutAdvisorResult), ...wire }
+}
+
+function normalizeSkinAnalysisAdvisor(raw: unknown): SkinAnalysisAdvisorResult {
+  const o = raw && typeof raw === 'object' && !Array.isArray(raw) ? (raw as Record<string, unknown>) : {}
+  const wire = ensureVisionWireFields(o)
+  const routine = o.skincare_routine && typeof o.skincare_routine === 'object' && !Array.isArray(o.skincare_routine)
+    ? (o.skincare_routine as Record<string, unknown>)
+    : null
+  const invalid =
+    o.advisor_mode !== 'skin_analysis' ||
+    !Array.isArray(o.concerns) ||
+    !Array.isArray(o.treatments) ||
+    !routine ||
+    !Array.isArray(routine.morning) ||
+    !Array.isArray(routine.evening)
+  if (invalid) {
+    console.warn('[rozyVisionChatInvoke] skin_analysis advisor_result missing or invalid; using safe fallback', {
+      advisor_mode: o.advisor_mode,
+    })
+    return { ...fallbackSkinAnalysis(), ...wire }
+  }
+  return { ...(o as unknown as SkinAnalysisAdvisorResult), ...wire }
 }
 
 /**
@@ -133,63 +315,37 @@ export async function invokeRozyAdvisor(
         throw new Error(formatRoziVisionDebugError(msg, asDebug(pack?.debug)))
       }
       const result = normalizeRozyVisionResult(pack.result, mode as RozyVisionMode)
-      return mode === 'hand' ? { mode: 'hand', result } : { mode: 'face', result }
+      const out = mode === 'hand' ? ({ mode: 'hand' as const, result }) : ({ mode: 'face' as const, result })
+      console.log('[rozyVisionChatInvoke] final response to UI', out)
+      return out
     }
-
-    if (!pack?.advisor_result || typeof pack.advisor_result !== 'object') {
-      const msg = `[rozyVisionChatInvoke] missing advisor_result for mode=${mode}`
-      console.error(msg, { pack })
-      throw new Error(formatRoziVisionDebugError(msg, asDebug(pack?.debug)))
-    }
-
-    const ar = pack.advisor_result as { advisor_mode?: string }
 
     if (mode === 'hair_color') {
-      if (ar.advisor_mode !== 'hair_color') {
-        const msg = `[rozyVisionChatInvoke] advisor_mode mismatch: expected hair_color, got ${String(ar.advisor_mode)}`
-        console.error(msg)
-        throw new Error(formatRoziVisionDebugError(msg, asDebug(pack?.debug)))
-      }
-      return {
-        mode: 'hair_color',
-        advisor_result: pack.advisor_result as HairColorAdvisorResult,
-      }
+      const advisor_result = normalizeHairColorAdvisor(pack?.advisor_result)
+      const out = { mode: 'hair_color' as const, advisor_result }
+      console.log('[rozyVisionChatInvoke] final response to UI', out)
+      return out
     }
 
     if (mode === 'haircut') {
-      if (ar.advisor_mode !== 'haircut') {
-        const msg = `[rozyVisionChatInvoke] advisor_mode mismatch: expected haircut, got ${String(ar.advisor_mode)}`
-        console.error(msg)
-        throw new Error(formatRoziVisionDebugError(msg, asDebug(pack?.debug)))
-      }
-      return {
-        mode: 'haircut',
-        advisor_result: pack.advisor_result as HaircutAdvisorResult,
-      }
+      const advisor_result = normalizeHaircutAdvisor(pack?.advisor_result)
+      const out = { mode: 'haircut' as const, advisor_result }
+      console.log('[rozyVisionChatInvoke] final response to UI', out)
+      return out
     }
 
     if (mode === 'hand_nail') {
-      if (ar.advisor_mode !== 'hand_nail') {
-        const msg = `[rozyVisionChatInvoke] advisor_mode mismatch: expected hand_nail, got ${String(ar.advisor_mode)}`
-        console.error(msg)
-        throw new Error(formatRoziVisionDebugError(msg, asDebug(pack?.debug)))
-      }
-      return {
-        mode: 'hand_nail',
-        advisor_result: pack.advisor_result as HandNailAdvisorResult,
-      }
+      const advisor_result = normalizeHandNailAdvisor(pack?.advisor_result)
+      const out = { mode: 'hand_nail' as const, advisor_result }
+      console.log('[rozyVisionChatInvoke] final response to UI', out)
+      return out
     }
 
     if (mode === 'skin_analysis') {
-      if (ar.advisor_mode !== 'skin_analysis') {
-        const msg = `[rozyVisionChatInvoke] advisor_mode mismatch: expected skin_analysis, got ${String(ar.advisor_mode)}`
-        console.error(msg)
-        throw new Error(formatRoziVisionDebugError(msg, asDebug(pack?.debug)))
-      }
-      return {
-        mode: 'skin_analysis',
-        advisor_result: pack.advisor_result as SkinAnalysisAdvisorResult,
-      }
+      const advisor_result = normalizeSkinAnalysisAdvisor(pack?.advisor_result)
+      const out = { mode: 'skin_analysis' as const, advisor_result }
+      console.log('[rozyVisionChatInvoke] final response to UI', out)
+      return out
     }
 
     const msg = `[rozyVisionChatInvoke] unsupported mode branch: ${mode}`

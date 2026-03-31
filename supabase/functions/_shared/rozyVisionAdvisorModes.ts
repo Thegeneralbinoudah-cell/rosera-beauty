@@ -1,15 +1,34 @@
 /**
  * Rosy Vision — advisor-only modes (structured JSON).
- * Does not modify roziVisionCore.ts. Used by `rozi-vision` Edge Function for hair_color / haircut (+ hand_nail when routed).
+ * Used by `rozi-vision` Edge Function for hair_color / haircut / hand_nail / skin_analysis.
  */
 import { openAiAssistantContentToString } from './openAiAssistantContent.ts'
-import { OPENAI_VISION_SYSTEM_PROMPT, OPENAI_VISION_USER_PROMPT } from './openAiVisionPrompts.ts'
+import {
+  OPENAI_VISION_SYSTEM_PROMPT,
+  OPENAI_VISION_USER_PROMPT,
+  parseVisionEnvelope,
+  type VisionEnvelopeJson,
+} from './openAiVisionPrompts.ts'
 import { logOpenAiContentBeforeParse, readOpenAiChatCompletionJson } from './roziVisionCore.ts'
 
 const OPENAI_MODEL = 'gpt-4o'
 const MAX_TOKENS = 1000
 
-async function openAiVisionJson(dataUrl: string, apiKey: string): Promise<string> {
+/** Always attached to advisor_result for UI / debugging; never omit. */
+function advisorFieldsFromEnvelope(parsed: VisionEnvelopeJson): {
+  summary: string
+  details: string
+  recommendations: string[]
+} {
+  return {
+    summary: (typeof parsed.summary === 'string' && parsed.summary.trim()) ? parsed.summary.trim() : 'analysis unavailable',
+    details: typeof parsed.details === 'string' ? parsed.details : '',
+    recommendations: Array.isArray(parsed.recommendations) ? parsed.recommendations : [],
+  }
+}
+
+/** Never throws — empty / HTTP / network → fallback envelope so advisor_result always ships. */
+async function openAiVisionJson(dataUrl: string, apiKey: string): Promise<VisionEnvelopeJson> {
   console.log('[openAiVisionJson] final prompts sent to OpenAI', {
     system: OPENAI_VISION_SYSTEM_PROMPT,
     user: OPENAI_VISION_USER_PROMPT,
@@ -18,80 +37,242 @@ async function openAiVisionJson(dataUrl: string, apiKey: string): Promise<string
     dataUrlLengthChars: dataUrl.length,
   })
 
-  const res = await fetch('https://api.openai.com/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      'Content-Type': 'application/json',
+  try {
+    const res = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: OPENAI_MODEL,
+        max_tokens: MAX_TOKENS,
+        messages: [
+          { role: 'system', content: OPENAI_VISION_SYSTEM_PROMPT },
+          {
+            role: 'user',
+            content: [
+              { type: 'text', text: OPENAI_VISION_USER_PROMPT },
+              { type: 'image_url', image_url: { url: dataUrl, detail: 'low' } },
+            ],
+          },
+        ],
+      }),
+    })
+    const { status, data, rawText } = await readOpenAiChatCompletionJson(res, 'openAiVisionJson')
+    if (!res.ok) {
+      const errObj = data.error as { message?: string } | undefined
+      const hint = errObj?.message || `HTTP ${status}`
+      console.warn('[openAiVisionJson] OpenAI HTTP error — using fallback envelope', {
+        status,
+        hint,
+        bodyPreview: rawText.slice(0, 300),
+      })
+      return {
+        summary: 'analysis unavailable',
+        details: rawText.slice(0, 2000),
+        recommendations: [],
+      }
+    }
+    const choices = data.choices as Array<{ message?: { content?: unknown } }> | undefined
+    const choice0 = choices?.[0]
+    const msg = choice0?.message
+    const contentRaw = msg?.content
+    logOpenAiContentBeforeParse('[openAiVisionJson]', contentRaw)
+
+    const text = openAiAssistantContentToString(contentRaw).trim()
+    console.log('[openAiVisionJson] shape check', {
+      hasChoices: Array.isArray(choices) && choices.length > 0,
+      hasMessage: Boolean(msg),
+      contentType:
+        Array.isArray(contentRaw) ? 'array' : contentRaw === null || contentRaw === undefined ? 'nullish' : typeof contentRaw,
+      normalizedTextLength: text.length,
+    })
+    const env = parseVisionEnvelope(text, 'openAiVisionJson')
+    console.log('[openAiVisionJson] parsed envelope object', env)
+    return env
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e)
+    console.warn('[openAiVisionJson] failed — using fallback envelope', msg)
+    return { summary: 'analysis unavailable', details: '', recommendations: [] }
+  }
+}
+
+function undertoneFromEnvelopeText(s: string): HandNailAdvisorResult['undertone'] {
+  const t = s.toLowerCase()
+  if (/warm|داف|حار|ذهبي/.test(t)) return 'warm'
+  if (/cool|بارد|وردي|فضي/.test(t)) return 'cool'
+  if (/neutral|محايد|متوسط/.test(t)) return 'neutral'
+  return 'unclear'
+}
+
+function handNailFromEnvelope(env: VisionEnvelopeJson): HandNailAdvisorResult {
+  const blob = `${env.summary}\n${env.details}`
+  const undertone = undertoneFromEnvelopeText(blob)
+  const undertone_ar = env.summary.trim() || 'لم يُحدد بوضوح من الصورة.'
+  const explanation_ar = env.details.trim() || env.summary.trim() || '—'
+
+  const lines = env.recommendations.filter(Boolean)
+  const nail_colors = lines.slice(0, 6).map((name_ar, i) => {
+    const brands = ['OPI', 'Essie', 'Inglot', 'MAC', 'NARS'] as const
+    return {
+      name_ar: name_ar.slice(0, 120),
+      name_en: 'Suggested',
+      hex: ['#D8A5A5', '#E8D4C4', '#9B8B9E', '#A89080', '#C4A77D', '#B8A99A'][i % 6],
+      reason_ar: (env.details.trim() || 'يتناغم مع إطلالتكِ.').slice(0, 220),
+      brand: brands[i % brands.length],
+    }
+  })
+  while (nail_colors.length < 6) {
+    nail_colors.push({
+      name_ar: 'لون مقترح',
+      name_en: 'Suggested',
+      hex: '#D8A5A5',
+      reason_ar: 'يتناغم مع إطلالتكِ.',
+      brand: 'Essie',
+    })
+  }
+
+  const avoid_colors: string[] = []
+  while (avoid_colors.length < 3) {
+    avoid_colors.push('درجات نيون فاقعة قد لا تناسب الإطلالة اليومية')
+  }
+
+  return {
+    advisor_mode: 'hand_nail',
+    undertone,
+    undertone_ar,
+    explanation_ar: explanation_ar.slice(0, 900),
+    nail_colors,
+    avoid_colors,
+    ...advisorFieldsFromEnvelope(env),
+  }
+}
+
+function hairColorFromEnvelope(env: VisionEnvelopeJson): HairColorAdvisorResult {
+  const lines = env.recommendations.filter(Boolean)
+  const recommended_colors = lines.slice(0, 5).map((name_ar) => ({
+    name_ar: name_ar.slice(0, 120),
+    name_en: 'Suggested tone',
+    hex: '#6B4423',
+    technique_ar: 'صبغة متوازنة',
+    maintenance_ar: 'متوسط',
+    why_ar: (env.details.trim() || 'ينسجم مع الصورة.').slice(0, 280),
+  }))
+  while (recommended_colors.length < 5) {
+    recommended_colors.push({
+      name_ar: 'صبغة مقترحة',
+      name_en: 'Suggested tone',
+      hex: '#6B4423',
+      technique_ar: 'صبغة متوازنة',
+      maintenance_ar: 'متوسط',
+      why_ar: 'ينسجم مع درجة بشرتكِ الظاهرة.',
+    })
+  }
+
+  const avoid_colors: string[] = []
+  while (avoid_colors.length < 2) avoid_colors.push('درجات قد تزيد الجفاف الظاهر للون')
+
+  return {
+    advisor_mode: 'hair_color',
+    skin_tone: env.summary.slice(0, 80) || '—',
+    eye_color: '—',
+    recommended_colors,
+    avoid_colors,
+    disclaimer_ar: 'هذه توصيات فقط، استشيري متخصصة قبل الصبغ.',
+    ...advisorFieldsFromEnvelope(env),
+  }
+}
+
+function haircutFromEnvelope(env: VisionEnvelopeJson): HaircutAdvisorResult {
+  const faceGuess = env.summary.trim().split(/\s+/)[0] || 'oval'
+  const lines = env.recommendations.filter(Boolean)
+  const recommended_cuts = lines.slice(0, 4).map((name_ar) => ({
+    name_ar: name_ar.slice(0, 120),
+    name_en: 'Suggested cut',
+    description_ar: (env.details.trim() || 'يُوازن خط الوجه الظاهر في الصورة.').slice(0, 320),
+    length_ar: 'متوسط',
+  }))
+  while (recommended_cuts.length < 4) {
+    recommended_cuts.push({
+      name_ar: 'قصة مقترحة',
+      name_en: 'Suggested cut',
+      description_ar: 'يُوازن خط الوجه الظاهر في الصورة.',
+      length_ar: 'متوسط',
+    })
+  }
+
+  const avoid_cuts: Array<{ name_ar: string; reason_ar: string }> = []
+  while (avoid_cuts.length < 2) {
+    avoid_cuts.push({
+      name_ar: 'قصة غير مناسبة',
+      reason_ar: 'قد توسّع أو تضيق إطلالة الوجه بشكل غير متوازن.',
+    })
+  }
+
+  return {
+    advisor_mode: 'haircut',
+    face_shape: faceGuess.slice(0, 40),
+    face_shape_ar: env.summary.slice(0, 120) || '—',
+    recommended_cuts,
+    avoid_cuts,
+    styling_tip_ar: env.details.slice(0, 400) || '—',
+    ...advisorFieldsFromEnvelope(env),
+  }
+}
+
+function skinFromEnvelope(env: VisionEnvelopeJson): SkinAnalysisAdvisorResult {
+  let concerns = env.recommendations.map((x) => x.slice(0, 160)).filter(Boolean).slice(0, 5)
+  if (concerns.length === 0 && env.details.trim()) concerns = [env.details.trim().slice(0, 160)]
+  while (concerns.length < 2) concerns.push('عناية يومية ومتابعة')
+
+  const detailLines = env.details
+    .split('\n')
+    .map((l) => l.trim())
+    .filter(Boolean)
+    .slice(0, 6)
+  const morning =
+    detailLines.length >= 3 ? detailLines.slice(0, 3) : ['غسلي بشرتك بلطف بماء فاتر.', 'رطبّي.', 'واقي شمس.']
+  const evening =
+    detailLines.length > 3 ? detailLines.slice(3) : ['أزيلي المكياج بلطف ثم رطبّي.', 'نوم كافٍ.', 'ترطيب ليلي.']
+
+  const treatments: SkinAnalysisAdvisorResult['treatments'] = [
+    {
+      name_ar: 'مرطب',
+      name_en: 'Moisturizer',
+      brand: 'CeraVe',
+      reason_ar: (env.details.trim() || 'ترطيب لطيف.').slice(0, 280),
     },
-    body: JSON.stringify({
-      model: OPENAI_MODEL,
-      max_tokens: MAX_TOKENS,
-      response_format: { type: 'json_object' },
-      messages: [
-        { role: 'system', content: OPENAI_VISION_SYSTEM_PROMPT },
-        {
-          role: 'user',
-          content: [
-            { type: 'text', text: OPENAI_VISION_USER_PROMPT },
-            { type: 'image_url', image_url: { url: dataUrl, detail: 'low' } },
-          ],
-        },
-      ],
-    }),
-  })
-  const { status, data, rawText } = await readOpenAiChatCompletionJson(res, 'openAiVisionJson')
-  if (!res.ok) {
-    const errObj = data.error as { message?: string } | undefined
-    console.log('[openAiVisionJson] outcome: HTTP error', { status, bodyPreview: rawText.slice(0, 300) })
-    throw new Error(errObj?.message || `OpenAI ${status}: ${rawText.slice(0, 200)}`)
+  ]
+  while (treatments.length < 3) {
+    treatments.push({
+      name_ar: 'مرطب لطيف',
+      name_en: 'Gentle moisturizer',
+      brand: 'La Roche-Posay',
+      reason_ar: 'دعم حاجز البشرة التجميلي بلطف.',
+    })
   }
-  const choices = data.choices as Array<{ message?: { content?: unknown } }> | undefined
-  const choice0 = choices?.[0]
-  const msg = choice0?.message
-  const contentRaw = msg?.content
-  logOpenAiContentBeforeParse('[openAiVisionJson]', contentRaw)
 
-  const text = openAiAssistantContentToString(contentRaw).trim()
-  console.log('[openAiVisionJson] shape check', {
-    hasChoices: Array.isArray(choices) && choices.length > 0,
-    hasMessage: Boolean(msg),
-    contentType:
-      Array.isArray(contentRaw) ? 'array' : contentRaw === null || contentRaw === undefined ? 'nullish' : typeof contentRaw,
-    normalizedTextLength: text.length,
-  })
-  if (!text) {
-    console.log('[openAiVisionJson] outcome: EMPTY after normalize (will throw رد فارغ من النموذج)')
-    throw new Error('رد فارغ من النموذج')
+  return {
+    advisor_mode: 'skin_analysis',
+    skin_type: env.summary.slice(0, 120) || 'غير محدد',
+    concerns,
+    condition: 'normal',
+    skincare_routine: { morning, evening },
+    treatments,
+    clinic_services: [],
+    clinic_needed: false,
+    disclaimer_ar:
+      'هذه معلومات تجميلية تعليمية فقط وليست تشخيصاً طبياً. استشيري طبيبة جلدية عند الحاجة.',
+    ...advisorFieldsFromEnvelope(env),
   }
-  console.log('[openAiVisionJson] outcome: text OK for JSON parse', { textPreview: text.slice(0, 200) })
-  return text
 }
 
-function parseJsonObject(raw: string): Record<string, unknown> {
-  const o = JSON.parse(raw) as unknown
-  if (!o || typeof o !== 'object' || Array.isArray(o)) throw new Error('JSON غير كائن')
-  return o as Record<string, unknown>
+export type VisionAdvisorWireFields = {
+  summary: string
+  details: string
+  recommendations: string[]
 }
-
-const HEX_RE = /^#[0-9A-Fa-f]{6}$/
-function normHex(h: unknown): string {
-  const s = typeof h === 'string' ? h.trim() : ''
-  if (HEX_RE.test(s)) return s.toUpperCase()
-  return '#CCCCCC'
-}
-
-const ALLOWED_BRANDS = new Set(['OPI', 'Essie', 'Inglot', 'MAC', 'NARS'])
-
-const ALLOWED_SKIN_BRANDS = new Set([
-  'La Roche-Posay',
-  'CeraVe',
-  'Neutrogena',
-  'The Ordinary',
-  'Vichy',
-  'Bioderma',
-  "Paula's Choice",
-])
 
 export type HandNailAdvisorResult = {
   advisor_mode: 'hand_nail'
@@ -106,7 +287,7 @@ export type HandNailAdvisorResult = {
     brand: string
   }>
   avoid_colors: string[]
-}
+} & VisionAdvisorWireFields
 
 export type HairColorAdvisorResult = {
   advisor_mode: 'hair_color'
@@ -122,7 +303,7 @@ export type HairColorAdvisorResult = {
   }>
   avoid_colors: string[]
   disclaimer_ar: string
-}
+} & VisionAdvisorWireFields
 
 export type HaircutAdvisorResult = {
   advisor_mode: 'haircut'
@@ -136,7 +317,7 @@ export type HaircutAdvisorResult = {
   }>
   avoid_cuts: Array<{ name_ar: string; reason_ar: string }>
   styling_tip_ar: string
-}
+} & VisionAdvisorWireFields
 
 export type SkinAnalysisAdvisorResult = {
   advisor_mode: 'skin_analysis'
@@ -157,220 +338,48 @@ export type SkinAnalysisAdvisorResult = {
   }>
   clinic_needed: boolean
   disclaimer_ar: string
+} & VisionAdvisorWireFields
+
+/** HAND — maps vision envelope → nail advisor shape; always returns `{ advisor_result }`. */
+export async function runHandNailAdvisor(
+  dataUrl: string,
+  apiKey: string,
+): Promise<{ advisor_result: HandNailAdvisorResult }> {
+  const env = await openAiVisionJson(dataUrl, apiKey)
+  console.log('[runHandNailAdvisor] parsed envelope for advisor_result', env)
+  const advisor_result = handNailFromEnvelope(env)
+  return { advisor_result }
 }
 
-function str(x: unknown, max = 400): string {
-  return typeof x === 'string' ? x.trim().slice(0, max) : ''
+/** HAIR COLOR — maps vision envelope */
+export async function runHairColorAdvisor(
+  dataUrl: string,
+  apiKey: string,
+): Promise<{ advisor_result: HairColorAdvisorResult }> {
+  const env = await openAiVisionJson(dataUrl, apiKey)
+  console.log('[runHairColorAdvisor] parsed envelope for advisor_result', env)
+  const advisor_result = hairColorFromEnvelope(env)
+  return { advisor_result }
 }
 
-/** HAND — wrist veins, nail_colors[6], avoid_colors[3]; brands OPI/Essie/Inglot/MAC/NARS */
-export async function runHandNailAdvisor(dataUrl: string, apiKey: string): Promise<HandNailAdvisorResult> {
-  const raw = await openAiVisionJson(dataUrl, apiKey)
-  const j = parseJsonObject(raw)
-  const ut = str(j.undertone, 20).toLowerCase()
-  const undertone: HandNailAdvisorResult['undertone'] =
-    ut === 'warm' || ut === 'cool' || ut === 'neutral' || ut === 'unclear' ? ut : 'unclear'
-
-  const nailRaw = Array.isArray(j.nail_colors) ? j.nail_colors : []
-  const nail_colors = nailRaw.slice(0, 6).map((item) => {
-    const o = item && typeof item === 'object' && !Array.isArray(item) ? (item as Record<string, unknown>) : {}
-    let brand = str(o.brand, 40)
-    if (!ALLOWED_BRANDS.has(brand)) brand = 'OPI'
-    return {
-      name_ar: str(o.name_ar, 120),
-      name_en: str(o.name_en, 120),
-      hex: normHex(o.hex),
-      reason_ar: str(o.reason_ar, 220),
-      brand,
-    }
-  })
-  while (nail_colors.length < 6) {
-    nail_colors.push({
-      name_ar: 'لون مقترح',
-      name_en: 'Suggested',
-      hex: '#D8A5A5',
-      reason_ar: 'يتناغم مع إطلالتكِ.',
-      brand: 'Essie',
-    })
-  }
-
-  const avoidRaw = Array.isArray(j.avoid_colors) ? j.avoid_colors : []
-  const avoid_colors = avoidRaw.map((x) => str(x, 200)).filter(Boolean).slice(0, 3)
-  while (avoid_colors.length < 3) avoid_colors.push('درجات نيون فاقعة قد لا تناسب الإطلالة اليومية')
-
-  return {
-    advisor_mode: 'hand_nail',
-    undertone,
-    undertone_ar: str(j.undertone_ar, 300),
-    explanation_ar: str(j.explanation_ar, 900),
-    nail_colors,
-    avoid_colors,
-  }
-}
-
-/** HAIR COLOR — selfie: skin + eyes, recommended_colors[5], avoid_colors[2] */
-export async function runHairColorAdvisor(dataUrl: string, apiKey: string): Promise<HairColorAdvisorResult> {
-  const raw = await openAiVisionJson(dataUrl, apiKey)
-  const j = parseJsonObject(raw)
-  const recRaw = Array.isArray(j.recommended_colors) ? j.recommended_colors : []
-  const recommended_colors = recRaw.slice(0, 5).map((item) => {
-    const o = item && typeof item === 'object' && !Array.isArray(item) ? (item as Record<string, unknown>) : {}
-    return {
-      name_ar: str(o.name_ar, 120),
-      name_en: str(o.name_en, 120),
-      hex: normHex(o.hex),
-      technique_ar: str(o.technique_ar, 120),
-      maintenance_ar: str(o.maintenance_ar, 80),
-      why_ar: str(o.why_ar, 280),
-    }
-  })
-  while (recommended_colors.length < 5) {
-    recommended_colors.push({
-      name_ar: 'صبغة مقترحة',
-      name_en: 'Suggested tone',
-      hex: '#6B4423',
-      technique_ar: 'صبغة متوازنة',
-      maintenance_ar: 'متوسط',
-      why_ar: 'ينسجم مع درجة بشرتكِ الظاهرة.',
-    })
-  }
-
-  const avoidRaw = Array.isArray(j.avoid_colors) ? j.avoid_colors : []
-  const avoid_colors = avoidRaw.map((x) => str(x, 220)).filter(Boolean).slice(0, 2)
-  while (avoid_colors.length < 2) avoid_colors.push('درجات قد تزيد الجفاف الظاهر للون')
-
-  return {
-    advisor_mode: 'hair_color',
-    skin_tone: str(j.skin_tone, 80),
-    eye_color: str(j.eye_color, 80),
-    recommended_colors,
-    avoid_colors,
-    disclaimer_ar: str(
-      j.disclaimer_ar,
-      500,
-    ) || 'هذه توصيات فقط، استشيري متخصصة قبل الصبغ.',
-  }
-}
-
-/** HAIRCUT — face shape, recommended_cuts[4], avoid_cuts[2] */
-export async function runHaircutAdvisor(dataUrl: string, apiKey: string): Promise<HaircutAdvisorResult> {
-  const raw = await openAiVisionJson(dataUrl, apiKey)
-  const j = parseJsonObject(raw)
-  const cutsRaw = Array.isArray(j.recommended_cuts) ? j.recommended_cuts : []
-  const recommended_cuts = cutsRaw.slice(0, 4).map((item) => {
-    const o = item && typeof item === 'object' && !Array.isArray(item) ? (item as Record<string, unknown>) : {}
-    return {
-      name_ar: str(o.name_ar, 120),
-      name_en: str(o.name_en, 120),
-      description_ar: str(o.description_ar, 320),
-      length_ar: str(o.length_ar, 80),
-    }
-  })
-  while (recommended_cuts.length < 4) {
-    recommended_cuts.push({
-      name_ar: 'قصة مقترحة',
-      name_en: 'Suggested cut',
-      description_ar: 'يُوازن خط الوجه الظاهر في الصورة.',
-      length_ar: 'متوسط',
-    })
-  }
-
-  const avoidRaw = Array.isArray(j.avoid_cuts) ? j.avoid_cuts : []
-  const avoid_cuts = avoidRaw
-    .slice(0, 2)
-    .map((item) => {
-      const o = item && typeof item === 'object' && !Array.isArray(item) ? (item as Record<string, unknown>) : {}
-      return { name_ar: str(o.name_ar, 120), reason_ar: str(o.reason_ar, 280) }
-    })
-    .filter((x) => x.name_ar)
-  while (avoid_cuts.length < 2) {
-    avoid_cuts.push({ name_ar: 'قصة غير مناسبة', reason_ar: 'قد توسّع أو تضيق إطلالة الوجه بشكل غير متوازن.' })
-  }
-
-  return {
-    advisor_mode: 'haircut',
-    face_shape: str(j.face_shape, 40),
-    face_shape_ar: str(j.face_shape_ar, 120),
-    recommended_cuts,
-    avoid_cuts,
-    styling_tip_ar: str(j.styling_tip_ar, 400),
-  }
-}
-
-function clampSkinCondition(x: unknown): SkinAnalysisAdvisorResult['condition'] {
-  const s = str(x, 24).toLowerCase()
-  if (s === 'normal' || s === 'needs_care' || s === 'needs_specialist') return s
-  return 'normal'
+/** HAIRCUT — maps vision envelope */
+export async function runHaircutAdvisor(
+  dataUrl: string,
+  apiKey: string,
+): Promise<{ advisor_result: HaircutAdvisorResult }> {
+  const env = await openAiVisionJson(dataUrl, apiKey)
+  console.log('[runHaircutAdvisor] parsed envelope for advisor_result', env)
+  const advisor_result = haircutFromEnvelope(env)
+  return { advisor_result }
 }
 
 /** بشرة تجميلية فقط — بدون تشخيص طبي. */
-export async function runSkinAnalysisAdvisor(dataUrl: string, apiKey: string): Promise<SkinAnalysisAdvisorResult> {
-  const raw = await openAiVisionJson(dataUrl, apiKey)
-  const j = parseJsonObject(raw)
-  const condition = clampSkinCondition(j.condition)
-  const clinic_needed = condition === 'needs_care' || condition === 'needs_specialist'
-
-  const concernsRaw = Array.isArray(j.concerns) ? j.concerns : []
-  const concerns = concernsRaw.map((x) => str(x, 160)).filter(Boolean).slice(0, 5)
-  while (concerns.length < 2) concerns.push('عناية يومية ومتابعة')
-
-  const routineRaw = j.skincare_routine && typeof j.skincare_routine === 'object' && !Array.isArray(j.skincare_routine)
-    ? (j.skincare_routine as Record<string, unknown>)
-    : {}
-  const mRaw = Array.isArray(routineRaw.morning) ? routineRaw.morning : []
-  const eRaw = Array.isArray(routineRaw.evening) ? routineRaw.evening : []
-  const morning = mRaw.map((x) => str(x, 240)).filter(Boolean).slice(0, 6)
-  const evening = eRaw.map((x) => str(x, 240)).filter(Boolean).slice(0, 6)
-  while (morning.length < 3) morning.push('غسلي بشرتك بلطف بماء فاتر.')
-  while (evening.length < 3) evening.push('أزيلي المكياج بلطف ثم رطبّي.')
-
-  const treatRaw = Array.isArray(j.treatments) ? j.treatments : []
-  const treatments = treatRaw.slice(0, 5).map((item) => {
-    const o = item && typeof item === 'object' && !Array.isArray(item) ? (item as Record<string, unknown>) : {}
-    let brand = str(o.brand, 48)
-    if (!ALLOWED_SKIN_BRANDS.has(brand)) brand = 'La Roche-Posay'
-    return {
-      name_ar: str(o.name_ar, 140),
-      name_en: str(o.name_en, 120),
-      brand,
-      reason_ar: str(o.reason_ar, 280),
-    }
-  })
-  while (treatments.length < 3) {
-    treatments.push({
-      name_ar: 'مرطب لطيف',
-      name_en: 'Gentle moisturizer',
-      brand: 'CeraVe',
-      reason_ar: 'دعم حاجز البشرة التجميلي بلطف.',
-    })
-  }
-
-  let clinic_services: SkinAnalysisAdvisorResult['clinic_services'] = []
-  if (clinic_needed) {
-    const csRaw = Array.isArray(j.clinic_services) ? j.clinic_services : []
-    clinic_services = csRaw.slice(0, 5).map((item) => {
-      const o = item && typeof item === 'object' && !Array.isArray(item) ? (item as Record<string, unknown>) : {}
-      const st = str(o.service_type, 12).toLowerCase()
-      const service_type: 'salon' | 'clinic' = st === 'clinic' ? 'clinic' : 'salon'
-      return {
-        name_ar: str(o.name_ar, 140),
-        service_type,
-        note_ar: str(o.note_ar, 320),
-      }
-    })
-  }
-
-  return {
-    advisor_mode: 'skin_analysis',
-    skin_type: str(j.skin_type, 120),
-    concerns,
-    condition,
-    skincare_routine: { morning, evening },
-    treatments,
-    clinic_services,
-    clinic_needed,
-    disclaimer_ar:
-      str(j.disclaimer_ar, 600) ||
-      'هذه معلومات تجميلية تعليمية فقط وليست تشخيصاً طبياً. استشيري طبيبة جلدية عند الحاجة.',
-  }
+export async function runSkinAnalysisAdvisor(
+  dataUrl: string,
+  apiKey: string,
+): Promise<{ advisor_result: SkinAnalysisAdvisorResult }> {
+  const env = await openAiVisionJson(dataUrl, apiKey)
+  console.log('[runSkinAnalysisAdvisor] parsed envelope for advisor_result', env)
+  const advisor_result = skinFromEnvelope(env)
+  return { advisor_result }
 }

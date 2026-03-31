@@ -72,11 +72,24 @@ function definePaymentEnv(merged: Record<string, string>, mode: string) {
   } as Record<string, string>
 }
 
-/** صوت روزي — نفس منطق Supabase: دمج المجلّد الأعلى + rosera حتى تعمل المفاتيح من أي `.env.local` */
-function defineElevenLabsFromMerged(merged: Record<string, string>) {
+/**
+ * صوت روزي — VITE_* من الدمج؛ وإن وُجد `ELEVENLABS_VOICE_ID` بدون بادئة VITE (مثل أسرار rozi/Edge)
+ * يُحقَن كـ VITE_ELEVENLABS_VOICE_ID عندما يكون الأخير فارغاً — يوحّد مصدر voice_id مع الخادم.
+ * لا نحقن مفتاح API من متغيرات غير VITE (تجنّب تسريب غير مقصود).
+ */
+function defineElevenLabsFromMerged(merged: Record<string, string>, mode: string) {
+  const parentAll = loadEnv(mode, parentRoot, '')
+  const roseraAll = loadEnv(mode, roseraRoot, '')
+  const apiKey = (merged.VITE_ELEVENLABS_API_KEY ?? '').trim()
+  const voiceFromVite = (merged.VITE_ELEVENLABS_VOICE_ID ?? '').trim()
+  const voiceFromLegacy = (
+    (roseraAll.ELEVENLABS_VOICE_ID ?? '').trim() ||
+    (parentAll.ELEVENLABS_VOICE_ID ?? '').trim()
+  )
+  const voiceId = voiceFromVite || voiceFromLegacy
   return {
-    'import.meta.env.VITE_ELEVENLABS_API_KEY': JSON.stringify((merged.VITE_ELEVENLABS_API_KEY ?? '').trim()),
-    'import.meta.env.VITE_ELEVENLABS_VOICE_ID': JSON.stringify((merged.VITE_ELEVENLABS_VOICE_ID ?? '').trim()),
+    'import.meta.env.VITE_ELEVENLABS_API_KEY': JSON.stringify(apiKey),
+    'import.meta.env.VITE_ELEVENLABS_VOICE_ID': JSON.stringify(voiceId),
   } as Record<string, string>
 }
 
@@ -103,7 +116,7 @@ export default defineConfig(({ mode }) => {
     define: {
       ...definePaymentEnv(merged, mode),
       ...defineSupabaseFromMerged(merged),
-      ...defineElevenLabsFromMerged(merged),
+      ...defineElevenLabsFromMerged(merged, mode),
       'import.meta.env.VITE_GOOGLE_MAPS_API_KEY': JSON.stringify(GOOGLE_MAPS_API_KEY_EMBEDDED),
     },
     plugins: [
