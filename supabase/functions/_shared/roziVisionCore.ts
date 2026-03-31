@@ -3,6 +3,7 @@
  * No HTTP, no storage. Callers must not log image payloads.
  */
 import { openAiAssistantContentToString } from './openAiAssistantContent.ts'
+import { OPENAI_VISION_SYSTEM_PROMPT, OPENAI_VISION_USER_PROMPT } from './openAiVisionPrompts.ts'
 
 export function readOpenAiApiKey(): string {
   const raw = Deno.env.get('OPENAI_API_KEY')?.trim() || ''
@@ -637,17 +638,10 @@ export function logOpenAiContentBeforeParse(
 }
 
 async function openaiVisionQualityGate(apiKey: string, mode: VisionMode, dataUrl: string): Promise<boolean> {
-  const systemPrompt = qualityGateSystemForMode(mode)
-  const userPromptText =
-    mode === 'hand'
-      ? 'هل هذه الصورة مناسبة لتحليل اليد؟ أرجعي {"passes":true} أو {"passes":false} فقط.'
-      : 'هل هذه الصورة مناسبة لتحليل الوجه؟ أرجعي {"passes":true} أو {"passes":false} فقط.'
-
-  console.log('[openaiVisionQualityGate] OpenAI request', {
-    model: OPENAI_MODEL,
-    messageShape: 'system_plus_user_text_image_url',
-    systemPromptPreview: systemPrompt.slice(0, 220),
-    userPromptText,
+  console.log('[openaiVisionQualityGate] final prompts sent to OpenAI', {
+    system: OPENAI_VISION_SYSTEM_PROMPT,
+    user: OPENAI_VISION_USER_PROMPT,
+    mode,
     dataUrlLengthChars: dataUrl.length,
   })
 
@@ -660,11 +654,11 @@ async function openaiVisionQualityGate(apiKey: string, mode: VisionMode, dataUrl
     body: JSON.stringify({
       model: OPENAI_MODEL,
       messages: [
-        { role: 'system', content: systemPrompt },
+        { role: 'system', content: OPENAI_VISION_SYSTEM_PROMPT },
         {
           role: 'user',
           content: [
-            { type: 'text', text: userPromptText },
+            { type: 'text', text: OPENAI_VISION_USER_PROMPT },
             { type: 'image_url', image_url: { url: dataUrl } },
           ],
         },
@@ -729,25 +723,13 @@ async function openaiVisionJsonStrict(
   apiKey: string,
   mode: VisionMode,
   dataUrl: string,
-  personalizationHint?: string,
+  _personalizationHint?: string,
 ): Promise<RawVision> {
-  const jsonShapeReminder =
-    'تذكير: أرجعي JSON فقط بكل المفاتيح الاثنا عشر؛ المصفوفات [] وليست null؛ mode الصحيح لهذه المهمة فقط.'
-  const baseUserText =
-    mode === 'hand'
-      ? `حلّلي صورة اليد: إنديرتون الجلد (توازن بصري، لا تعتمدي على لون الوريد وحده) + جودة الإضاءة + ألوان طلاء بصيغة عربية + (#HEX). أرجعي JSON فقط.\n\n${jsonShapeReminder}`
-      : `حلّلي صورة الوجه: خط الفك، عرض/طول الوجه، توازن الوجنتين، ثم faceShape + ألوان شعر + قصات بصيغة توصية لطيفة (بدون ادعاءات مطلقة) + cautionNotes. أرجعي JSON فقط.\n\n${jsonShapeReminder}`
-  const hint = clampPersonalizationHint(personalizationHint)
-  const userText = hint ? `${baseUserText}\n\n---\n${hint}` : baseUserText
-
-  const systemPrompt = buildSystemPrompt(mode)
-  console.log('[openaiVisionJsonStrict] OpenAI request', {
+  console.log('[openaiVisionJsonStrict] final prompts sent to OpenAI', {
+    system: OPENAI_VISION_SYSTEM_PROMPT,
+    user: OPENAI_VISION_USER_PROMPT,
     model: OPENAI_MODEL,
     mode,
-    messageShape: 'system_plus_user_text_image_url',
-    systemPromptPreview: systemPrompt.slice(0, 220),
-    userTextPreview: userText.slice(0, 320),
-    userTextLength: userText.length,
     dataUrlLengthChars: dataUrl.length,
     responseFormat: 'json_schema (rozyVisionResponseFormat)',
   })
@@ -761,11 +743,11 @@ async function openaiVisionJsonStrict(
     body: JSON.stringify({
       model: OPENAI_MODEL,
       messages: [
-        { role: 'system', content: systemPrompt },
+        { role: 'system', content: OPENAI_VISION_SYSTEM_PROMPT },
         {
           role: 'user',
           content: [
-            { type: 'text', text: userText },
+            { type: 'text', text: OPENAI_VISION_USER_PROMPT },
             { type: 'image_url', image_url: { url: dataUrl } },
           ],
         },

@@ -3,90 +3,18 @@
  * Does not modify roziVisionCore.ts. Used by `rozi-vision` Edge Function for hair_color / haircut (+ hand_nail when routed).
  */
 import { openAiAssistantContentToString } from './openAiAssistantContent.ts'
+import { OPENAI_VISION_SYSTEM_PROMPT, OPENAI_VISION_USER_PROMPT } from './openAiVisionPrompts.ts'
 import { logOpenAiContentBeforeParse, readOpenAiChatCompletionJson } from './roziVisionCore.ts'
 
 const OPENAI_MODEL = 'gpt-4o'
 const MAX_TOKENS = 1000
 
-const HAND_SYSTEM = `You are a beauty advisor for Saudi Arabic-speaking women. Output ONLY valid JSON (no markdown, no prose outside JSON).
-Analyze the HAND / wrist (inner wrist area) image to infer undertone from vein appearance:
-- Blue/purple veins → warm undertone (أندرتون دافئ)
-- Green veins → cool undertone (أندرتون بارد)
-- Mix → neutral (أندرتون محايد)
-- If unclear → undertone "unclear" and explain in explanation_ar to retake in natural light.
-
-Return JSON with this exact shape (Arabic feminine, luxury tone):
-{
-  "undertone": "warm" | "cool" | "neutral" | "unclear",
-  "undertone_ar": string,
-  "explanation_ar": string,
-  "nail_colors": [ exactly 6 objects: { "name_ar", "name_en", "hex", "reason_ar", "brand" } ],
-  "avoid_colors": [ exactly 3 strings in Arabic describing shades to avoid ]
-}
-Rules for nail_colors:
-- hex: #RRGGBB uppercase
-- brand: MUST be one of: OPI, Essie, Inglot, MAC, NARS (products commonly available in Saudi)
-- reason_ar: one short line why it suits her undertone`
-
-const HAIR_COLOR_SYSTEM = `You are a beauty advisor for Saudi Arabic-speaking women. Output ONLY valid JSON (no markdown).
-Analyze the FACE selfie for skin tone and eye color. Return:
-{
-  "skin_tone": string (short, e.g. fair / medium / olive / dark),
-  "eye_color": string,
-  "recommended_colors": [ exactly 5 objects: { "name_ar", "name_en", "hex", "technique_ar", "maintenance_ar", "why_ar" } ],
-  "avoid_colors": [ exactly 2 strings in Arabic ],
-  "disclaimer_ar": string (warning: recommendations only; consult a professional before dyeing)
-}
-- hex: #RRGGBB
-- technique_ar: balayage / ombre / solid / highlights / etc. in Arabic
-- maintenance_ar: one of: سهل | متوسط | يحتاج عناية (or equivalent Arabic)
-- why_ar: one line why this color fits her skin/eyes`
-
-const HAIRCUT_SYSTEM = `You are a beauty advisor for Saudi Arabic-speaking women. Output ONLY valid JSON (no markdown).
-Analyze the FACE selfie proportions for face shape: oval / round / square / heart / oblong (map oblong to description if needed).
-Return:
-{
-  "face_shape": string (English key, e.g. oval),
-  "face_shape_ar": string,
-  "recommended_cuts": [ exactly 4 objects: { "name_ar", "name_en", "description_ar", "length_ar" } ],
-  "avoid_cuts": [ exactly 2 objects: { "name_ar", "reason_ar" } ],
-  "styling_tip_ar": string
-}
-- description_ar: one line why this cut suits her face
-- length_ar: short Arabic label e.g. قصير / متوسط / طويل`
-
-const SKIN_SYSTEM = `You are a cosmetic skincare education advisor for Saudi Arabic-speaking women. You are NOT a doctor. Never diagnose diseases, infections, melasma as medical fact, or any medical skin condition. Never give a clinical diagnosis. Output ONLY valid JSON (no markdown).
-
-Analyze the face/skin photo for general cosmetic skincare guidance only (apparent dryness, oiliness, texture — cosmetic framing).
-
-Return JSON:
-{
-  "skin_type": string (Arabic cosmetic label e.g. دهنية، جافة، مختلطة، عادية),
-  "concerns": string[] (2-5 short Arabic cosmetic concern labels — never medical disease names),
-  "condition": "normal" | "needs_care" | "needs_specialist",
-  "skincare_routine": { "morning": string[] (3-6 steps Arabic, feminine luxury tone), "evening": string[] (3-6 steps) },
-  "treatments": [ 3-5 objects: { "name_ar", "name_en", "brand", "reason_ar" } ],
-  "clinic_services": [ if condition is "needs_care" or "needs_specialist", up to 5 objects: { "name_ar", "service_type": "salon" | "clinic", "note_ar" } — else [] ],
-  "disclaimer_ar": string (mandatory — cosmetic recommendations only; consult a licensed dermatologist for persistent issues)
-}
-
-Treatments: "brand" MUST be exactly one of: La Roche-Posay, CeraVe, Neutrogena, The Ordinary, Vichy, Bioderma, Paula's Choice (Saudi-available lines).
-
-If condition is "normal", "clinic_services" must be [].`
-
-const ADVISOR_VISION_SYSTEM =
-  'You are a beauty AI assistant. Analyze the image and return valid JSON.'
-
-async function openAiVisionJson(dataUrl: string, apiKey: string, instruction: string): Promise<string> {
-  const userPrompt = instruction
-  console.log('[openAiVisionJson] OpenAI request', {
+async function openAiVisionJson(dataUrl: string, apiKey: string): Promise<string> {
+  console.log('[openAiVisionJson] final prompts sent to OpenAI', {
+    system: OPENAI_VISION_SYSTEM_PROMPT,
+    user: OPENAI_VISION_USER_PROMPT,
     model: OPENAI_MODEL,
     max_tokens: MAX_TOKENS,
-    response_format: 'json_object',
-    messageShape: 'system_plus_user_text_image_url',
-    systemPrompt: ADVISOR_VISION_SYSTEM,
-    userPromptPreview: userPrompt.slice(0, 320),
-    userPromptLength: userPrompt.length,
     dataUrlLengthChars: dataUrl.length,
   })
 
@@ -101,11 +29,11 @@ async function openAiVisionJson(dataUrl: string, apiKey: string, instruction: st
       max_tokens: MAX_TOKENS,
       response_format: { type: 'json_object' },
       messages: [
-        { role: 'system', content: ADVISOR_VISION_SYSTEM },
+        { role: 'system', content: OPENAI_VISION_SYSTEM_PROMPT },
         {
           role: 'user',
           content: [
-            { type: 'text', text: userPrompt },
+            { type: 'text', text: OPENAI_VISION_USER_PROMPT },
             { type: 'image_url', image_url: { url: dataUrl, detail: 'low' } },
           ],
         },
@@ -237,7 +165,7 @@ function str(x: unknown, max = 400): string {
 
 /** HAND — wrist veins, nail_colors[6], avoid_colors[3]; brands OPI/Essie/Inglot/MAC/NARS */
 export async function runHandNailAdvisor(dataUrl: string, apiKey: string): Promise<HandNailAdvisorResult> {
-  const raw = await openAiVisionJson(dataUrl, apiKey, HAND_SYSTEM)
+  const raw = await openAiVisionJson(dataUrl, apiKey)
   const j = parseJsonObject(raw)
   const ut = str(j.undertone, 20).toLowerCase()
   const undertone: HandNailAdvisorResult['undertone'] =
@@ -282,7 +210,7 @@ export async function runHandNailAdvisor(dataUrl: string, apiKey: string): Promi
 
 /** HAIR COLOR — selfie: skin + eyes, recommended_colors[5], avoid_colors[2] */
 export async function runHairColorAdvisor(dataUrl: string, apiKey: string): Promise<HairColorAdvisorResult> {
-  const raw = await openAiVisionJson(dataUrl, apiKey, HAIR_COLOR_SYSTEM)
+  const raw = await openAiVisionJson(dataUrl, apiKey)
   const j = parseJsonObject(raw)
   const recRaw = Array.isArray(j.recommended_colors) ? j.recommended_colors : []
   const recommended_colors = recRaw.slice(0, 5).map((item) => {
@@ -326,7 +254,7 @@ export async function runHairColorAdvisor(dataUrl: string, apiKey: string): Prom
 
 /** HAIRCUT — face shape, recommended_cuts[4], avoid_cuts[2] */
 export async function runHaircutAdvisor(dataUrl: string, apiKey: string): Promise<HaircutAdvisorResult> {
-  const raw = await openAiVisionJson(dataUrl, apiKey, HAIRCUT_SYSTEM)
+  const raw = await openAiVisionJson(dataUrl, apiKey)
   const j = parseJsonObject(raw)
   const cutsRaw = Array.isArray(j.recommended_cuts) ? j.recommended_cuts : []
   const recommended_cuts = cutsRaw.slice(0, 4).map((item) => {
@@ -377,7 +305,7 @@ function clampSkinCondition(x: unknown): SkinAnalysisAdvisorResult['condition'] 
 
 /** بشرة تجميلية فقط — بدون تشخيص طبي. */
 export async function runSkinAnalysisAdvisor(dataUrl: string, apiKey: string): Promise<SkinAnalysisAdvisorResult> {
-  const raw = await openAiVisionJson(dataUrl, apiKey, SKIN_SYSTEM)
+  const raw = await openAiVisionJson(dataUrl, apiKey)
   const j = parseJsonObject(raw)
   const condition = clampSkinCondition(j.condition)
   const clinic_needed = condition === 'needs_care' || condition === 'needs_specialist'
