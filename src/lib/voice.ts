@@ -100,44 +100,51 @@ function mediaErrorLabel(code: number | undefined): string {
 }
 
 /**
- * تشغيل مع التعامل مع حظر autoplay: إعادة المحاولة بعد أول نقرة / لمس.
- * لا نرفض الوعد عند فشل التشغيل الأول — ننتظر تفاعل المستخدم ثم ننتظر انتهاء المقطع.
+ * انتظار انتهاء المقطع + `play()` مع try/catch؛ عند حظر autoplay ننتظر نقرة/لمسة ثم نعيد المحاولة.
  */
-function waitForAudioPlaybackWithUnlock(audio: HTMLAudioElement): Promise<void> {
+function awaitRosyElevenLabsAudio(audio: HTMLAudioElement): Promise<void> {
   return new Promise((resolve, reject) => {
     audio.onended = () => resolve()
-    audio.onerror = (ev: Event) => {
-      const me = audio.error
-      console.error('[Rosy voice] Audio element error (exact)', {
-        eventType: ev.type,
-        mediaErrorCode: me?.code,
-        mediaErrorMessage: me?.message,
-        mediaErrorLabel: mediaErrorLabel(me?.code),
-        networkState: audio.networkState,
-        readyState: audio.readyState,
+
+    audio.addEventListener('error', () => {
+      console.error('[Rosy voice] AUDIO ERROR FULL', {
+        error: audio.error,
+        code: audio.error?.code,
+        message: audio.error?.message,
         src: audio.src,
       })
-      reject(new Error(`Audio playback failed: ${mediaErrorLabel(me?.code)} — ${me?.message ?? 'no MediaError message'}`))
-    }
+      reject(
+        new Error(
+          `Audio playback failed: ${mediaErrorLabel(audio.error?.code)} — ${audio.error?.message ?? 'no MediaError message'}`,
+        ),
+      )
+    })
 
     const tryPlayAfterGesture = () => {
-      const unlock = () => {
+      const unlock = async () => {
         window.removeEventListener('click', unlock)
         window.removeEventListener('touchstart', unlock)
-        void audio.play().catch((e: unknown) => {
+        try {
+          await audio.play()
+        } catch (e: unknown) {
           console.error('[Rosy voice] play() retry after gesture failed', e)
           window.addEventListener('click', unlock)
           window.addEventListener('touchstart', unlock)
-        })
+        }
       }
       window.addEventListener('click', unlock)
       window.addEventListener('touchstart', unlock)
     }
 
-    void audio.play().catch((err: unknown) => {
-      console.warn('[Rosy voice] Autoplay blocked, retrying after user interaction', err)
-      tryPlayAfterGesture()
-    })
+    void (async () => {
+      try {
+        await audio.play()
+      } catch (e: unknown) {
+        console.error('[Rosy voice] play() failed', e)
+        console.warn('[Rosy voice] Autoplay blocked, retrying after user interaction')
+        tryPlayAfterGesture()
+      }
+    })()
   })
 }
 
@@ -343,15 +350,11 @@ async function speakOnce(text: string): Promise<RosySpeakResult> {
       }
     }
 
-    let blob = await res.blob()
-    const looksAudio =
-      blob.type === 'audio/mpeg' ||
-      blob.type === 'audio/mp3' ||
-      blob.type === 'application/octet-stream' ||
-      blob.type === ''
+    const blob = await res.blob()
+    console.log('[Rosy voice] blob after fetch', { blobSize: blob.size, blobType: blob.type })
 
-    if (!looksAudio || blob.size === 0) {
-      console.error('[Rosy voice] invalid audio blob', { type: blob.type, size: blob.size })
+    if (blob.size === 0) {
+      console.error('[Rosy voice] empty audio blob')
       stopRosyVoicePlayback()
       if (isWebSpeechFallbackEnabled()) return speakWithWebApi(finalText)
       emitVoicePhase('idle')
@@ -364,18 +367,15 @@ async function speakOnce(text: string): Promise<RosySpeakResult> {
           voiceIdSource,
           requestUrl,
           httpStatus,
-          failureReason: `invalid blob type=${blob.type} size=${blob.size}`,
+          failureReason: `empty blob size=0 type=${blob.type}`,
         },
       }
     }
 
-    if (blob.type !== 'audio/mpeg' && blob.type !== 'audio/mp3') {
-      blob = new Blob([blob], { type: 'audio/mpeg' })
-    }
-
-    const blobUrl = URL.createObjectURL(blob)
-    if (!blobUrl.startsWith('blob:')) {
-      console.error('[Rosy voice] invalid object URL for audio', blobUrl)
+    const audioBlob = new Blob([blob], { type: 'audio/mpeg' })
+    const audioUrl = URL.createObjectURL(audioBlob)
+    if (!audioUrl.startsWith('blob:')) {
+      console.error('[Rosy voice] invalid object URL for audio', audioUrl)
       stopRosyVoicePlayback()
       if (isWebSpeechFallbackEnabled()) return speakWithWebApi(finalText)
       emitVoicePhase('idle')
@@ -387,20 +387,17 @@ async function speakOnce(text: string): Promise<RosySpeakResult> {
       }
     }
 
-    currentObjectUrl = blobUrl
-    console.log('[Rosy voice] audio src before Audio()', blobUrl, {
-      blobSize: blob.size,
-      blobType: blob.type,
-    })
+    currentObjectUrl = audioUrl
+    console.log('[Rosy voice] audioUrl before play', audioUrl)
 
-    const audio = new Audio()
+    const audio = new Audio(audioUrl)
+    audio.preload = 'auto'
     audio.muted = false
     audio.volume = 1
-    audio.preload = 'auto'
-    audio.src = blobUrl
+
     currentAudio = audio
     emitVoicePhase('speaking')
-    await waitForAudioPlaybackWithUnlock(audio)
+    await awaitRosyElevenLabsAudio(audio)
     stopRosyVoicePlayback()
     emitVoicePhase('idle')
     return {

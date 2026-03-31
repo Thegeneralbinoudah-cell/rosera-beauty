@@ -38,7 +38,7 @@ export default function RegionCities() {
             ))}
           </div>
         ) : cities.length === 0 ? (
-          <p className="py-12 text-center text-rosera-gray">{t('region.noCities')}</p>
+          <p className="py-12 text-center text-body font-medium text-muted-foreground">{t('region.noCities')}</p>
         ) : (
           <ul className="space-y-3">
             {cities.map((city, i) => (

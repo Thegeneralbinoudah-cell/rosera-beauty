@@ -77,7 +77,8 @@
     --secondary-foreground: 240 10% 10%;
 
     --muted: 0 0% 95%;
-    --muted-foreground: 240 5% 40%;
+    /* أوضح على الخلفية الفاتحة (تباين أفضل مع النص الثانوي) */
+    --muted-foreground: 240 6% 32%;
 
     --accent: 340 40% 90%;
     --accent-foreground: 240 10% 10%;
@@ -173,7 +174,8 @@
     --secondary-foreground: 0 0% 95%;
 
     --muted: 240 10% 15%;
-    --muted-foreground: 0 0% 70%;
+    /* أوضح على الخلفية الداكنة */
+    --muted-foreground: 215 16% 82%;
 
     --accent: 340 30% 20%;
     --accent-foreground: 0 0% 95%;
@@ -227,11 +229,11 @@
   body {
     background: hsl(var(--background));
     color: hsl(var(--foreground));
-    @apply min-h-dvh font-sans text-body font-medium tracking-luxury antialiased;
+    @apply min-h-dvh font-sans text-body font-normal tracking-luxury antialiased;
     font-feature-settings: 'kern' 1;
     overscroll-behavior-y: contain;
     text-rendering: optimizeLegibility;
-    line-height: 1.75;
+    line-height: 1.8;
   }
 
   h1 {
@@ -350,7 +352,7 @@
   }
 
   .luxury-section-heading {
-    @apply font-serif text-heading-2 font-semibold tracking-wide text-foreground;
+    @apply font-sans text-heading-2 font-bold tracking-tight text-foreground leading-snug;
   }
 
   .luxury-hero-search {

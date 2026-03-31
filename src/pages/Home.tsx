@@ -388,12 +388,12 @@ function Home() {
         <h2 className="luxury-section-heading mt-4 mb-2">{ui.regions}</h2>
         {loading ? (
           <div className="flex flex-wrap justify-center gap-5">
-            {[1, 2, 3, 4, 5, 6].map((i) => (
-              <Skeleton key={i} className="h-36 w-36 shrink-0 rounded-full" />
+            {Array.from({ length: 13 }, (_, i) => i).map((i) => (
+              <Skeleton key={i} className="h-36 w-36 shrink-0 rounded-2xl" />
             ))}
           </div>
         ) : regions.length === 0 ? (
-          <p className="py-10 text-center text-sm text-rosera-gray">{t('home.regionsEmpty')}</p>
+          <p className="py-10 text-center text-body-sm font-medium text-muted-foreground">{t('home.regionsEmpty')}</p>
         ) : (
           <div className="motion-stagger flex flex-wrap justify-center gap-x-5 gap-y-8 px-1">
             {regions.map((reg) => {
@@ -403,7 +403,7 @@ function Home() {
                 <div key={reg.id} className="flex flex-col items-center">
                   <Link
                     to={`/region/${reg.id}`}
-                    className="group relative flex h-[9.25rem] w-[9.25rem] sm:h-40 sm:w-40 flex-col items-center justify-center overflow-hidden rounded-full border border-border/70 shadow-md ring-1 ring-black/5 transition duration-300 md:hover:scale-[1.04] md:hover:shadow-lg dark:ring-white/10"
+                    className="group relative flex h-[9.25rem] w-[9.25rem] sm:h-40 sm:w-40 flex-col items-center justify-center overflow-hidden rounded-2xl border border-border/70 shadow-md ring-1 ring-black/5 transition duration-300 md:hover:scale-[1.02] md:hover:shadow-lg dark:ring-white/10"
                   >
                     <img
                       src={reg.image_url}
@@ -416,11 +416,11 @@ function Home() {
                       className="pointer-events-none absolute inset-0 z-[1] bg-gradient-to-t from-black/65 via-black/28 to-black/12 dark:from-black/78 dark:via-black/48 dark:to-black/24"
                       aria-hidden
                     />
-                    <div className="relative z-[2] flex h-[5.4rem] w-[88%] flex-col items-center justify-between rounded-2xl border border-white/25 bg-black/32 px-2.5 py-2 text-center shadow-sm dark:border-white/20 dark:bg-black/42">
-                      <h3 className="line-clamp-2 min-h-[2.6rem] font-serif text-[0.95rem] font-semibold leading-snug text-white">
+                    <div className="relative z-[2] flex min-h-[5.5rem] w-[90%] flex-col items-center justify-between gap-1 rounded-xl border border-white/30 bg-black/40 px-3 py-2.5 text-center shadow-md backdrop-blur-[2px] dark:border-white/25 dark:bg-black/50">
+                      <h3 className="line-clamp-2 min-h-[2.75rem] max-w-full font-sans text-[1.0625rem] font-bold leading-snug text-white [text-shadow:0_1px_3px_rgba(0,0,0,0.92),0_0_14px_rgba(0,0,0,0.45)] sm:text-[1.125rem]">
                         {reg.name_ar}
                       </h3>
-                      <p className="min-h-[1.25rem] text-[13px] font-bold leading-none tabular-nums text-white sm:text-sm">
+                      <p className="min-h-[1.35rem] font-sans text-sm font-bold leading-tight tabular-nums text-white sm:text-[0.9375rem] [text-shadow:0_1px_2px_rgba(0,0,0,0.88)]">
                         <CountUp value={reg.totalCities} className="tabular-nums" decimals={0} /> {cityLabel}
                       </p>
                     </div>
